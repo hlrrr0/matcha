@@ -35,6 +35,15 @@ export interface Store {
   status: 'active' | 'inactive'  // 店舗ステータス
   createdAt: Date
   updatedAt: Date
+  
+  // Domino連携用フィールド
+  dominoId?: string              // Domino側のID
+  dominoCompanyId?: string       // Domino側の企業ID
+  importedAt?: Date              // インポート日時
+  phone?: string                 // 電話番号（Domino連携用）
+  manager?: string               // 店長名（Domino連携用）
+  operatingHours?: string        // 営業時間（Domino連携用）
+  notes?: string                 // メモ（Domino連携用）
 }
 
 export const statusLabels = {
