@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/api-auth'
-import { createCompany } from '@/lib/firestore/companies'
+import { createCompany, findCompanyByNameAndWebsite, findCompanyByDominoId } from '@/lib/firestore/companies'
 import { Company } from '@/types/company'
 
 /**
@@ -117,8 +117,38 @@ async function handleCompanyCreation(request: NextRequest) {
 
     const dominoData: DominoCompanyData = body
 
-    // Domino IDの重複チェック（既存の企業データと比較）
-    // TODO: Firestore クエリで dominoId フィールドを検索する実装を追加
+    // 1. Domino IDの重複チェック
+    const existingCompanyByDominoId = await findCompanyByDominoId(dominoData.id)
+    if (existingCompanyByDominoId) {
+      return createErrorResponse(
+        'DUPLICATE_DOMINO_ID',
+        `Domino ID「${dominoData.id}」は既に登録されています`,
+        409,
+        { 
+          existingCompanyId: existingCompanyByDominoId.id,
+          existingCompanyName: existingCompanyByDominoId.name
+        }
+      )
+    }
+
+    // 2. 企業名とウェブサイトの完全一致チェック
+    const existingCompanyByNameAndWebsite = await findCompanyByNameAndWebsite(
+      dominoData.name,
+      dominoData.website
+    )
+    if (existingCompanyByNameAndWebsite) {
+      return createErrorResponse(
+        'DUPLICATE_COMPANY',
+        `企業名「${dominoData.name}」${dominoData.website ? `とウェブサイト「${dominoData.website}」` : ''}が一致する企業が既に登録されています`,
+        409,
+        { 
+          existingCompanyId: existingCompanyByNameAndWebsite.id,
+          existingCompanyName: existingCompanyByNameAndWebsite.name,
+          existingWebsite: existingCompanyByNameAndWebsite.website,
+          dominoId: existingCompanyByNameAndWebsite.dominoId
+        }
+      )
+    }
     
     // Company型に変換
     const companyData = convertDominoDataToCompany(dominoData)

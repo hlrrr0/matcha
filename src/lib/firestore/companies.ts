@@ -144,6 +144,69 @@ export async function findCompanyByDominoId(dominoId: string): Promise<Company |
 }
 
 /**
+ * 企業名とウェブサイトで既存企業を検索（重複チェック用）
+ */
+export async function findCompanyByNameAndWebsite(name: string, website?: string): Promise<Company | null> {
+  try {
+    if (!name || !name.trim()) {
+      console.log('⚠️ 企業名が空です')
+      return null
+    }
+
+    console.log(`🔍 企業名「${name}」${website ? `、ウェブサイト「${website}」` : ''}で重複チェック中...`)
+
+    // 企業名での検索
+    const nameQuery = query(
+      companiesCollection, 
+      where('name', '==', name.trim())
+    )
+    const nameSnapshot = await getDocs(nameQuery)
+
+    if (nameSnapshot.empty) {
+      console.log(`📭 企業名「${name}」に一致する企業が見つかりませんでした`)
+      return null
+    }
+
+    // 企業名が一致する企業が見つかった場合
+    for (const doc of nameSnapshot.docs) {
+      const companyData = doc.data()
+      
+      // ウェブサイトが指定されている場合は、ウェブサイトも一致するかチェック
+      if (website && website.trim()) {
+        if (companyData.website && companyData.website.trim() === website.trim()) {
+          console.log(`🎯 企業名とウェブサイトの両方が一致する企業を発見: Firestore ID「${doc.id}」`)
+          return {
+            id: doc.id,
+            ...companyData,
+            createdAt: companyData.createdAt?.toDate?.() || companyData.createdAt,
+            updatedAt: companyData.updatedAt?.toDate?.() || companyData.updatedAt,
+          } as Company
+        }
+      } else {
+        // ウェブサイトが指定されていない場合は、企業名のみの一致で重複とする
+        console.log(`🎯 企業名が一致する企業を発見: Firestore ID「${doc.id}」`)
+        return {
+          id: doc.id,
+          ...companyData,
+          createdAt: companyData.createdAt?.toDate?.() || companyData.createdAt,
+          updatedAt: companyData.updatedAt?.toDate?.() || companyData.updatedAt,
+        } as Company
+      }
+    }
+
+    // 企業名は一致したがウェブサイトが一致しない場合
+    if (website) {
+      console.log(`📭 企業名は一致しましたが、ウェブサイトが一致する企業は見つかりませんでした`)
+    }
+
+    return null
+  } catch (error) {
+    console.error(`❌ 企業名「${name}」${website ? `、ウェブサイト「${website}」` : ''}での重複チェックエラー:`, error)
+    throw error
+  }
+}
+
+/**
  * 企業名と住所で既存企業を検索（重複チェック用）
  */
 export async function findCompanyByNameAndAddress(name: string, address: string): Promise<Company | null> {

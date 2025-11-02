@@ -208,9 +208,55 @@ interface DominoShopData {
 | `AUTHENTICATION_ERROR` | 認証失敗 |
 | `VALIDATION_ERROR` | バリデーションエラー |
 | `INVALID_JSON` | 無効なJSON形式 |
+| `DUPLICATE_DOMINO_ID` | Domino ID重複 |
+| `DUPLICATE_COMPANY` | 企業名・ウェブサイト重複 |
 | `MISSING_COMPANY_ID` | 企業ID不足 |
 | `DUPLICATE_DATA` | データ重複 |
 | `INTERNAL_ERROR` | 内部エラー |
+
+### 重複チェック詳細
+
+#### 企業データの重複チェック
+API は以下の順序で重複をチェックします：
+
+1. **Domino ID重複チェック**
+   - 同一のDomino IDが既に存在する場合は登録を拒否
+   - エラーコード: `DUPLICATE_DOMINO_ID`
+
+2. **企業名・ウェブサイト重複チェック**
+   - 企業名とウェブサイトの両方が既存データと完全一致する場合は登録を拒否
+   - ウェブサイトが未指定の場合は企業名のみで重複判定
+   - エラーコード: `DUPLICATE_COMPANY`
+
+#### 重複エラーレスポンス例
+
+**Domino ID重複の場合**:
+```json
+{
+  "success": false,
+  "error": "DUPLICATE_DOMINO_ID",
+  "message": "Domino ID「domino_company_12345」は既に登録されています",
+  "details": {
+    "existingCompanyId": "hr_company_67890",
+    "existingCompanyName": "既存の企業名"
+  }
+}
+```
+
+**企業名・ウェブサイト重複の場合**:
+```json
+{
+  "success": false,
+  "error": "DUPLICATE_COMPANY",
+  "message": "企業名「株式会社テスト」とウェブサイト「https://test.com」が一致する企業が既に登録されています",
+  "details": {
+    "existingCompanyId": "hr_company_67890",
+    "existingCompanyName": "株式会社テスト",
+    "existingWebsite": "https://test.com",
+    "dominoId": "domino_company_original"
+  }
+}
+```
 
 ## テスト例
 

@@ -287,12 +287,12 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                         onClick={() => handleImageClick(images[currentSlide].src, images[currentSlide].alt)}
                       />
                       
-                      {/* オーバーレイとナビゲーション */}
+                      {/* オーバーレイとナビゲーション
                       <div className="absolute inset-0 bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity duration-300">
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Camera className="h-8 w-8 text-white" />
                         </div>
-                      </div>
+                      </div> */}
 
                       {/* 画像情報 */}
                       <div className="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-3 py-1 rounded-full text-sm">
