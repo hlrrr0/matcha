@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -58,7 +58,6 @@ function JobsPageContent() {
   
   // 一括選択状態
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
-  const [isAllSelected, setIsAllSelected] = useState(false)
   
   // フィルター・検索状態
   const [searchTerm, setSearchTerm] = useState('')
@@ -120,33 +119,6 @@ function JobsPageContent() {
     } finally {
       setCsvImporting(false)
     }
-  }
-
-  // 一括選択関連の関数
-  const handleSelectAll = () => {
-    if (!isAdmin) return
-    
-    if (isAllSelected) {
-      setSelectedJobs(new Set())
-      setIsAllSelected(false)
-    } else {
-      const filteredJobIds = filteredJobs.map(job => job.id)
-      setSelectedJobs(new Set(filteredJobIds))
-      setIsAllSelected(true)
-    }
-  }
-
-  const handleSelectJob = (jobId: string) => {
-    if (!isAdmin) return
-    
-    const newSelected = new Set(selectedJobs)
-    if (newSelected.has(jobId)) {
-      newSelected.delete(jobId)
-    } else {
-      newSelected.add(jobId)
-    }
-    setSelectedJobs(newSelected)
-    setIsAllSelected(newSelected.size === filteredJobs.length && filteredJobs.length > 0)
   }
 
   // 選択された求人のCSV出力
@@ -265,20 +237,52 @@ function JobsPageContent() {
     return store?.name || '不明な店舗'
   }
 
-  const filteredJobs = jobs.filter(job => {
-    const store = stores.find(s => s.id === job.storeId)
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (job.jobDescription && job.jobDescription.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         getCompanyName(job.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         getStoreName(job.storeId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (store?.address && store.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
-    
-    const matchesStatus = statusFilter === 'all' || job.status === statusFilter
-    const matchesEmploymentType = employmentTypeFilter === 'all' || job.employmentType === employmentTypeFilter
+  // フィルタリングされた求人リストをuseMemoで計算
+  const filteredJobs = useMemo(() => {
+    return jobs.filter(job => {
+      const store = stores.find(s => s.id === job.storeId)
+      const matchesSearch = (job.title && job.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (job.jobDescription && job.jobDescription.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           getCompanyName(job.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           getStoreName(job.storeId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (store?.address && store.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
+      
+      const matchesStatus = statusFilter === 'all' || job.status === statusFilter
+      const matchesEmploymentType = employmentTypeFilter === 'all' || job.employmentType === employmentTypeFilter
 
-    return matchesSearch && matchesStatus && matchesEmploymentType
-  })
+      return matchesSearch && matchesStatus && matchesEmploymentType
+    })
+  }, [jobs, stores, searchTerm, statusFilter, employmentTypeFilter])
+
+  // isAllSelectedをuseMemoで計算（filteredJobsに依存）
+  const isAllSelectedCalculated = useMemo(() => {
+    return selectedJobs.size === filteredJobs.length && filteredJobs.length > 0
+  }, [selectedJobs, filteredJobs])
+
+  // 一括選択関連の関数
+  const handleSelectAll = () => {
+    if (!isAdmin) return
+    
+    if (isAllSelectedCalculated) {
+      setSelectedJobs(new Set())
+    } else {
+      const filteredJobIds = filteredJobs.map(job => job.id)
+      setSelectedJobs(new Set(filteredJobIds))
+    }
+  }
+
+  const handleSelectJob = (jobId: string) => {
+    if (!isAdmin) return
+    
+    const newSelected = new Set(selectedJobs)
+    if (newSelected.has(jobId)) {
+      newSelected.delete(jobId)
+    } else {
+      newSelected.add(jobId)
+    }
+    setSelectedJobs(newSelected)
+  }
 
   // 実際のデータから雇用形態のオプションを動的に作成
   const availableEmploymentTypes = Array.from(
@@ -327,7 +331,7 @@ function JobsPageContent() {
             {isAdmin && (
               <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
                 <Checkbox
-                  checked={selectedJobs.size === filteredJobs.length && filteredJobs.length > 0}
+                  checked={isAllSelectedCalculated}
                   onCheckedChange={handleSelectAll}
                   id="select-all-header"
                 />
@@ -464,7 +468,7 @@ function JobsPageContent() {
                   {isAdmin && (
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedJobs.size === filteredJobs.length && filteredJobs.length > 0}
+                        checked={isAllSelectedCalculated}
                         onCheckedChange={handleSelectAll}
                       />
                     </TableHead>

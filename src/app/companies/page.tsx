@@ -489,8 +489,8 @@ function CompaniesPageContent() {
   // フィルタリング＆ソート済み企業リスト
   const filteredAndSortedCompanies = companies
     .filter(company => {
-      const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = (company.name && company.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           (company.email && company.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            (company.address && company.address.toLowerCase().includes(searchTerm.toLowerCase()))
       
       const matchesStatus = statusFilter === 'all' || company.status === statusFilter

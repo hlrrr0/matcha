@@ -280,7 +280,7 @@ function StoresPageContent() {
   }
 
   const filteredAndSortedStores = stores.filter(store => {
-    const matchesSearch = store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (store.name && store.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          getCompanyName(store.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (store.address && store.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (store.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -294,8 +294,8 @@ function StoresPageContent() {
     
     switch (sortBy) {
       case 'name':
-        aValue = a.name.toLowerCase()
-        bValue = b.name.toLowerCase()
+        aValue = (a.name || '').toLowerCase()
+        bValue = (b.name || '').toLowerCase()
         break
       case 'companyName':
         aValue = getCompanyName(a.companyId).toLowerCase()
