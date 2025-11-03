@@ -443,9 +443,12 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                   <div className="space-y-2">
                     <h4 className="font-medium text-gray-700 mb-2">店舗情報</h4>
                     <ul>
-                      {store?.unitPrice && (
+                      {(store?.unitPriceLunch || store?.unitPriceDinner) && (
                         <li className="text-sm text-gray-600">
-                          客単価: {store.unitPrice}円
+                          客単価: 
+                          {store.unitPriceLunch && ` 昼 ${store.unitPriceLunch}円`}
+                          {store.unitPriceLunch && store.unitPriceDinner && ' / '}
+                          {store.unitPriceDinner && ` 夜 ${store.unitPriceDinner}円`}
                         </li>
                       )}
                       {store?.seatCount && (
