@@ -7,7 +7,8 @@ export interface Store {
   address?: string               // 店舗住所
   nearestStation?: string        // 最寄り駅
   website?: string               // 店舗URL
-  unitPrice?: number             // 単価
+  unitPriceLunch?: number        // 単価（昼）
+  unitPriceDinner?: number       // 単価（夜）
   seatCount?: number             // 席数
   isReservationRequired?: boolean // 予約制なのか（時間固定の）
   instagramUrl?: string          // Instagram URL

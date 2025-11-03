@@ -55,6 +55,24 @@ function StoresPageContent() {
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
+  // 店舗データの入力率チェック対象フィールド
+  const storeFields = [
+    'name', 'address', 'nearestStation', 'unitPriceLunch', 'unitPriceDinner',
+    'seatCount', 'website', 'ownerPhoto', 'interiorPhoto'
+  ]
+  
+  // 店舗の入力率を計算する関数
+  const calculateCompletionRate = (store: Store): number => {
+    let filledCount = 0
+    storeFields.forEach(field => {
+      const value = (store as any)[field]
+      if (value !== null && value !== undefined && value !== '') {
+        filledCount++
+      }
+    })
+    return Math.round((filledCount / storeFields.length) * 100)
+  }
+  
   // フィルター・検索状態
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Store['status'] | 'all'>('all')
@@ -226,7 +244,8 @@ function StoresPageContent() {
       'address',
       'nearestStation',
       'website',
-      'unitPrice',
+      'unitPriceLunch',
+      'unitPriceDinner',
       'seatCount',
       'isReservationRequired',
       'instagramUrl',
@@ -499,7 +518,7 @@ function StoresPageContent() {
           </div>
         </div>
       </div>
-
+      
       {/* 検索・フィルター */}
       <Card className="mb-6">
         <CardHeader>
@@ -608,6 +627,7 @@ function StoresPageContent() {
                   <TableHead>店舗名</TableHead>
                   <TableHead>企業名</TableHead>
                   <TableHead>所在地</TableHead>
+                  <TableHead>入力率</TableHead>
                   <TableHead>取引状況</TableHead>
                   <TableHead>外部リンク</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
@@ -638,6 +658,32 @@ function StoresPageContent() {
                       <span className="text-gray-500">企業情報なし</span>
                     )}</TableCell>
                     <TableCell className="max-w-xs truncate">{store.address}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const rate = calculateCompletionRate(store)
+                        return (
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-2 bg-gray-200 rounded overflow-hidden">
+                              <div 
+                                className={`h-2 ${
+                                  rate >= 80 ? 'bg-green-500' :
+                                  rate >= 50 ? 'bg-yellow-500' :
+                                  'bg-red-500'
+                                }`}
+                                style={{ width: `${rate}%` }} 
+                              />
+                            </div>
+                            <span className={`text-sm font-medium ${
+                              rate >= 80 ? 'text-green-600' :
+                              rate >= 50 ? 'text-yellow-600' :
+                              'text-red-600'
+                            }`}>
+                              {rate}%
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </TableCell>
                     <TableCell>{getStatusBadge(store.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">

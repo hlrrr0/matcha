@@ -36,7 +36,8 @@ export default function StoreForm({
     address: '',
     nearestStation: '',
     website: '',
-    unitPrice: undefined,
+    unitPriceLunch: undefined,
+    unitPriceDinner: undefined,
     seatCount: undefined,
     isReservationRequired: false,
     instagramUrl: '',
@@ -67,7 +68,8 @@ export default function StoreForm({
         address: initialData.address || '',
         nearestStation: initialData.nearestStation || '',
         website: initialData.website || '',
-        unitPrice: initialData.unitPrice,
+        unitPriceLunch: initialData.unitPriceLunch,
+        unitPriceDinner: initialData.unitPriceDinner,
         seatCount: initialData.seatCount,
         isReservationRequired: initialData.isReservationRequired || false,
         instagramUrl: initialData.instagramUrl || '',
@@ -334,14 +336,25 @@ export default function StoreForm({
             />
             <Label htmlFor="isReservationRequired">予約制なのか（時間固定の）</Label>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <Label htmlFor="unitPrice">単価</Label>
+              <Label htmlFor="unitPriceLunch">単価（昼）</Label>
               <Input
-                id="unitPrice"
+                id="unitPriceLunch"
                 type="number"
-                value={formData.unitPrice || ''}
-                onChange={(e) => handleChange('unitPrice', parseInt(e.target.value) || undefined)}
+                value={formData.unitPriceLunch || ''}
+                onChange={(e) => handleChange('unitPriceLunch', parseInt(e.target.value) || undefined)}
+                placeholder="円"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="unitPriceDinner">単価（夜）</Label>
+              <Input
+                id="unitPriceDinner"
+                type="number"
+                value={formData.unitPriceDinner || ''}
+                onChange={(e) => handleChange('unitPriceDinner', parseInt(e.target.value) || undefined)}
                 placeholder="円"
               />
             </div>
@@ -356,6 +369,9 @@ export default function StoreForm({
                 placeholder="席"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           </div>
           
           <div>

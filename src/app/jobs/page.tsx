@@ -23,7 +23,8 @@ import {
   Store,
   Download,
   Upload,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob } from '@/lib/firestore/jobs'
@@ -63,6 +64,25 @@ function JobsPageContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>('all')
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>('all')
+
+  // 求人データの入力率チェック対象フィールド
+  const jobFieldKeys = [
+    'title', 'businessType', 'employmentType', 'workingHours',
+    'salaryInexperienced', 'salaryExperienced', 'jobDescription',
+    'benefits', 'selectionProcess', 'consultantReview'
+  ]
+  
+  // 求人の入力率を計算する関数
+  const calculateCompletionRate = (job: Job): number => {
+    let filledCount = 0
+    jobFieldKeys.forEach(field => {
+      const value = (job as any)[field]
+      if (value !== null && value !== undefined && value !== '') {
+        filledCount++
+      }
+    })
+    return Math.round((filledCount / jobFieldKeys.length) * 100)
+  }
 
   useEffect(() => {
     loadData()
@@ -222,6 +242,30 @@ function JobsPageContent() {
       } catch (error) {
         console.error('Error deleting job:', error)
         alert('求人の削除に失敗しました')
+      }
+    }
+  }
+
+  const handleDuplicateJob = async (job: Job) => {
+    if (confirm(`${job.title}を複製しますか？`)) {
+      try {
+        // IDとタイムスタンプを除いたデータをコピー
+        const { id, createdAt, updatedAt, ...jobData } = job
+        const duplicatedJob = {
+          ...jobData,
+          title: `${job.title}（コピー）`,
+          status: 'draft' as const, // 複製は下書き状態にする
+        }
+        
+        // createJobを使用して新規作成
+        const { createJob } = await import('@/lib/firestore/jobs')
+        await createJob(duplicatedJob)
+        
+        toast.success('求人を複製しました')
+        await loadData()
+      } catch (error) {
+        console.error('Error duplicating job:', error)
+        toast.error('求人の複製に失敗しました')
       }
     }
   }
@@ -499,6 +543,7 @@ function JobsPageContent() {
                   <TableHead>求人名</TableHead>
                   <TableHead>店舗名/企業名</TableHead>
                   <TableHead>住所</TableHead>
+                  <TableHead>入力率</TableHead>
                   <TableHead>契約状況</TableHead>
                   <TableHead>雇用形態</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
@@ -548,6 +593,32 @@ function JobsPageContent() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        {(() => {
+                          const rate = calculateCompletionRate(job)
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-2 bg-gray-200 rounded overflow-hidden">
+                                <div 
+                                  className={`h-2 ${
+                                    rate >= 80 ? 'bg-green-500' :
+                                    rate >= 50 ? 'bg-yellow-500' :
+                                    'bg-red-500'
+                                  }`}
+                                  style={{ width: `${rate}%` }} 
+                                />
+                              </div>
+                              <span className={`text-sm font-medium ${
+                                rate >= 80 ? 'text-green-600' :
+                                rate >= 50 ? 'text-yellow-600' :
+                                'text-red-600'
+                              }`}>
+                                {rate}%
+                              </span>
+                            </div>
+                          )
+                        })()}
+                      </TableCell>
+                      <TableCell>
                         {company?.contractType ? (
                           <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}>
                             {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
@@ -573,6 +644,15 @@ function JobsPageContent() {
                               <Edit className="h-4 w-4" />
                             </Button>
                           </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDuplicateJob(job)}
+                            className="text-blue-600 hover:text-blue-700"
+                            title="複製"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

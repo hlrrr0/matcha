@@ -254,110 +254,55 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       
       <div className="space-y-6">
         {/* 基本情報セクション */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="border-blue-100">
             <CardHeader>
               <CardTitle className="text-blue-800">基本情報</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">氏名</label>
-                <p className="text-lg">{candidate.firstName} {candidate.lastName}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">氏名（カナ）</label>
-                <p>{candidate.firstNameKana} {candidate.lastNameKana}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">メールアドレス</label>
-                <p>{candidate.email}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">電話番号</label>
-                <p>{candidate.phone}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">生年月日</label>
-                <p>
-                  {candidate.dateOfBirth ? (
-                    <>
-                      {candidate.dateOfBirth}
-                      <span className="ml-2 text-blue-600 font-medium">
-                        （{calculateAge(candidate.dateOfBirth)}歳）
-                      </span>
-                    </>
-                  ) : (
-                    '未登録'
-                  )}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-blue-100">
-            <CardHeader>
-              <CardTitle className="text-blue-800">基本情報・経験</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">調理経験</label>
-                  <p className="mt-1">{candidate.cookingExperience || '未登録'}</p>
+                  <label className="text-sm font-medium text-gray-500">氏名</label>
+                  <p className="text-lg">{candidate.firstName} {candidate.lastName}：（{candidate.firstNameKana} {candidate.lastNameKana}）</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">生年月日</label>
+                  <p>
+                    {candidate.dateOfBirth ? (
+                      <>
+                        {candidate.dateOfBirth}
+                        <span className="ml-2 text-blue-600 font-medium">
+                          （{calculateAge(candidate.dateOfBirth)}歳）
+                        </span>
+                      </>
+                    ) : (
+                      '未登録'
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">メールアドレス</label>
+                  <p>{candidate.email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">電話番号</label>
+                  <p>{candidate.phone}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">入学校舎 / 入学年月</label>
+                  <p className="mt-1">{candidate.campus ? campusLabels[candidate.campus] : '未登録'} / {candidate.enrollmentDate || '未登録'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">最寄り駅</label>
                   <p className="mt-1">{candidate.nearestStation || '未登録'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">入学校舎</label>
-                  <p className="mt-1">{candidate.campus ? campusLabels[candidate.campus] : '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">入学年月</label>
-                  <p className="mt-1">{candidate.enrollmentDate || '未登録'}</p>
+                  <label className="text-sm font-medium text-gray-500">調理経験</label>
+                  <p className="mt-1">{candidate.cookingExperience || '未登録'}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
-          <Card className="border-green-100">
-            <CardHeader>
-              <CardTitle className="text-green-800">希望条件</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">就職活動をスタートさせるタイミング</label>
-                  <p className="mt-1">{candidate.jobSearchTiming || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">卒業&quot;直後&quot;の希望進路</label>
-                  <p className="mt-1">{candidate.graduationCareerPlan || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">就職・開業希望エリア</label>
-                  <p className="mt-1">{candidate.preferredArea || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">就職・開業したいお店の雰囲気・条件</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.preferredWorkplace || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">将来のキャリア像</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.futureCareerVision || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">キャリア担当への質問・要望</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.questions || '未登録'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">在校中のアルバイト希望</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.partTimeHope || '未登録'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
           <Card className="border-orange-100">
             <CardHeader>
               <CardTitle className="text-orange-800">内部管理情報</CardTitle>
@@ -386,10 +331,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                     </p>
                   </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">先生からのコメント</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.teacherComment || '未登録'}</p>
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">スコア（人物）</label>
@@ -401,14 +342,24 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">面談メモ</label>
-                  <p className="mt-1 whitespace-pre-wrap">{candidate.interviewMemo || '未登録'}</p>
+                  <label className="text-sm font-medium text-gray-500">先生からのコメント</label>
+                  <p className="mt-1 whitespace-pre-wrap">{candidate.teacherComment || '未登録'}</p>
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card>          
+          <Card className="border-orange-100">
+            <CardHeader>
+              <CardTitle className="text-orange-800">面談メモ</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <label className="text-sm font-medium text-gray-500">面談メモ</label>
+                <p className="mt-1 whitespace-pre-wrap">{candidate.interviewMemo || '未登録'}</p>
+              </div>
+            </CardContent>
+          </Card>       
         </div>
-
         {/* マッチング進捗セクション */}
         <Card className="border-purple-100">
           <CardHeader>
@@ -427,6 +378,16 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   {matches.length}件
                 </Badge>
                 {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
+                <Link href={`/progress?candidate=${candidateId}`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    進捗を作成
+                  </Button>
+                </Link>              
               </div>
             </div>
           </CardHeader>
@@ -455,7 +416,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         <div className="flex items-center space-x-2">
                           <Briefcase className="h-4 w-4 text-purple-600" />
                           <div>
-                            <div className="font-medium">{match.jobTitle}</div>
+                            <Link href={`/jobs/${match.jobId}`}>
+                              <div className="font-medium">{match.jobTitle}</div>
+                            </Link>
                             {match.matchReasons.length > 0 && (
                               <div className="text-xs text-gray-500 mt-1">
                                 {match.matchReasons.slice(0, 2).map((reason, index) => (
@@ -469,10 +432,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Building className="h-4 w-4 text-gray-500" />
-                          <span className="font-medium">{match.companyName}</span>
-                        </div>
+                        <Link href={`/companies/${match.companyId}`}>
+                          <div className="flex items-center space-x-2">
+                            <Building className="h-4 w-4 text-gray-500" />
+                            <span className="font-medium">{match.companyName}</span>
+                          </div>
+                        </Link>
                       </TableCell>
                       <TableCell>
                         {getScoreBadge(match.score)}
@@ -493,16 +458,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                           >
                             <Link href={`/progress/${match.id}`}>
                               <Eye className="h-3 w-3" />
-                            </Link>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                            className="text-green-600 border-green-200 hover:bg-green-50"
-                          >
-                            <Link href={`/jobs/${match.jobId}`}>
-                              <Briefcase className="h-3 w-3" />
                             </Link>
                           </Button>
                         </div>
@@ -527,6 +482,43 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 </Button>
               </div>
             )}
+          </CardContent>
+        </Card>
+        <Card className="border-green-100">
+          <CardHeader>
+            <CardTitle className="text-green-800">希望条件</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-500">就職活動をスタートさせるタイミング</label>
+                <p className="mt-1">{candidate.jobSearchTiming || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">卒業&quot;直後&quot;の希望進路</label>
+                <p className="mt-1">{candidate.graduationCareerPlan || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">就職・開業希望エリア</label>
+                <p className="mt-1">{candidate.preferredArea || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">就職・開業したいお店の雰囲気・条件</label>
+                <p className="mt-1 whitespace-pre-wrap">{candidate.preferredWorkplace || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">将来のキャリア像</label>
+                <p className="mt-1 whitespace-pre-wrap">{candidate.futureCareerVision || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">キャリア担当への質問・要望</label>
+                <p className="mt-1 whitespace-pre-wrap">{candidate.questions || '未登録'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">在校中のアルバイト希望</label>
+                <p className="mt-1 whitespace-pre-wrap">{candidate.partTimeHope || '未登録'}</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

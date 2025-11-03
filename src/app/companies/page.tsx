@@ -71,6 +71,25 @@ function CompaniesPageContent() {
   
   console.log('👤 現在のユーザー権限:', { isAdmin })
   
+  // 企業データの入力率チェック対象フィールド
+  const companyFields = [
+    'name', 'address', 'email', 'phone', 'website', 'logo',
+    'feature1', 'feature2', 'feature3', 'careerPath', 
+    'youngRecruitReason', 'consultantId', 'contractType'
+  ]
+  
+  // 企業の入力率を計算する関数
+  const calculateCompletionRate = (company: Company): number => {
+    let filledCount = 0
+    companyFields.forEach(field => {
+      const value = (company as any)[field]
+      if (value !== null && value !== undefined && value !== '') {
+        filledCount++
+      }
+    })
+    return Math.round((filledCount / companyFields.length) * 100)
+  }
+  
   // フィルター・検索状態
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Company['status'] | 'all'>('all')
@@ -829,6 +848,7 @@ function CompaniesPageContent() {
                   <SortableHeader field="name">企業名</SortableHeader>
                   <SortableHeader field="status">ステータス</SortableHeader>
                   <TableHead>契約状況</TableHead>
+                  <TableHead>入力率</TableHead>
                   <TableHead>Domino連携</TableHead>
                   <TableHead>担当者</TableHead>
                   <TableHead>店舗数</TableHead>
@@ -871,6 +891,32 @@ function CompaniesPageContent() {
                           ) : (
                             <span className="text-sm text-gray-400">未設定</span>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const rate = calculateCompletionRate(company)
+                            return (
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-2 bg-gray-200 rounded overflow-hidden">
+                                  <div 
+                                    className={`h-2 ${
+                                      rate >= 80 ? 'bg-green-500' :
+                                      rate >= 50 ? 'bg-yellow-500' :
+                                      'bg-red-500'
+                                    }`}
+                                    style={{ width: `${rate}%` }} 
+                                  />
+                                </div>
+                                <span className={`text-sm font-medium ${
+                                  rate >= 80 ? 'text-green-600' :
+                                  rate >= 50 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {rate}%
+                                </span>
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
