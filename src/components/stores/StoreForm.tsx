@@ -175,7 +175,18 @@ export default function StoreForm({
       return
     }
 
-    await onSubmit(formData)
+    // undefined値を除去してFirestore用にクリーンアップ
+    const cleanFormData = { ...formData }
+    
+    // undefined値を持つフィールドを除去
+    Object.keys(cleanFormData).forEach(key => {
+      const fieldKey = key as keyof Store
+      if (cleanFormData[fieldKey] === undefined) {
+        delete cleanFormData[fieldKey]
+      }
+    })
+
+    await onSubmit(cleanFormData)
   }
 
   if (loadingCompanies) {
