@@ -231,21 +231,43 @@ function JobsPageContent() {
     return company?.name || '不明な企業'
   }
 
+  const getCompany = (companyId: string) => {
+    return companies.find(c => c.id === companyId)
+  }
+
   const getStoreName = (storeId?: string) => {
     if (!storeId) return '-'
     const store = stores.find(s => s.id === storeId)
     return store?.name || '不明な店舗'
   }
 
+  const getAddress = (job: Job) => {
+    // 店舗が紐付いている場合は店舗の住所
+    if (job.storeId) {
+      const store = stores.find(s => s.id === job.storeId)
+      if (store?.address) return store.address
+    }
+    // 店舗が紐付いていない場合は企業の住所
+    const company = companies.find(c => c.id === job.companyId)
+    return company?.address || '-'
+  }
+
   // フィルタリングされた求人リストをuseMemoで計算
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
       const store = stores.find(s => s.id === job.storeId)
+      const company = companies.find(c => c.id === job.companyId)
+      
+      // 住所の検索: 店舗の住所がある場合はそれを、ない場合は企業の住所を検索対象に含める
+      const addressMatch = job.storeId 
+        ? (store?.address && store.address.toLowerCase().includes(searchTerm.toLowerCase()))
+        : (company?.address && company.address.toLowerCase().includes(searchTerm.toLowerCase()))
+      
       const matchesSearch = (job.title && job.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            (job.jobDescription && job.jobDescription.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            getCompanyName(job.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
                            getStoreName(job.storeId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (store?.address && store.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                           addressMatch ||
                            (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
       
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
@@ -473,77 +495,97 @@ function JobsPageContent() {
                       />
                     </TableHead>
                   )}
-                  <TableHead>求人名</TableHead>
-                  <TableHead>企業名</TableHead>
-                  <TableHead>店舗名</TableHead>
-                  <TableHead>雇用形態</TableHead>
                   <TableHead>ステータス</TableHead>
+                  <TableHead>求人名</TableHead>
+                  <TableHead>店舗名/企業名</TableHead>
+                  <TableHead>住所</TableHead>
+                  <TableHead>契約状況</TableHead>
+                  <TableHead>雇用形態</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobs.map((job) => (
-                  <TableRow key={job.id}>
-                    {isAdmin && (
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedJobs.has(job.id)}
-                          onCheckedChange={() => handleSelectJob(job.id)}
-                        />
-                      </TableCell>
-                    )}
-                    <TableCell className="font-medium">
-                      <Link href={`/jobs/${job.id}`} className="hover:text-purple-600 transition-colors">
-                        <div className="font-semibold hover:underline">{job.title}</div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">
-                          {job.jobDescription || '詳細未入力'}
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/companies/${job.companyId}`} className="hover:text-purple-600 hover:underline transition-colors">
-                        {getCompanyName(job.companyId)}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {job.storeId ? (
-                        <Link href={`/stores/${job.storeId}`} className="hover:text-purple-600 hover:underline transition-colors">
-                          {getStoreName(job.storeId)}
-                        </Link>
-                      ) : (
-                        <span className="text-gray-400">-</span>
+                {filteredJobs.map((job) => {
+                  const company = getCompany(job.companyId)
+                  const isFreeOnly = company?.contractType === 'free_only'
+                  
+                  return (
+                    <TableRow key={job.id} className={isFreeOnly ? 'bg-gray-100' : ''}>
+                      {isAdmin && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedJobs.has(job.id)}
+                            onCheckedChange={() => handleSelectJob(job.id)}
+                          />
+                        </TableCell>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {job.employmentType || '未設定'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(job.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link href={`/jobs/${job.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                      <TableCell>{getStatusBadge(job.status)}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/jobs/${job.id}`} className="hover:text-purple-600 transition-colors">
+                          <div className="font-semibold hover:underline">{job.title}</div>
+                          {/* <div className="text-sm text-gray-500 truncate max-w-xs">
+                            {job.jobDescription || '詳細未入力'}
+                          </div> */}
                         </Link>
-                        <Link href={`/jobs/${job.id}/edit`}>
-                          <Button variant="outline" size="sm">
-                            <Edit className="h-4 w-4" />
+                      </TableCell>
+                      <TableCell>
+                        {job.storeId ? (
+                          <Link href={`/stores/${job.storeId}`} className="hover:text-purple-600 hover:underline transition-colors">
+                            {getStoreName(job.storeId)}
+                          </Link>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          <Link href={`/companies/${job.companyId}`} className="hover:text-purple-600 hover:underline transition-colors">
+                            {getCompanyName(job.companyId)}
+                          </Link>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-600 max-w-xs truncate">
+                          {getAddress(job)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {company?.contractType ? (
+                          <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}>
+                            {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-gray-400">未設定</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {job.employmentType || '未設定'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link href={`/jobs/${job.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link href={`/jobs/${job.id}/edit`}>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteJob(job)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        </Link>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteJob(job)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

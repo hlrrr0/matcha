@@ -88,14 +88,14 @@ export default function EditCompanyPage({ params }: EditCompanyPageProps) {
 
   return (
     <div className="container mx-auto py-6">
+      <Link href={`/companies/${companyId}`}>
+        <Button variant="outline" size="sm">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          企業詳細に戻る
+        </Button>
+      </Link>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Link href={`/companies/${companyId}`}>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              企業詳細に戻る
-            </Button>
-          </Link>
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Building2 className="h-8 w-8" />

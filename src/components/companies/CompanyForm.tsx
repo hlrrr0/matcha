@@ -125,6 +125,107 @@ export default function CompanyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>契約情報</CardTitle>
+          <CardDescription>企業の契約に関する情報を入力してください</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="isPublic"
+              checked={formData.isPublic ?? true}
+              onCheckedChange={(checked) => handleChange('isPublic', checked)}
+            />
+            <Label htmlFor="isPublic">公開状態</Label>
+          </div>
+            <div>
+              <Label htmlFor="status">
+                ステータス <span className="text-red-500">*</span>
+              </Label>
+              <Select 
+                value={formData.status || 'active'} 
+                onValueChange={(value) => handleChange('status', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">アクティブ</SelectItem>
+                  <SelectItem value="inactive">非アクティブ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="contractType">契約状況</Label>
+              <Select 
+                value={formData.contractType || ''} 
+                onValueChange={(value) => handleChange('contractType', value || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="契約状況を選択してください" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paid">有料紹介可</SelectItem>
+                  <SelectItem value="free_only">無料のみ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="contractDetails">契約詳細</Label>
+            <Textarea
+              id="contractDetails"
+              value={formData.contractDetails ?? ''}
+              onChange={(e) => handleChange('contractDetails', e.target.value)}
+              rows={4}
+              placeholder="契約に関する詳細情報を入力してください"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="consultantId">担当者</Label>
+            <Select 
+              value={formData.consultantId || 'none'} 
+              onValueChange={(value) => handleChange('consultantId', value === 'none' ? undefined : value)}
+              disabled={loadingUsers}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingUsers ? "ユーザーを読み込み中..." : "担当者を選択してください"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">担当者を選択しない</SelectItem>
+                {users.map((user) => {
+                  const displayName = user.displayName || 
+                    (user.firstName && user.lastName ? `${user.lastName} ${user.firstName}` : '') ||
+                    user.email
+                  const roleLabel = user.role === 'admin' ? ' (管理者)' : ''
+                  
+                  return (
+                    <SelectItem key={user.id} value={user.id}>
+                      {displayName}{roleLabel}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="memo">メモ</Label>
+            <Textarea
+              id="memo"
+              value={formData.memo ?? ''}
+              onChange={(e) => handleChange('memo', e.target.value)}
+              rows={4}
+              placeholder="企業に関するメモや特記事項"
+            />
+          </div>
+        </CardContent>
+      </Card>
       {/* 基本情報 */}
       <Card>
         <CardHeader>
@@ -133,22 +234,9 @@ export default function CompanyForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="status">ステータス *</Label>
-            <Select 
-              value={formData.status || 'active'} 
-              onValueChange={(value) => handleChange('status', value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">アクティブ</SelectItem>
-                <SelectItem value="inactive">非アクティブ</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="name">企業名 *</Label>
+            <Label htmlFor="name">
+              企業名 <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="name"
               value={formData.name ?? ''}
@@ -381,63 +469,6 @@ export default function CompanyForm({
               onChange={(e) => handleChange('email', e.target.value)}
               placeholder="info@example.com"
             />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* メモ・その他 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>メモ・その他</CardTitle>
-          <CardDescription>追加情報やメモを入力してください</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="consultantId">担当者</Label>
-            <Select 
-              value={formData.consultantId || 'none'} 
-              onValueChange={(value) => handleChange('consultantId', value === 'none' ? undefined : value)}
-              disabled={loadingUsers}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={loadingUsers ? "ユーザーを読み込み中..." : "担当者を選択してください"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">担当者を選択しない</SelectItem>
-                {users.map((user) => {
-                  const displayName = user.displayName || 
-                    (user.firstName && user.lastName ? `${user.lastName} ${user.firstName}` : '') ||
-                    user.email
-                  const roleLabel = user.role === 'admin' ? ' (管理者)' : ''
-                  
-                  return (
-                    <SelectItem key={user.id} value={user.id}>
-                      {displayName}{roleLabel}
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="memo">メモ</Label>
-            <Textarea
-              id="memo"
-              value={formData.memo ?? ''}
-              onChange={(e) => handleChange('memo', e.target.value)}
-              rows={4}
-              placeholder="企業に関するメモや特記事項"
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="isPublic"
-              checked={formData.isPublic ?? true}
-              onCheckedChange={(checked) => handleChange('isPublic', checked)}
-            />
-            <Label htmlFor="isPublic">公開状態</Label>
           </div>
         </CardContent>
       </Card>

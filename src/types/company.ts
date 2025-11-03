@@ -35,6 +35,8 @@ export interface Company {
   
   // 取引情報
   contractStartDate?: string | Date       // 取引開始日
+  contractType?: 'paid' | 'free_only'     // 契約状況（有料紹介可、無料のみ）
+  contractDetails?: string                // 契約詳細
   status: 'active' | 'inactive'  // 取引状況
   isPublic: boolean                       // 公開状況（公開／非公開）
   consultantId?: string                   // 担当コンサルタントID

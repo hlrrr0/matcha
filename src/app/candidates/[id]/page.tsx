@@ -167,6 +167,24 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     })
   }
 
+  // 年齢計算のヘルパー関数
+  const calculateAge = (dateOfBirth: string): number | null => {
+    if (!dateOfBirth) return null
+    
+    const birthDate = new Date(dateOfBirth)
+    const today = new Date()
+    
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    
+    // まだ誕生日が来ていない場合は1歳引く
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    
+    return age
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -260,7 +278,18 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">生年月日</label>
-                <p>{candidate.dateOfBirth || '未登録'}</p>
+                <p>
+                  {candidate.dateOfBirth ? (
+                    <>
+                      {candidate.dateOfBirth}
+                      <span className="ml-2 text-blue-600 font-medium">
+                        （{calculateAge(candidate.dateOfBirth)}歳）
+                      </span>
+                    </>
+                  ) : (
+                    '未登録'
+                  )}
+                </p>
               </div>
             </CardContent>
           </Card>

@@ -197,7 +197,9 @@ export default function StoreForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="status">店舗ステータス *</Label>
+            <Label htmlFor="status">
+              店舗ステータス <span className="text-red-500">*</span>
+            </Label>
             <Select 
               value={formData.status || 'active'} 
               onValueChange={(value) => handleChange('status', value as 'active' | 'inactive')}
@@ -213,7 +215,9 @@ export default function StoreForm({
           </div>
           
           <div>
-            <Label htmlFor="companyId">所属企業 *</Label>
+            <Label htmlFor="companyId">
+              所属企業 <span className="text-red-500">*</span>
+            </Label>
             <Select 
               value={formData.companyId || ''} 
               onValueChange={(value) => handleChange('companyId', value)}
@@ -232,7 +236,9 @@ export default function StoreForm({
           </div>
           
           <div>
-            <Label htmlFor="name">店舗名 *</Label>
+            <Label htmlFor="name">
+              店舗名 <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="name"
               value={formData.name || ''}

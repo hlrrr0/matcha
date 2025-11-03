@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import DominoLinkage from '@/components/companies/DominoLinkage'
 import { 
   ArrowLeft, 
   Building2, 
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { updateCompany } from '@/lib/firestore/companies'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
 
@@ -141,6 +143,11 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
     )
   }
 
+  // 企業データの更新ハンドラー（Domino連携用）
+  const handleCompanyUpdate = (updatedCompany: Company) => {
+    setCompany(updatedCompany)
+  }
+
   // 日時フォーマット関数
   const formatDateTime = (dateValue: string | Date | any | undefined) => {
     if (!dateValue) return '未設定'
@@ -233,12 +240,18 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
           </div>
         </div>
         
-        <Link href={`/companies/${companyId}/edit`}>
-          <Button className="flex items-center gap-2">
-            <Edit className="h-4 w-4" />
-            編集
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <DominoLinkage 
+            company={company} 
+            onUpdate={handleCompanyUpdate}
+          />
+          <Link href={`/companies/${companyId}/edit`}>
+            <Button className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              編集
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -330,6 +343,34 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                   </div>
                 </>
               )}
+
+              {/* 契約情報 */}
+              {(company.contractType || company.contractDetails) && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-3">契約情報</h3>
+                    <div className="space-y-3">
+                      {company.contractType && (
+                        <div>
+                          <h4 className="text-sm text-gray-600 mb-1">契約状況</h4>
+                          <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>
+                            {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
+                          </Badge>
+                        </div>
+                      )}
+                      {company.contractDetails && (
+                        <div>
+                          <h4 className="text-sm text-gray-600 mb-1">契約詳細</h4>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{company.contractDetails}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -390,45 +431,6 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                     <p className="mt-1 text-sm">{company.youngRecruitReason}</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* メモ・特記事項 */}
-          {company.memo && (
-            <Card>
-              <CardHeader>
-                <CardTitle>メモ・特記事項</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-sm whitespace-pre-wrap">{company.memo}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Dominoシステム連携情報 */}
-          {company.dominoId && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-blue-800">Dominoシステム連携</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-blue-700">Domino ID:</span>
-                      <span className="ml-2 font-mono">{company.dominoId}</span>
-                    </div>
-                    {company.importedAt && (
-                      <div>
-                        <span className="font-medium text-blue-700">インポート日時:</span>
-                        <span className="ml-2">{formatDateTime(company.importedAt)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           )}
@@ -557,6 +559,19 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
               </div>
             </CardContent>
           </Card>
+          {/* メモ・特記事項 */}
+          {company.memo && (
+            <Card>
+              <CardHeader>
+                <CardTitle>メモ・特記事項</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{company.memo}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* 管理情報 */}
           <Card>
@@ -593,7 +608,30 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
               </div>
             </CardContent>
           </Card>
-
+          {/* Dominoシステム連携情報 */}
+          {company.dominoId && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-blue-800">Dominoシステム連携</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-blue-700">Domino ID:</span>
+                      <span className="ml-2 font-mono">{company.dominoId}</span>
+                    </div>
+                    {company.importedAt && (
+                      <div>
+                        <span className="font-medium text-blue-700">インポート日時:</span>
+                        <span className="ml-2">{formatDateTime(company.importedAt)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* 企業ロゴ */}
           {company?.logo && (
             <Card>

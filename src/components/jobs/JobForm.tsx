@@ -205,7 +205,9 @@ export default function JobForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="status">求人ステータス *</Label>
+            <Label htmlFor="status">
+              求人ステータス <span className="text-red-500">*</span>
+            </Label>
             <Select 
               value={formData.status || 'draft'} 
               onValueChange={(value) => handleChange('status', value as Job['status'])}
@@ -222,7 +224,9 @@ export default function JobForm({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <Label htmlFor="companyId">企業 *</Label>
+                <Label htmlFor="companyId">
+                  企業 <span className="text-red-500">*</span>
+                </Label>
                 <Select 
                 value={formData.companyId || ''} 
                 onValueChange={(value) => {
@@ -266,7 +270,9 @@ export default function JobForm({
         </div>
 
           <div>
-            <Label htmlFor="title">職種名 *</Label>
+            <Label htmlFor="title">
+              職種名 <span className="text-red-500">*</span>
+            </Label>
             <Input
               id="title"
               value={formData.title || ''}

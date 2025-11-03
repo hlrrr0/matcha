@@ -828,6 +828,7 @@ function CompaniesPageContent() {
                   )}
                   <SortableHeader field="name">企業名</SortableHeader>
                   <SortableHeader field="status">ステータス</SortableHeader>
+                  <TableHead>契約状況</TableHead>
                   <TableHead>Domino連携</TableHead>
                   <TableHead>担当者</TableHead>
                   <TableHead>店舗数</TableHead>
@@ -845,7 +846,7 @@ function CompaniesPageContent() {
                   return (
                     <React.Fragment key={company.id}>
                       <TableRow 
-                        className={isInactive ? 'bg-gray-50' : ''}
+                        className={`${isInactive ? 'bg-gray-50' : ''} ${company.contractType === 'free_only' ? 'bg-gray-100' : ''}`}
                       >
                         {isAdmin && (
                           <TableCell>
@@ -862,6 +863,15 @@ function CompaniesPageContent() {
                           </Link>
                         </TableCell>
                         <TableCell>{getStatusBadge(company.status)}</TableCell>
+                        <TableCell>
+                          {company.contractType ? (
+                            <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}>
+                              {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-gray-400">未設定</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {company.dominoId ? (

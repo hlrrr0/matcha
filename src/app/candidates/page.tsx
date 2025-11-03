@@ -32,13 +32,19 @@ import {
 } from 'lucide-react'
 import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
 import { getCandidates, getCandidateStats, deleteCandidate } from '@/lib/firestore/candidates'
+import { getMatchesByCandidate } from '@/lib/firestore/matches'
 import { toast } from 'sonner'
+
+interface CandidateWithProgress extends Candidate {
+  activeProgressCount?: number
+}
 
 export default function CandidatesPage() {
   const router = useRouter()
-  const [candidates, setCandidates] = useState<Candidate[]>([])
-  const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([])
+  const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
+  const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
   const [loading, setLoading] = useState(true)
+  const [progressLoading, setProgressLoading] = useState(false)
   const [stats, setStats] = useState<any>(null)
   
   // フィルタ・検索の状態
@@ -63,13 +69,54 @@ export default function CandidatesPage() {
       ])
       console.log('📋 取得した求職者データ:', candidatesData)
       console.log('📊 統計データ:', statsData)
+      
+      // 進捗件数も含めて設定
       setCandidates(candidatesData)
       setStats(statsData)
+      
+      // 進捗データを並行して取得
+      loadProgressCounts(candidatesData)
     } catch (error) {
       console.error('Error loading candidates:', error)
       toast.error('求職者データの読み込みに失敗しました')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadProgressCounts = async (candidatesData: Candidate[]) => {
+    try {
+      setProgressLoading(true)
+      console.log('🔍 進捗データを読み込み開始...')
+      
+      const candidatesWithProgress = await Promise.all(
+        candidatesData.map(async (candidate) => {
+          try {
+            const matches = await getMatchesByCandidate(candidate.id)
+            // アクティブな進捗をカウント（suggested, interested, applied, interviewing, offered）
+            const activeMatches = matches.filter(match => 
+              ['suggested', 'interested', 'applied', 'interviewing', 'offered'].includes(match.status)
+            )
+            return {
+              ...candidate,
+              activeProgressCount: activeMatches.length
+            }
+          } catch (error) {
+            console.error(`進捗取得エラー for ${candidate.id}:`, error)
+            return {
+              ...candidate,
+              activeProgressCount: 0
+            }
+          }
+        })
+      )
+      
+      setCandidates(candidatesWithProgress)
+      console.log('✅ 進捗データ読み込み完了')
+    } catch (error) {
+      console.error('進捗データ読み込みエラー:', error)
+    } finally {
+      setProgressLoading(false)
     }
   }
 
@@ -104,6 +151,24 @@ export default function CandidatesPage() {
     setFilteredCandidates(filtered)
   }
 
+  // 年齢計算のヘルパー関数
+  const calculateAge = (dateOfBirth: string): number | null => {
+    if (!dateOfBirth) return null
+    
+    const birthDate = new Date(dateOfBirth)
+    const today = new Date()
+    
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    
+    // まだ誕生日が来ていない場合は1歳引く
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    
+    return age
+  }
+
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`「${name}」を削除してもよろしいですか？`)) {
       return
@@ -130,6 +195,36 @@ export default function CandidatesPage() {
     return (
       <Badge variant={variants[status]}>
         {candidateStatusLabels[status]}
+      </Badge>
+    )
+  }
+
+  const getProgressCountBadge = (count: number | undefined) => {
+    if (count === undefined) {
+      return (
+        <Badge variant="outline" className="text-gray-400 border-gray-300">
+          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+          読込中
+        </Badge>
+      )
+    }
+    
+    if (count === 0) {
+      return (
+        <Badge variant="outline" className="text-gray-500 border-gray-300">
+          0件
+        </Badge>
+      )
+    }
+    
+    let colorClass = 'bg-blue-100 text-blue-800 border-blue-200'
+    if (count >= 5) colorClass = 'bg-red-100 text-red-800 border-red-200'
+    else if (count >= 3) colorClass = 'bg-orange-100 text-orange-800 border-orange-200'
+    else if (count >= 1) colorClass = 'bg-green-100 text-green-800 border-green-200'
+
+    return (
+      <Badge className={colorClass}>
+        {count}件
       </Badge>
     )
   }
@@ -286,8 +381,7 @@ export default function CandidatesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>名前</TableHead>
-                <TableHead>連絡先</TableHead>
-                <TableHead>経験</TableHead>
+                <TableHead>入学年月|校舎</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>更新日</TableHead>
                 <TableHead className="w-24">操作</TableHead>
@@ -299,24 +393,25 @@ export default function CandidatesPage() {
                   <TableCell>
                     <div>
                       <div className="font-medium">
-                        {candidate.firstName} {candidate.lastName}
+                        {candidate.lastName} {candidate.firstName}
+                        <span className="ml-2 text-blue-600 font-medium">
+                          {candidate.dateOfBirth ? (
+                            <>
+                              （{calculateAge(candidate.dateOfBirth)}歳）
+                            </>
+                          ) : (
+                            '（未登録）'
+                          )}
+                        </span>
                       </div>
                       <div className="text-sm text-gray-500">
-                        {candidate.firstNameKana} {candidate.lastNameKana}
+                        {candidate.lastNameKana} {candidate.firstNameKana}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div className="text-sm">{candidate.email}</div>
-                      {candidate.phone && (
-                        <div className="text-sm text-gray-500">{candidate.phone}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="text-sm">{candidate.cookingExperience || '未登録'}</div>
+                      <div className="text-sm">{candidate.enrollmentDate || '未登録'}</div>
                       <div className="text-sm text-gray-500">
                         {candidate.campus ? campusLabels[candidate.campus] : '校舎未登録'}
                       </div>
