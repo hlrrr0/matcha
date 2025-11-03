@@ -26,13 +26,14 @@ import {
   Edit,
   Eye,
   Briefcase,
-  Users
+  Users,
+  Trash2
 } from 'lucide-react'
 import { Match } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
-import { getMatches, createMatch, updateMatchStatus } from '@/lib/firestore/matches'
+import { getMatches, createMatch, updateMatchStatus, deleteMatch } from '@/lib/firestore/matches'
 import { getCandidates } from '@/lib/firestore/candidates'
 import { getJobs } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
@@ -44,7 +45,7 @@ interface MatchWithDetails extends Match {
 }
 
 function ProgressPageContent() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const searchParams = useSearchParams()
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
   const [filteredMatches, setFilteredMatches] = useState<MatchWithDetails[]>([])
@@ -61,6 +62,7 @@ function ProgressPageContent() {
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [jobSelectModalOpen, setJobSelectModalOpen] = useState(false)
   const [candidateSelectModalOpen, setCandidateSelectModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
   const [newMatchData, setNewMatchData] = useState({
@@ -220,6 +222,22 @@ function ProgressPageContent() {
     } catch (error) {
       console.error('ステータス更新エラー:', error)
       alert('ステータスの更新に失敗しました')
+    }
+  }
+
+  const handleDeleteMatch = async () => {
+    if (!selectedMatch) return
+
+    try {
+      await deleteMatch(selectedMatch.id)
+      await loadData() // Reload data
+      
+      setDeleteDialogOpen(false)
+      setSelectedMatch(null)
+      alert('進捗を削除しました')
+    } catch (error) {
+      console.error('進捗削除エラー:', error)
+      alert('進捗の削除に失敗しました')
     }
   }
 
@@ -566,6 +584,19 @@ function ProgressPageContent() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
+                              {isAdmin && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedMatch(match)
+                                    setDeleteDialogOpen(true)
+                                  }}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -618,6 +649,51 @@ function ProgressPageContent() {
                   className="bg-orange-600 hover:bg-orange-700"
                 >
                   更新
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* 削除確認ダイアログ */}
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>進捗を削除</DialogTitle>
+                <DialogDescription>
+                  この進捗を削除してもよろしいですか？この操作は取り消せません。
+                </DialogDescription>
+              </DialogHeader>
+              {selectedMatch && (
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-medium">求職者:</span> {selectedMatch.candidateName}
+                  </div>
+                  <div>
+                    <span className="font-medium">求人:</span> {selectedMatch.jobTitle}
+                  </div>
+                  <div>
+                    <span className="font-medium">企業:</span> {selectedMatch.companyName}
+                  </div>
+                  <div>
+                    <span className="font-medium">ステータス:</span> {getStatusLabel(selectedMatch.status)}
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteDialogOpen(false)
+                    setSelectedMatch(null)
+                  }}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={handleDeleteMatch}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  削除
                 </Button>
               </DialogFooter>
             </DialogContent>
