@@ -281,10 +281,14 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {store.unitPrice && (
+                {(store.unitPriceLunch || store.unitPriceDinner) && (
                   <div>
-                    <h3 className="font-medium text-gray-700">単価</h3>
-                    <p className="mt-1">{store.unitPrice.toLocaleString()}円</p>
+                    <h3 className="font-medium text-gray-700">客単価</h3>
+                    <p className="mt-1">
+                      {store.unitPriceLunch && `昼 ${store.unitPriceLunch.toLocaleString()}円`}
+                      {store.unitPriceLunch && store.unitPriceDinner && ' / '}
+                      {store.unitPriceDinner && `夜 ${store.unitPriceDinner.toLocaleString()}円`}
+                    </p>
                   </div>
                 )}
                 {store.seatCount && (
