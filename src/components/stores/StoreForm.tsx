@@ -261,13 +261,14 @@ export default function StoreForm({
 
 
           <div>
-            <Label htmlFor="address">店舗住所</Label>
+            <Label htmlFor="address">店舗住所 <span className="text-red-500">*</span></Label>
             <Textarea
               id="address"
               value={formData.address || ''}
               onChange={(e) => handleChange('address', e.target.value)}
               rows={2}
               placeholder="店舗の住所を入力してください"
+              required
             />
           </div>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +48,8 @@ export default function StoresPage() {
 
 function StoresPageContent() {
   const { isAdmin } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [stores, setStores] = useState<Store[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,6 +58,7 @@ function StoresPageContent() {
   // フィルター・検索状態
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Store['status'] | 'all'>('all')
+  const [companyFilter, setCompanyFilter] = useState<string>('all')
   
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'companyName' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
@@ -63,6 +67,23 @@ function StoresPageContent() {
   // 複数選択・削除状態
   const [selectedStores, setSelectedStores] = useState<string[]>([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  // URLパラメータから初期値を設定
+  useEffect(() => {
+    const companyParam = searchParams.get('company')
+    const searchParam = searchParams.get('search')
+    const statusParam = searchParams.get('status')
+    
+    if (companyParam) {
+      setCompanyFilter(companyParam)
+    }
+    if (searchParam) {
+      setSearchTerm(searchParam)
+    }
+    if (statusParam && (statusParam === 'active' || statusParam === 'inactive')) {
+      setStatusFilter(statusParam as Store['status'])
+    }
+  }, [searchParams])
 
   useEffect(() => {
     loadData()
@@ -274,6 +295,40 @@ function StoresPageContent() {
     toast.success(`${selectedStores.length}件の店舗データをエクスポートしました`)
   }
 
+  // URLパラメータを更新する関数
+  const updateURLParams = (params: { search?: string; status?: string; company?: string }) => {
+    const newParams = new URLSearchParams()
+    
+    if (params.search) {
+      newParams.set('search', params.search)
+    }
+    if (params.status && params.status !== 'all') {
+      newParams.set('status', params.status)
+    }
+    if (params.company && params.company !== 'all') {
+      newParams.set('company', params.company)
+    }
+    
+    const newURL = newParams.toString() ? `/stores?${newParams.toString()}` : '/stores'
+    router.push(newURL, { scroll: false })
+  }
+
+  // フィルター変更時にURLを更新
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    updateURLParams({ search: value, status: statusFilter, company: companyFilter })
+  }
+
+  const handleStatusFilterChange = (value: Store['status'] | 'all') => {
+    setStatusFilter(value)
+    updateURLParams({ search: searchTerm, status: value, company: companyFilter })
+  }
+
+  const handleCompanyFilterChange = (value: string) => {
+    setCompanyFilter(value)
+    updateURLParams({ search: searchTerm, status: statusFilter, company: value })
+  }
+
   const getCompanyName = (companyId: string) => {
     const company = companies.find(c => c.id === companyId)
     return company?.name || '不明な企業'
@@ -286,8 +341,9 @@ function StoresPageContent() {
                          (store.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
     
     const matchesStatus = statusFilter === 'all' || store.status === statusFilter
+    const matchesCompany = companyFilter === 'all' || store.companyId === companyFilter
 
-    return matchesSearch && matchesStatus
+    return matchesSearch && matchesStatus && matchesCompany
   }).sort((a, b) => {
     let aValue: any
     let bValue: any
@@ -459,14 +515,31 @@ function StoresPageContent() {
               <Input
                 placeholder="店舗名・企業名で検索..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full"
               />
             </div>
             
+            {/* 企業フィルター */}
+            <div>
+              <Select value={companyFilter} onValueChange={handleCompanyFilterChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="企業でフィルター" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべての企業</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             {/* ステータスフィルター */}
             <div>
-              <Select value={statusFilter} onValueChange={(value: Store['status'] | 'all') => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="取引状況" />
                 </SelectTrigger>
