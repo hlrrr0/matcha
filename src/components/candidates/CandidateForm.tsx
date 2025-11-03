@@ -254,7 +254,7 @@ export default function CandidateForm({
           </div>
 
           <div>
-            <Label htmlFor="graduationCareerPlan">卒業"直後"の希望進路</Label>
+            <Label htmlFor="graduationCareerPlan">卒業&quot;直後&quot;の希望進路</Label>
             <Input
               id="graduationCareerPlan"
               value={formData.graduationCareerPlan}
