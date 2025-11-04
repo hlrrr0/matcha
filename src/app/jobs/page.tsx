@@ -31,8 +31,10 @@ import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
 import { getStores } from '@/lib/firestore/stores'
+import { getUsers } from '@/lib/firestore/users'
 import { Company } from '@/types/company'
 import { Store as StoreType } from '@/types/store'
+import { User } from '@/types/user'
 import { importJobsFromCSV, generateJobsCSVTemplate } from '@/lib/csv/jobs'
 import { toast } from 'sonner'
 
@@ -55,6 +57,7 @@ function JobsPageContent() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [stores, setStores] = useState<StoreType[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
@@ -65,6 +68,7 @@ function JobsPageContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>('all')
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>('all')
+  const [consultantFilter, setConsultantFilter] = useState<string>('all')
 
   // 求人データの入力率チェック対象フィールド
   const jobFieldKeys = [
@@ -92,14 +96,16 @@ function JobsPageContent() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [jobsData, companiesData, storesData] = await Promise.all([
+      const [jobsData, companiesData, storesData, usersData] = await Promise.all([
         getJobs(),
         getCompanies(),
-        getStores()
+        getStores(),
+        getUsers()
       ])
       setJobs(jobsData)
       setCompanies(companiesData)
       setStores(storesData)
+      setUsers(usersData)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -286,6 +292,12 @@ function JobsPageContent() {
     return store?.name || '不明な店舗'
   }
 
+  const getConsultantName = (userId?: string) => {
+    if (!userId) return '未設定'
+    const user = users.find(u => u.id === userId)
+    return user?.displayName || user?.email || '不明な担当者'
+  }
+
   const getAddress = (job: Job) => {
     // 店舗が紐付いている場合は店舗の住所
     if (job.storeId) {
@@ -317,10 +329,11 @@ function JobsPageContent() {
       
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
       const matchesEmploymentType = employmentTypeFilter === 'all' || job.employmentType === employmentTypeFilter
+      const matchesConsultant = consultantFilter === 'all' || job.createdBy === consultantFilter
 
-      return matchesSearch && matchesStatus && matchesEmploymentType
+      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant
     })
-  }, [jobs, stores, searchTerm, statusFilter, employmentTypeFilter])
+  }, [jobs, stores, searchTerm, statusFilter, employmentTypeFilter, consultantFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -471,13 +484,13 @@ function JobsPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* 検索 */}
             <div>
-              <Label htmlFor="job-search">検索</Label>
+              <Label htmlFor="job-search">求人名/企業名/住所</Label>
               <Input
                 id="job-search"
-                placeholder="求人名・企業名で検索..."
+                placeholder="求人名・企業名・住所で検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full"
@@ -486,6 +499,7 @@ function JobsPageContent() {
             
             {/* ステータスフィルター */}
             <div>
+              <Label htmlFor="status-filter">ステータス</Label>
               <Select value={statusFilter} onValueChange={(value: Job['status'] | 'all') => setStatusFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
@@ -501,6 +515,7 @@ function JobsPageContent() {
             
             {/* 雇用形態フィルター */}
             <div>
+              <Label htmlFor="employment-type-filter">雇用形態</Label>
               <Select value={employmentTypeFilter} onValueChange={(value: Job['employmentType'] | 'all') => setEmploymentTypeFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="雇用形態" />
@@ -509,6 +524,24 @@ function JobsPageContent() {
                   <SelectItem value="all">すべての雇用形態</SelectItem>
                   {availableEmploymentTypes.map((type) => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* 担当者フィルター */}
+            <div>
+              <Label htmlFor="consultant-filter">担当者</Label>
+              <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="担当者" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべての担当者</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName || user.email}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

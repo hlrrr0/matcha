@@ -96,6 +96,7 @@ function CompaniesPageContent() {
   const [statusFilter, setStatusFilter] = useState<Company['status'] | 'all'>('all')
   const [sizeFilter, setSizeFilter] = useState<Company['size'] | 'all'>('all')
   const [dominoFilter, setDominoFilter] = useState<'all' | 'connected' | 'not_connected'>('all')
+  const [consultantFilter, setConsultantFilter] = useState<string>('all')
   
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
@@ -521,7 +522,10 @@ function CompaniesPageContent() {
                            (dominoFilter === 'connected' && company.dominoId) ||
                            (dominoFilter === 'not_connected' && !company.dominoId)
       
-      return matchesSearch && matchesStatus && matchesSize && matchesDomino
+      // 担当者フィルター
+      const matchesConsultant = consultantFilter === 'all' || company.consultantId === consultantFilter
+      
+      return matchesSearch && matchesStatus && matchesSize && matchesDomino && matchesConsultant
     })
     .sort((a, b) => {
       let valueA: string | Date
@@ -729,13 +733,13 @@ function CompaniesPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             {/* 検索 */}
             <div>
-              <Label htmlFor="company-search">検索</Label>
+              <Label htmlFor="company-search">企業名・住所</Label>
               <Input
                 id="company-search"
-                placeholder="企業名・メールアドレス・所在地で検索..."
+                placeholder="企業名・住所で検索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full"
@@ -744,6 +748,7 @@ function CompaniesPageContent() {
             
             {/* ステータスフィルター */}
             <div>
+              <Label htmlFor="company-status">ステータス</Label>
               <Select value={statusFilter} onValueChange={(value: Company['status'] | 'all') => setStatusFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
@@ -759,6 +764,7 @@ function CompaniesPageContent() {
             
             {/* 企業規模フィルター */}
             <div>
+              <Label htmlFor="company-size">企業規模</Label>
               <Select value={sizeFilter} onValueChange={(value: Company['size'] | 'all') => setSizeFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="企業規模" />
@@ -774,6 +780,7 @@ function CompaniesPageContent() {
 
             {/* Domino連携フィルター */}
             <div>
+              <Label htmlFor="company-domino">Domino連携</Label>
               <Select value={dominoFilter} onValueChange={(value: 'all' | 'connected' | 'not_connected') => setDominoFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Domino連携" />
@@ -796,8 +803,27 @@ function CompaniesPageContent() {
               </Select>
             </div>
             
+            {/* 担当者フィルター */}
+            <div>
+              <Label htmlFor="company-consultant">担当者</Label>
+              <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="担当者" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべての担当者</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
             {/* ソート選択 */}
             <div>
+              <Label htmlFor="company-sort">ソート</Label>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                 const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder]
                 setSortBy(field)
