@@ -7,6 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -338,9 +339,11 @@ export default function CandidatesPage() {
           <div className="flex gap-4">
             {/* 検索 */}
             <div className="flex-1">
+              <Label htmlFor="candidate-search">検索</Label>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
+                  id="candidate-search"
                   placeholder="名前、メール、電話番号で検索..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

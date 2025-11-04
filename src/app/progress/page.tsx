@@ -450,9 +450,11 @@ function ProgressPageContent() {
             <CardContent>
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">
+                  <Label htmlFor="progress-search">検索</Label>
                   <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
+                      id="progress-search"
                       placeholder="求職者名、職種、企業名で検索..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -711,14 +713,18 @@ function ProgressPageContent() {
               
               <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
                 {/* 検索フィールド */}
-                <div className="flex items-center space-x-2">
-                  <Search className="h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="求人名、企業名で検索..."
-                    value={jobSearchTerm}
-                    onChange={(e) => setJobSearchTerm(e.target.value)}
-                    className="flex-1"
-                  />
+                <div>
+                  <Label htmlFor="job-dialog-search">検索</Label>
+                  <div className="flex items-center space-x-2">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    <Input
+                      id="job-dialog-search"
+                      placeholder="求人名、企業名で検索..."
+                      value={jobSearchTerm}
+                      onChange={(e) => setJobSearchTerm(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
 
                 {/* 求人リスト */}
@@ -816,14 +822,18 @@ function ProgressPageContent() {
               
               <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
                 {/* 検索フィールド */}
-                <div className="flex items-center space-x-2">
-                  <Search className="h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="氏名、カナ、メールアドレスで検索..."
-                    value={candidateSearchTerm}
-                    onChange={(e) => setCandidateSearchTerm(e.target.value)}
-                    className="flex-1"
-                  />
+                <div>
+                  <Label htmlFor="candidate-dialog-search">検索</Label>
+                  <div className="flex items-center space-x-2">
+                    <Search className="h-4 w-4 text-gray-400" />
+                    <Input
+                      id="candidate-dialog-search"
+                      placeholder="氏名、カナ、メールアドレスで検索..."
+                      value={candidateSearchTerm}
+                      onChange={(e) => setCandidateSearchTerm(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
                 </div>
 
                 {/* 求職者リスト */}
