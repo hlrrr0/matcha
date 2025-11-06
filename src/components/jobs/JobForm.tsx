@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Loader2 } from 'lucide-react'
+import { Save, Loader2, Copy, Check } from 'lucide-react'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -30,6 +30,7 @@ export default function JobForm({
   const [stores, setStores] = useState<Store[]>([])
   const [filteredStores, setFilteredStores] = useState<Store[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  const [copied, setCopied] = useState(false)
   
   const [formData, setFormData] = useState<Partial<Job>>({
     companyId: '',
@@ -197,6 +198,53 @@ export default function JobForm({
     await onSubmit(cleanFormData)
   }
 
+  // フォーム項目の見出しをコピーする関数
+  const handleCopyFieldLabels = async () => {
+    const fieldLabels = `
+求人情報入力項目:
+
+【基本情報】
+- 求人ステータス
+- 企業
+- 店舗
+- 職種名
+- 業種
+- 雇用形態
+
+【職務・スキル】
+- 職務内容
+- 求めるスキル
+
+【勤務条件】
+- 試用期間
+- 勤務時間
+- 休日・休暇
+- 時間外労働
+
+【給与情報】
+- 給与（未経験）
+- 給与（経験者）
+
+【職場環境・福利厚生】
+- 受動喫煙防止措置
+- 加入保険
+- 待遇・福利厚生
+
+【選考・その他】
+- 選考プロセス
+- キャリア担当からの"正直な"感想
+`.trim()
+
+    try {
+      await navigator.clipboard.writeText(fieldLabels)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('コピーに失敗しました:', err)
+      alert('コピーに失敗しました')
+    }
+  }
+
   if (loadingData) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -208,6 +256,38 @@ export default function JobForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* フォーム項目コピーボタン */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-1">入力項目をコピー</h3>
+              <p className="text-sm text-blue-700">
+                全ての入力項目の見出しをコピーして、GPTなどのAIに求人情報の作成を依頼できます
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyFieldLabels}
+              className="ml-4 bg-white hover:bg-blue-50 border-blue-300"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 mr-2 text-green-600" />
+                  コピー済み
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  項目をコピー
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 基本情報 */}
       <Card>
         <CardHeader>
