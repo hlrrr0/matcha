@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Store as StoreType } from '@/types/store'
+import { checkStoreByTabelogUrl } from '@/lib/firestore/stores'
 import StoreForm from '@/components/stores/StoreForm'
 
 interface EditStorePageProps {
@@ -61,6 +62,16 @@ export default function EditStorePage({ params }: EditStorePageProps) {
 
     setSaving(true)
     try {
+      // tabelogURLの重複チェック（自分自身以外）
+      if (data.tabelogUrl) {
+        const existingStoreByTabelog = await checkStoreByTabelogUrl(data.tabelogUrl)
+        if (existingStoreByTabelog && existingStoreByTabelog.id !== storeId) {
+          alert(`この食べログURLは既に登録されています: ${existingStoreByTabelog.name}`)
+          setSaving(false)
+          return
+        }
+      }
+
       const updateData = {
         ...data,
         updatedAt: new Date()
