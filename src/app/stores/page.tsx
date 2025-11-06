@@ -25,12 +25,15 @@ import {
   Building2,
   Download,
   Upload,
-  FileText
+  FileText,
+  User as UserIcon
 } from 'lucide-react'
 import { Store, statusLabels } from '@/types/store'
 import { getStores, deleteStore } from '@/lib/firestore/stores'
 import { getCompanies } from '@/lib/firestore/companies'
+import { getUsers } from '@/lib/firestore/users'
 import { Company } from '@/types/company'
+import { User } from '@/types/user'
 import { importStoresFromCSV, generateStoresCSVTemplate } from '@/lib/csv/stores'
 import { toast } from 'sonner'
 
@@ -53,6 +56,7 @@ function StoresPageContent() {
   const searchParams = useSearchParams()
   const [stores, setStores] = useState<Store[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
@@ -111,12 +115,14 @@ function StoresPageContent() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [storesData, companiesData] = await Promise.all([
+      const [storesData, companiesData, usersData] = await Promise.all([
         getStores(),
-        getCompanies()
+        getCompanies(),
+        getUsers()
       ])
       setStores(storesData)
       setCompanies(companiesData)
+      setUsers(usersData)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -354,6 +360,10 @@ function StoresPageContent() {
     return company?.name || '不明な企業'
   }
 
+  const getCompany = (companyId: string) => {
+    return companies.find(c => c.id === companyId)
+  }
+
   const filteredAndSortedStores = stores.filter(store => {
     const matchesSearch = (store.name && store.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          getCompanyName(store.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -532,7 +542,7 @@ function StoresPageContent() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* 検索 */}
             <div>
-              <Label htmlFor="store-search">検索</Label>
+              <Label htmlFor="store-search">店舗名・企業名・住所</Label>
               <Input
                 id="store-search"
                 placeholder="店舗名・企業名で検索..."
@@ -542,25 +552,9 @@ function StoresPageContent() {
               />
             </div>
             
-            {/* 企業フィルター */}
-            <div>
-              <Select value={companyFilter} onValueChange={handleCompanyFilterChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="企業でフィルター" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべての企業</SelectItem>
-                  {companies.map((company) => (
-                    <SelectItem key={company.id} value={company.id}>
-                      {company.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
             {/* ステータスフィルター */}
             <div>
+              <Label htmlFor="store-status">ステータス</Label>
               <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="取引状況" />
@@ -576,6 +570,7 @@ function StoresPageContent() {
             
             {/* ソート選択 */}
             <div>
+              <Label htmlFor="store-search">ソート</Label>
               <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                 const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder]
                 setSortBy(field)
@@ -631,6 +626,7 @@ function StoresPageContent() {
                   <TableHead>企業名</TableHead>
                   <TableHead>所在地</TableHead>
                   <TableHead>入力率</TableHead>
+                  <TableHead>担当者</TableHead>
                   <TableHead>取引状況</TableHead>
                   <TableHead>外部リンク</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
@@ -686,6 +682,19 @@ function StoresPageContent() {
                           </div>
                         )
                       })()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <UserIcon className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-700">
+                          {(() => {
+                            const company = getCompany(store.companyId)
+                            if (!company?.consultantId) return '-'
+                            const user = users.find(u => u.id === company.consultantId)
+                            return user?.displayName || user?.email || '不明'
+                          })()}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(store.status)}</TableCell>
                     <TableCell>

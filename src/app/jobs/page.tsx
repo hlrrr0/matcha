@@ -25,7 +25,8 @@ import {
   Download,
   Upload,
   FileText,
-  Copy
+  Copy,
+  User as UserIcon
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob } from '@/lib/firestore/jobs'
@@ -329,11 +330,12 @@ function JobsPageContent() {
       
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
       const matchesEmploymentType = employmentTypeFilter === 'all' || job.employmentType === employmentTypeFilter
-      const matchesConsultant = consultantFilter === 'all' || job.createdBy === consultantFilter
+      // 企業の担当者でフィルタリング
+      const matchesConsultant = consultantFilter === 'all' || company?.consultantId === consultantFilter
 
       return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant
     })
-  }, [jobs, stores, searchTerm, statusFilter, employmentTypeFilter, consultantFilter])
+  }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -580,6 +582,7 @@ function JobsPageContent() {
                   <TableHead>店舗名/企業名</TableHead>
                   <TableHead>住所</TableHead>
                   <TableHead>入力率</TableHead>
+                  <TableHead>担当者</TableHead>
                   <TableHead>契約状況</TableHead>
                   <TableHead>雇用形態</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
@@ -653,6 +656,19 @@ function JobsPageContent() {
                             </div>
                           )
                         })()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <UserIcon className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-700">
+                            {company?.consultantId 
+                              ? (users.find(u => u.id === company.consultantId)?.displayName || 
+                                 users.find(u => u.id === company.consultantId)?.email || 
+                                 '不明')
+                              : '-'
+                            }
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {company?.contractType ? (
