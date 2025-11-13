@@ -10,6 +10,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -26,7 +32,8 @@ import {
   Upload,
   FileText,
   Copy,
-  User as UserIcon
+  User as UserIcon,
+  ChevronDown
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob } from '@/lib/firestore/jobs'
@@ -70,6 +77,18 @@ function JobsPageContent() {
   const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>('all')
   const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>('all')
   const [consultantFilter, setConsultantFilter] = useState<string>('all')
+  const [ageLimitFilter, setAgeLimitFilter] = useState<string>('all')
+  
+  // 店舗条件フィルター
+  const [unitPriceLunchMin, setUnitPriceLunchMin] = useState<string>('')
+  const [unitPriceLunchMax, setUnitPriceLunchMax] = useState<string>('')
+  const [unitPriceDinnerMin, setUnitPriceDinnerMin] = useState<string>('')
+  const [unitPriceDinnerMax, setUnitPriceDinnerMax] = useState<string>('')
+  const [reservationSystemFilter, setReservationSystemFilter] = useState<string>('all')
+  
+  // 企業条件フィルター
+  const [housingSupportFilter, setHousingSupportFilter] = useState<string>('all')
+  const [independenceSupportFilter, setIndependenceSupportFilter] = useState<string>('all')
 
   // 求人データの入力率チェック対象フィールド
   const jobFieldKeys = [
@@ -333,9 +352,78 @@ function JobsPageContent() {
       // 企業の担当者でフィルタリング
       const matchesConsultant = consultantFilter === 'all' || company?.consultantId === consultantFilter
 
-      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant
+      // 年齢上限フィルター
+      let matchesAgeLimit = true
+      if (ageLimitFilter !== 'all') {
+        if (ageLimitFilter === 'none') {
+          matchesAgeLimit = !job.ageLimit
+        } else if (ageLimitFilter === 'exists') {
+          matchesAgeLimit = !!job.ageLimit
+        }
+      }
+
+      // 店舗条件フィルター（店舗がある求人のみ）
+      let matchesStoreConditions = true
+      if (job.storeId && store) {
+        // ランチ単価の範囲チェック
+        if (unitPriceLunchMin && store.unitPriceLunch) {
+          matchesStoreConditions = matchesStoreConditions && store.unitPriceLunch >= parseInt(unitPriceLunchMin)
+        }
+        if (unitPriceLunchMax && store.unitPriceLunch) {
+          matchesStoreConditions = matchesStoreConditions && store.unitPriceLunch <= parseInt(unitPriceLunchMax)
+        }
+        
+        // ディナー単価の範囲チェック
+        if (unitPriceDinnerMin && store.unitPriceDinner) {
+          matchesStoreConditions = matchesStoreConditions && store.unitPriceDinner >= parseInt(unitPriceDinnerMin)
+        }
+        if (unitPriceDinnerMax && store.unitPriceDinner) {
+          matchesStoreConditions = matchesStoreConditions && store.unitPriceDinner <= parseInt(unitPriceDinnerMax)
+        }
+        
+        // 予約制フィルター
+        if (reservationSystemFilter !== 'all') {
+          const hasReservation = store.isReservationRequired === true
+          if (reservationSystemFilter === 'yes') {
+            matchesStoreConditions = matchesStoreConditions && hasReservation
+          } else if (reservationSystemFilter === 'no') {
+            matchesStoreConditions = matchesStoreConditions && !hasReservation
+          }
+        }
+      } else if (unitPriceLunchMin || unitPriceLunchMax || unitPriceDinnerMin || unitPriceDinnerMax || reservationSystemFilter !== 'all') {
+        // 店舗条件が指定されているが、この求人に店舗が紐付いていない場合は除外
+        matchesStoreConditions = false
+      }
+
+      // 企業条件フィルター
+      let matchesCompanyConditions = true
+      if (company) {
+        // 福利厚生（寮・家賃保証）の有無
+        if (housingSupportFilter !== 'all') {
+          const hasHousingSupport = company.hasHousingSupport === true
+          if (housingSupportFilter === 'yes') {
+            matchesCompanyConditions = matchesCompanyConditions && hasHousingSupport
+          } else if (housingSupportFilter === 'no') {
+            matchesCompanyConditions = matchesCompanyConditions && !hasHousingSupport
+          }
+        }
+        
+        // 独立支援の有無
+        if (independenceSupportFilter !== 'all') {
+          const hasIndependenceSupport = company.hasIndependenceSupport === true
+          if (independenceSupportFilter === 'yes') {
+            matchesCompanyConditions = matchesCompanyConditions && hasIndependenceSupport
+          } else if (independenceSupportFilter === 'no') {
+            matchesCompanyConditions = matchesCompanyConditions && !hasIndependenceSupport
+          }
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions
     })
-  }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter])
+  }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter, 
+      unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
+      housingSupportFilter, independenceSupportFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -486,7 +574,7 @@ function JobsPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* 検索 */}
             <div>
               <Label htmlFor="job-search">求人名/企業名/住所</Label>
@@ -548,7 +636,178 @@ function JobsPageContent() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 年齢上限フィルター */}
+            <div>
+              <Label htmlFor="age-limit-filter">年齢上限</Label>
+              <Select value={ageLimitFilter} onValueChange={setAgeLimitFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="年齢上限" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="exists">年齢上限あり</SelectItem>
+                  <SelectItem value="none">年齢上限なし</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {/* 店舗条件フィルター（アコーディオン） */}
+          <Accordion type="single" collapsible className="mt-4">
+            <AccordionItem value="store-conditions">
+              <AccordionTrigger className="text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <Store className="h-4 w-4" />
+                  店舗条件で絞り込み
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                  {/* ランチ単価 */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">ランチ単価（円）</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="最小"
+                        value={unitPriceLunchMin}
+                        onChange={(e) => setUnitPriceLunchMin(e.target.value)}
+                        className="w-full"
+                      />
+                      <span className="text-gray-500">〜</span>
+                      <Input
+                        type="number"
+                        placeholder="最大"
+                        value={unitPriceLunchMax}
+                        onChange={(e) => setUnitPriceLunchMax(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* ディナー単価 */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">ディナー単価（円）</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="最小"
+                        value={unitPriceDinnerMin}
+                        onChange={(e) => setUnitPriceDinnerMin(e.target.value)}
+                        className="w-full"
+                      />
+                      <span className="text-gray-500">〜</span>
+                      <Input
+                        type="number"
+                        placeholder="最大"
+                        value={unitPriceDinnerMax}
+                        onChange={(e) => setUnitPriceDinnerMax(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 予約制 */}
+                  <div>
+                    <Label htmlFor="reservation-system-filter" className="text-sm font-medium mb-2 block">予約制</Label>
+                    <Select value={reservationSystemFilter} onValueChange={setReservationSystemFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="予約制" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべて</SelectItem>
+                        <SelectItem value="yes">予約制のみ</SelectItem>
+                        <SelectItem value="no">予約制以外</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* クリアボタン */}
+                {(unitPriceLunchMin || unitPriceLunchMax || unitPriceDinnerMin || unitPriceDinnerMax || reservationSystemFilter !== 'all') && (
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setUnitPriceLunchMin('')
+                        setUnitPriceLunchMax('')
+                        setUnitPriceDinnerMin('')
+                        setUnitPriceDinnerMax('')
+                        setReservationSystemFilter('all')
+                      }}
+                    >
+                      店舗条件をクリア
+                    </Button>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          {/* 企業条件フィルター（アコーディオン） */}
+          <Accordion type="single" collapsible className="mt-4">
+            <AccordionItem value="company-conditions">
+              <AccordionTrigger className="text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  企業条件で絞り込み
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  {/* 福利厚生（寮・家賃保証） */}
+                  <div>
+                    <Label htmlFor="housing-support-filter" className="text-sm font-medium mb-2 block">福利厚生（寮・家賃保証）</Label>
+                    <Select value={housingSupportFilter} onValueChange={setHousingSupportFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="福利厚生" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべて</SelectItem>
+                        <SelectItem value="yes">あり</SelectItem>
+                        <SelectItem value="no">なし</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 独立支援 */}
+                  <div>
+                    <Label htmlFor="independence-support-filter" className="text-sm font-medium mb-2 block">独立支援</Label>
+                    <Select value={independenceSupportFilter} onValueChange={setIndependenceSupportFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="独立支援" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべて</SelectItem>
+                        <SelectItem value="yes">あり</SelectItem>
+                        <SelectItem value="no">なし</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* クリアボタン */}
+                {(housingSupportFilter !== 'all' || independenceSupportFilter !== 'all') && (
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setHousingSupportFilter('all')
+                        setIndependenceSupportFilter('all')
+                      }}
+                    >
+                      企業条件をクリア
+                    </Button>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardContent>
       </Card>
 
@@ -585,6 +844,7 @@ function JobsPageContent() {
                   <TableHead>担当者</TableHead>
                   <TableHead>契約状況</TableHead>
                   <TableHead>雇用形態</TableHead>
+                  <TableHead>年齢上限</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
                 </TableRow>
               </TableHeader>
@@ -683,6 +943,20 @@ function JobsPageContent() {
                         <Badge variant="outline">
                           {job.employmentType || '未設定'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {job.ageLimit ? (
+                          <div className="flex items-center gap-1">
+                            <span className="font-medium text-amber-700">{job.ageLimit}歳</span>
+                            {job.ageNote && (
+                              <span className="text-xs text-gray-500" title={job.ageNote}>
+                                ℹ️
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

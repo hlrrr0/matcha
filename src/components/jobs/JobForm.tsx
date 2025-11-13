@@ -46,6 +46,8 @@ export default function JobForm({
     salaryExperienced: '',
     requiredSkills: '',
     jobDescription: '',
+    ageLimit: undefined,
+    ageNote: '',
     smokingPolicy: '',
     insurance: '',
     benefits: '',
@@ -72,6 +74,8 @@ export default function JobForm({
         salaryExperienced: initialData.salaryExperienced || '',
         requiredSkills: initialData.requiredSkills || '',
         jobDescription: initialData.jobDescription || '',
+        ageLimit: initialData.ageLimit,
+        ageNote: initialData.ageNote || '',
         smokingPolicy: initialData.smokingPolicy || '',
         insurance: initialData.insurance || '',
         benefits: initialData.benefits || '',
@@ -420,6 +424,37 @@ export default function JobForm({
             />
           </div>
 
+          {/* 年齢制限（管理用・非公開） */}
+          <div className="pt-4 border-t border-gray-200">
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded p-3">
+              <p className="text-xs text-amber-800">
+                ⚠️ 管理用項目（公開ページには表示されません）
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="ageLimit">年齢上限</Label>
+                <Input
+                  id="ageLimit"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={formData.ageLimit ?? ''}
+                  onChange={(e) => handleChange('ageLimit', e.target.value ? parseInt(e.target.value) : undefined)}
+                  placeholder="例: 65"
+                />
+              </div>
+              <div>
+                <Label htmlFor="ageNote">年齢補足</Label>
+                <Input
+                  id="ageNote"
+                  value={formData.ageNote || ''}
+                  onChange={(e) => handleChange('ageNote', e.target.value)}
+                  placeholder="例: 定年制のため"
+                />
+              </div>
+            </div>
+          </div>
 
         </CardContent>
       </Card>

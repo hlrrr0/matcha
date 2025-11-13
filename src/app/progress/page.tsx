@@ -450,7 +450,7 @@ function ProgressPageContent() {
             <CardContent>
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">
-                  <Label htmlFor="progress-search">検索</Label>
+                  <Label htmlFor="progress-search">求職者名・職種・企業名</Label>
                   <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -462,7 +462,8 @@ function ProgressPageContent() {
                     />
                   </div>
                 </div>
-                <div className="flex gap-4">
+                <div className="">
+                  <Label htmlFor="progress-status">ステータス</Label>
                   <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
                     <SelectTrigger className="w-[160px]">
                       <SelectValue placeholder="ステータス" />
@@ -477,19 +478,6 @@ function ProgressPageContent() {
                       <SelectItem value="accepted">承諾</SelectItem>
                       <SelectItem value="rejected">不採用</SelectItem>
                       <SelectItem value="withdrawn">辞退</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="企業" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">すべて</SelectItem>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.name}>
-                          {company.name}
-                        </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 </div>

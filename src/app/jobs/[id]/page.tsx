@@ -423,6 +423,30 @@ function JobDetailContent({ params }: JobDetailPageProps) {
             </Card>
           )}
 
+          {/* 年齢制限（管理用情報） */}
+          {(job.ageLimit || job.ageNote) && (
+            <Card className="bg-amber-50 border-amber-200">
+              <CardHeader>
+                <CardTitle className="text-amber-900">年齢制限（管理用情報）</CardTitle>
+                <p className="text-xs text-amber-700 mt-1">⚠️ この情報は公開ページには表示されません</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {job.ageLimit && (
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-1">年齢上限</h3>
+                    <p className="text-lg">{job.ageLimit}歳</p>
+                  </div>
+                )}
+                {job.ageNote && (
+                  <div>
+                    <h3 className="font-medium text-gray-700 mb-1">年齢補足</h3>
+                    <p className="whitespace-pre-wrap">{job.ageNote}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* 応募要件 */}
                     {job.requiredSkills && (
             <Card>

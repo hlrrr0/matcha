@@ -26,6 +26,10 @@ export interface Job {
   requiredSkills?: string                 // 求めるスキル（任意）
   jobDescription?: string                 // 職務内容（任意）
   
+  // 年齢制限（管理用・非公開）
+  ageLimit?: number                       // 年齢上限（任意）
+  ageNote?: string                        // 年齢補足（任意）
+  
   // 職場環境・福利厚生
   smokingPolicy?: string                  // 受動喫煙防止措置（任意）
   insurance?: string                      // 加入保険（任意）
