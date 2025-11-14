@@ -11,9 +11,11 @@ export interface Store {
   unitPriceLunch?: number        // 単価（昼）
   unitPriceDinner?: number       // 単価（夜）
   seatCount?: number             // 席数
-  isReservationRequired?: boolean // 予約制なのか（時間固定の）
+  isReservationRequired?: boolean // 予約制なのか(時間固定の)
   instagramUrl?: string          // Instagram URL
   tabelogUrl?: string           // 食べログURL
+  tabelogUrlException?: string   // 食べログURL例外理由（旅館/新店舗/その他）
+  tabelogUrlExceptionOther?: string // 食べログURL例外理由（その他の詳細）
   
   // 詳細セクション
   googleReviewScore?: string     // Googleの口コミスコア

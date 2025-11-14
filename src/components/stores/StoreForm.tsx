@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Save, Loader2, Plus, Minus } from 'lucide-react'
 import { Store } from '@/types/store'
 import { Company } from '@/types/company'
@@ -30,6 +31,7 @@ export default function StoreForm({
   const [companies, setCompanies] = useState<Company[]>([])
   const [loadingCompanies, setLoadingCompanies] = useState(true)
   const [additionalPhotosCount, setAdditionalPhotosCount] = useState(0)
+  const [tabelogUrlError, setTabelogUrlError] = useState<string>('')
   const [formData, setFormData] = useState<Partial<Store>>({
     companyId: '',
     name: '',
@@ -43,6 +45,8 @@ export default function StoreForm({
     isReservationRequired: false,
     instagramUrl: '',
     tabelogUrl: '',
+    tabelogUrlException: '',
+    tabelogUrlExceptionOther: '',
     googleReviewScore: '',
     tabelogScore: '',
     reputation: '',
@@ -76,6 +80,8 @@ export default function StoreForm({
         isReservationRequired: initialData.isReservationRequired || false,
         instagramUrl: initialData.instagramUrl || '',
         tabelogUrl: initialData.tabelogUrl || '',
+        tabelogUrlException: initialData.tabelogUrlException || '',
+        tabelogUrlExceptionOther: initialData.tabelogUrlExceptionOther || '',
         googleReviewScore: initialData.googleReviewScore || '',
         tabelogScore: initialData.tabelogScore || '',
         reputation: initialData.reputation || '',
@@ -132,6 +138,41 @@ export default function StoreForm({
       ...prev,
       [field]: value
     }))
+    
+    // 食べログURLの重複チェック
+    if (field === 'tabelogUrl' && value) {
+      checkTabelogUrlDuplicate(value)
+    } else if (field === 'tabelogUrl') {
+      setTabelogUrlError('')
+    }
+  }
+
+  const checkTabelogUrlDuplicate = async (url: string) => {
+    if (!url) {
+      setTabelogUrlError('')
+      return
+    }
+
+    try {
+      const storesQuery = query(
+        collection(db, 'stores'),
+        where('tabelogUrl', '==', url)
+      )
+      const storesSnapshot = await getDocs(storesQuery)
+      
+      // 編集モードの場合、自分自身は除外
+      const duplicates = storesSnapshot.docs.filter(doc => 
+        !isEdit || doc.id !== initialData.id
+      )
+      
+      if (duplicates.length > 0) {
+        setTabelogUrlError('この食べログURLは既に登録されています')
+      } else {
+        setTabelogUrlError('')
+      }
+    } catch (error) {
+      console.error('Error checking tabelog URL:', error)
+    }
   }
 
   const addPhotoField = () => {
@@ -176,6 +217,19 @@ export default function StoreForm({
     
     if (!formData.companyId || !formData.name) {
       alert('必須項目を入力してください')
+      return
+    }
+
+    // 食べログURLのバリデーション
+    const hasException = formData.tabelogUrlException
+    if (!hasException && !formData.tabelogUrl) {
+      alert('食べログURLを入力するか、例外理由を選択してください')
+      return
+    }
+
+    // 食べログURLの重複チェック
+    if (tabelogUrlError) {
+      alert('食べログURLが既に登録されています。別のURLを入力してください')
       return
     }
 
@@ -320,14 +374,91 @@ export default function StoreForm({
           </div>
 
           <div>
-            <Label htmlFor="tabelogUrl">食べログURL</Label>
+            <Label htmlFor="tabelogUrl">
+              食べログURL {!formData.tabelogUrlException && <span className="text-red-500">*</span>}
+            </Label>
             <Input
               id="tabelogUrl"
               type="url"
               value={formData.tabelogUrl || ''}
               onChange={(e) => handleChange('tabelogUrl', e.target.value)}
               placeholder="https://tabelog.com/..."
+              required={!formData.tabelogUrlException}
             />
+            {tabelogUrlError && (
+              <p className="text-sm text-red-500 mt-1">{tabelogUrlError}</p>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <Label>食べログURL例外理由（該当する場合のみチェック）</Label>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="exception-ryokan"
+                  checked={formData.tabelogUrlException === '旅館'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      handleChange('tabelogUrlException', '旅館')
+                      handleChange('tabelogUrlExceptionOther', '')
+                    } else {
+                      handleChange('tabelogUrlException', '')
+                    }
+                  }}
+                />
+                <Label htmlFor="exception-ryokan" className="font-normal cursor-pointer">
+                  旅館
+                </Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="exception-new-store"
+                  checked={formData.tabelogUrlException === '新店舗'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      handleChange('tabelogUrlException', '新店舗')
+                      handleChange('tabelogUrlExceptionOther', '')
+                    } else {
+                      handleChange('tabelogUrlException', '')
+                    }
+                  }}
+                />
+                <Label htmlFor="exception-new-store" className="font-normal cursor-pointer">
+                  新店舗
+                </Label>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="exception-other"
+                    checked={formData.tabelogUrlException === 'その他'}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        handleChange('tabelogUrlException', 'その他')
+                      } else {
+                        handleChange('tabelogUrlException', '')
+                        handleChange('tabelogUrlExceptionOther', '')
+                      }
+                    }}
+                  />
+                  <Label htmlFor="exception-other" className="font-normal cursor-pointer">
+                    その他
+                  </Label>
+                </div>
+                
+                {formData.tabelogUrlException === 'その他' && (
+                  <Input
+                    id="tabelogUrlExceptionOther"
+                    value={formData.tabelogUrlExceptionOther || ''}
+                    onChange={(e) => handleChange('tabelogUrlExceptionOther', e.target.value)}
+                    placeholder="理由を入力してください"
+                    className="ml-6"
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
         </CardContent>
