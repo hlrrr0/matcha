@@ -50,7 +50,7 @@ function JobDetailContent({ params }: JobDetailPageProps) {
   const [jobId, setJobId] = useState<string>('')
   const [job, setJob] = useState<Job | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
-  const [store, setStore] = useState<any | null>(null)
+  const [stores, setStores] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
   const [showPublicUrl, setShowPublicUrl] = useState(false)
 
@@ -74,12 +74,18 @@ function JobDetailContent({ params }: JobDetailPageProps) {
               }
             }
             
-            // 関連店舗の取得
-            if (jobData.storeId) {
-              const storeDoc = await getDoc(doc(db, 'stores', jobData.storeId))
-              if (storeDoc.exists()) {
-                setStore({ ...storeDoc.data(), id: jobData.storeId })
+            // 関連店舗の取得（複数対応）
+            const storesList: any[] = []
+            const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
+            
+            if (storeIds.length > 0) {
+              for (const storeId of storeIds) {
+                const storeDoc = await getDoc(doc(db, 'stores', storeId))
+                if (storeDoc.exists()) {
+                  storesList.push({ ...storeDoc.data(), id: storeId })
+                }
               }
+              setStores(storesList)
             }
             
             // 応募者の取得
@@ -389,7 +395,23 @@ function JobDetailContent({ params }: JobDetailPageProps) {
                   <MapPin className="h-4 w-4" />
                   勤務地
                 </h3>
-                <p className="mt-1">{store?.name || '本社勤務'}</p>
+                {stores.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    {stores.map((store, index) => (
+                      <div key={store.id} className="flex items-center gap-2">
+                        <Badge variant="outline">{index + 1}</Badge>
+                        <div>
+                          <p className="font-medium">{store.name}</p>
+                          {store.address && (
+                            <p className="text-sm text-gray-600">{store.address}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1">本社勤務</p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,17 +522,21 @@ function JobDetailContent({ params }: JobDetailPageProps) {
                 </div>
               )}
 
-              {store && (
+              {stores.length > 0 && (
                 <div>
                   <h3 className="font-medium text-gray-700 flex items-center gap-2">
                     <Store className="h-4 w-4" />
-                    店舗
+                    店舗 ({stores.length}件)
                   </h3>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span>{store.name}</span>
-                    <Link href={`/stores/${store.id}`}>
-                      <Button variant="outline" size="sm">詳細</Button>
-                    </Link>
+                  <div className="mt-2 space-y-2">
+                    {stores.map((store) => (
+                      <div key={store.id} className="flex items-center justify-between">
+                        <span className="text-sm">{store.name}</span>
+                        <Link href={`/stores/${store.id}`}>
+                          <Button variant="outline" size="sm">詳細</Button>
+                        </Link>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

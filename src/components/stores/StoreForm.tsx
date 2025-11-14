@@ -33,6 +33,7 @@ export default function StoreForm({
   const [formData, setFormData] = useState<Partial<Store>>({
     companyId: '',
     name: '',
+    businessType: '',
     address: '',
     nearestStation: '',
     website: '',
@@ -65,6 +66,7 @@ export default function StoreForm({
       setFormData({
         companyId: initialData.companyId || '',
         name: initialData.name || '',
+        businessType: initialData.businessType || '',
         address: initialData.address || '',
         nearestStation: initialData.nearestStation || '',
         website: initialData.website || '',
@@ -258,6 +260,16 @@ export default function StoreForm({
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="例: 寿司松 本店"
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="businessType">業態</Label>
+            <Input
+              id="businessType"
+              value={formData.businessType || ''}
+              onChange={(e) => handleChange('businessType', e.target.value)}
+              placeholder="例: 江戸前寿司、回転寿司、立ち食い寿司"
             />
           </div>
 

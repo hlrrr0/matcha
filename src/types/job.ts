@@ -5,7 +5,8 @@ export interface Job {
   
   // 関連ID
   companyId: string                       // 企業ID
-  storeId?: string                        // 店舗ID（任意）
+  storeIds?: string[]                     // 店舗ID配列（任意・複数店舗対応）
+  storeId?: string                        // 店舗ID（任意・後方互換性のため残す）
   
   // 基本情報
   title: string                           // 職種名（必須）

@@ -319,11 +319,19 @@ function JobsPageContent() {
   }
 
   const getAddress = (job: Job) => {
-    // 店舗が紐付いている場合は店舗の住所
-    if (job.storeId) {
-      const store = stores.find(s => s.id === job.storeId)
-      if (store?.address) return store.address
+    // 複数店舗に対応: storeIdsまたはstoreIdから店舗を取得
+    const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+    
+    if (storeIds.length > 0) {
+      const firstStore = stores.find(s => s.id === storeIds[0])
+      if (firstStore?.address) {
+        // 複数店舗の場合は件数も表示
+        return storeIds.length > 1 
+          ? `${firstStore.address} 他${storeIds.length - 1}店舗`
+          : firstStore.address
+      }
     }
+    
     // 店舗が紐付いていない場合は企業の住所
     const company = companies.find(c => c.id === job.companyId)
     return company?.address || '-'
@@ -332,18 +340,25 @@ function JobsPageContent() {
   // フィルタリングされた求人リストをuseMemoで計算
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
-      const store = stores.find(s => s.id === job.storeId)
+      // 複数店舗対応: 最初の店舗を使用
+      const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+      const store = storeIds.length > 0 ? stores.find(s => s.id === storeIds[0]) : undefined
       const company = companies.find(c => c.id === job.companyId)
       
       // 住所の検索: 店舗の住所がある場合はそれを、ない場合は企業の住所を検索対象に含める
-      const addressMatch = job.storeId 
-        ? (store?.address && store.address.toLowerCase().includes(searchTerm.toLowerCase()))
+      const addressMatch = store?.address 
+        ? store.address.toLowerCase().includes(searchTerm.toLowerCase())
         : (company?.address && company.address.toLowerCase().includes(searchTerm.toLowerCase()))
+      
+      // 店舗名の検索（複数店舗の場合はいずれかにマッチすれば可）
+      const storeNameMatch = storeIds.some(storeId => 
+        getStoreName(storeId).toLowerCase().includes(searchTerm.toLowerCase())
+      )
       
       const matchesSearch = (job.title && job.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            (job.jobDescription && job.jobDescription.toLowerCase().includes(searchTerm.toLowerCase())) ||
                            getCompanyName(job.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           getStoreName(job.storeId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           storeNameMatch ||
                            addressMatch ||
                            (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
       
@@ -362,9 +377,9 @@ function JobsPageContent() {
         }
       }
 
-      // 店舗条件フィルター（店舗がある求人のみ）
+      // 店舗条件フィルター（店舗がある求人のみ・最初の店舗を使用）
       let matchesStoreConditions = true
-      if (job.storeId && store) {
+      if (store) {
         // ランチ単価の範囲チェック
         if (unitPriceLunchMin && store.unitPriceLunch) {
           matchesStoreConditions = matchesStoreConditions && store.unitPriceLunch >= parseInt(unitPriceLunchMin)

@@ -52,7 +52,7 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
     }
 
     let companyName = ''
-    let storeName = ''
+    let storeNames: string[] = []
 
     // 関連企業の取得
     if (jobData.companyId) {
@@ -63,26 +63,32 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
       }
     }
 
-    // 関連店舗の取得
-    if (jobData.storeId) {
-      const storeDoc = await getDoc(doc(db, 'stores', jobData.storeId))
-      if (storeDoc.exists()) {
-        const storeData = storeDoc.data() as StoreType
-        storeName = storeData.name || ''
+    // 関連店舗の取得（複数対応）
+    const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
+    if (storeIds.length > 0) {
+      for (const storeId of storeIds) {
+        const storeDoc = await getDoc(doc(db, 'stores', storeId))
+        if (storeDoc.exists()) {
+          const storeData = storeDoc.data() as StoreType
+          if (storeData.name) {
+            storeNames.push(storeData.name)
+          }
+        }
       }
     }
 
     // タイトルの構築: "{企業名} - {店舗名} - {求人名}"
     const titleParts = []
     if (companyName) titleParts.push(companyName)
-    if (storeName) titleParts.push(storeName)
+    if (storeNames.length > 0) titleParts.push(storeNames[0]) // 最初の店舗名のみ
     if (jobData.title) titleParts.push(jobData.title)
     
     const title = titleParts.length > 0 ? titleParts.join(' - ') : '求人情報'
+    const storeNamesText = storeNames.length > 0 ? ` ${storeNames.join('、')}` : ''
     
     return {
       title,
-      description: jobData.jobDescription || `${companyName}${storeName ? ` ${storeName}` : ''}の求人情報です。`,
+      description: jobData.jobDescription || `${companyName}${storeNamesText}の求人情報です。`,
       robots: {
         index: false,
         follow: false,
@@ -93,7 +99,7 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
       },
       openGraph: {
         title,
-        description: jobData.jobDescription || `${companyName}${storeName ? ` ${storeName}` : ''}の求人情報です。`,
+        description: jobData.jobDescription || `${companyName}${storeNamesText}の求人情報です。`,
         type: 'website',
       },
     }

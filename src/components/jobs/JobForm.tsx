@@ -34,7 +34,7 @@ export default function JobForm({
   
   const [formData, setFormData] = useState<Partial<Job>>({
     companyId: '',
-    storeId: 'none',
+    storeIds: [],
     title: '',
     businessType: '',
     employmentType: '',
@@ -60,9 +60,11 @@ export default function JobForm({
     if (Object.keys(initialData).length > 0) {
       // 初期データを設定（loadingDataの状態に関係なく）
       console.log('JobForm: Setting initial data:', initialData)
+      // 既存のstoreIdがあればstoreIdsに変換
+      const storeIds = initialData.storeIds || (initialData.storeId ? [initialData.storeId] : [])
       setFormData({
         companyId: initialData.companyId || '',
-        storeId: initialData.storeId || 'none',
+        storeIds: storeIds,
         title: initialData.title || '',
         businessType: initialData.businessType || '',
         employmentType: initialData.employmentType || '',
@@ -91,10 +93,11 @@ export default function JobForm({
   useEffect(() => {
     if (!loadingData && Object.keys(initialData).length > 0) {
       console.log('JobForm: Re-setting initial data after data load:', initialData)
+      const storeIds = initialData.storeIds || (initialData.storeId ? [initialData.storeId] : [])
       setFormData(prev => ({
         ...prev,
         companyId: initialData.companyId || prev.companyId,
-        storeId: initialData.storeId || prev.storeId,
+        storeIds: storeIds,
       }))
     }
   }, [loadingData, initialData])
@@ -327,7 +330,7 @@ export default function JobForm({
                 onValueChange={(value) => {
                     handleChange('companyId', value)
                     // 企業変更時は店舗もリセット
-                    handleChange('storeId', 'none')
+                    handleChange('storeIds', [])
                 }}
                 >
                 <SelectTrigger>
@@ -344,23 +347,37 @@ export default function JobForm({
             </div>
 
             <div>
-                <Label htmlFor="storeId">店舗</Label>
-                <Select 
-                value={formData.storeId || 'none'} 
-                onValueChange={(value) => handleChange('storeId', value === 'none' ? undefined : value)}
-                >
-                <SelectTrigger>
-                    <SelectValue placeholder="店舗を選択してください（任意）" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="none">店舗を指定しない</SelectItem>
-                    {filteredStores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                        {store.name}
-                    </SelectItem>
-                    ))}
-                </SelectContent>
-                </Select>
+                <Label htmlFor="storeIds">店舗（複数選択可）</Label>
+                <div className="space-y-2 mt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                  {filteredStores.length === 0 ? (
+                    <p className="text-sm text-gray-500">企業を選択すると店舗が表示されます</p>
+                  ) : (
+                    filteredStores.map((store) => (
+                      <div key={store.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`store-${store.id}`}
+                          checked={formData.storeIds?.includes(store.id) || false}
+                          onCheckedChange={(checked) => {
+                            const currentStoreIds = formData.storeIds || []
+                            if (checked) {
+                              handleChange('storeIds', [...currentStoreIds, store.id])
+                            } else {
+                              handleChange('storeIds', currentStoreIds.filter(id => id !== store.id))
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`store-${store.id}`} className="text-sm font-normal cursor-pointer">
+                          {store.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {formData.storeIds && formData.storeIds.length > 0 && (
+                  <p className="text-sm text-gray-600 mt-2">
+                    {formData.storeIds.length}店舗選択中
+                  </p>
+                )}
             </div>
         </div>
 

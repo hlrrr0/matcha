@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import SimpleTranslate from '@/components/SimpleTranslate'
 import { 
   Briefcase, 
@@ -41,7 +42,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
   const [jobId, setJobId] = useState<string>('')
   const [job, setJob] = useState<Job | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
-  const [store, setStore] = useState<StoreType | null>(null)
+  const [stores, setStores] = useState<StoreType[]>([])
   const [modalImage, setModalImage] = useState<{ src: string; alt: string } | null>(null)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlay, setIsAutoPlay] = useState(true)
@@ -74,12 +75,18 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
               }
             }
             
-            // 関連店舗の取得
-            if (jobData.storeId) {
-              const storeDoc = await getDoc(doc(db, 'stores', jobData.storeId))
-              if (storeDoc.exists()) {
-                setStore({ ...storeDoc.data() as StoreType, id: jobData.storeId })
+            // 関連店舗の取得（複数対応）
+            const storesList: StoreType[] = []
+            const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
+            
+            if (storeIds.length > 0) {
+              for (const storeId of storeIds) {
+                const storeDoc = await getDoc(doc(db, 'stores', storeId))
+                if (storeDoc.exists()) {
+                  storesList.push({ ...storeDoc.data() as StoreType, id: storeId })
+                }
               }
+              setStores(storesList)
             }
           } else {
             setJob(null)
@@ -98,11 +105,11 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
     initializeComponent()
   }, [params, router])
 
-  // 自動再生機能
+  // 自動再生機能（最初の店舗の写真のみ）
   useEffect(() => {
-    if (!isAutoPlay || !store) return
+    if (!isAutoPlay || stores.length === 0) return
     
-    const images = getStoreImages(store)
+    const images = getStoreImages(stores[0])
     if (images.length <= 1) return
 
     const interval = setInterval(() => {
@@ -110,7 +117,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
     }, 4000) // 4秒ごとに自動スライド
 
     return () => clearInterval(interval)
-  }, [isAutoPlay, store, currentSlide])
+  }, [isAutoPlay, stores, currentSlide])
 
   // 日時をフォーマットする関数
   const formatDateTime = (dateValue: any) => {
@@ -214,7 +221,8 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
 
   // スライダーナビゲーション関数
   const nextSlide = () => {
-    const images = getStoreImages(store)
+    if (stores.length === 0) return
+    const images = getStoreImages(stores[0])
     setCurrentSlide((prev) => (prev + 1) % images.length)
     // 自動再生は継続（自動再生での使用のため）
   }
@@ -270,12 +278,12 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
       </header>
       
       <div className="container mx-auto px-4 py-6">
-        {/* 写真スライダー */}
-        {store && getStoreImages(store).length > 0 && (
+        {/* 写真スライダー（最初の店舗の写真のみ表示） */}
+        {stores.length > 0 && getStoreImages(stores[0]).length > 0 && (
           <Card className="mb-6 overflow-hidden">
             <CardContent className="p-0">
               {(() => {
-                const images = getStoreImages(store)
+                const images = getStoreImages(stores[0])
                 return (
                   <div className="relative">
                     {/* メイン画像 */}
@@ -375,42 +383,80 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
 
                 <Separator />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-medium text-gray-700 flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      勤務地
-                    </h3>
-                    <p className="mt-1">{store?.name || company?.name || '勤務地情報なし'}</p>
-                    {store?.address && (
-                      <p className="text-gray-600 text-sm mt-1">{store.address}</p>
-                    )}
-                  </div>
-                  {store?.nearestStation && (
-                    <div>
-                      <h3 className="font-medium text-gray-700 flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        最寄り駅
-                      </h3>
-                      <p className="mt-1">{store.nearestStation}</p>
+                {/* 勤務地・最寄り駅（複数店舗対応） */}
+                <div>
+                  <h3 className="font-medium text-gray-700 flex items-center gap-2 mb-3">
+                    <MapPin className="h-4 w-4" />
+                    勤務地・最寄り駅
+                  </h3>
+                  {stores.length === 0 ? (
+                    <p className="text-gray-600">{company?.name || '勤務地情報なし'}</p>
+                  ) : stores.length === 1 ? (
+                    // 1店舗の場合は通常表示
+                    <div className="space-y-2">
+                      <div>
+                        <p className="font-medium">{stores[0].name}</p>
+                        {stores[0].address && (
+                          <p className="text-gray-600 text-sm">{stores[0].address}</p>
+                        )}
+                      </div>
+                      {stores[0].nearestStation && (
+                        <div>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                            <span className="font-medium">最寄り駅:</span> {stores[0].nearestStation}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // 複数店舗の場合は1店舗目を表示、残りはアコーディオン
+                    <div className="space-y-3">
+                      {/* 参考店舗（1店舗目） */}
+                      <div className="border-l-4 border-blue-500 pl-3">
+                        <p className="text-xs text-gray-500 mb-1">参考店舗</p>
+                        <p className="font-medium">{stores[0].name}</p>
+                        {stores[0].address && (
+                          <p className="text-gray-600 text-sm">{stores[0].address}</p>
+                        )}
+                        {stores[0].nearestStation && (
+                          <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                            <span className="font-medium">最寄り駅:</span> {stores[0].nearestStation}
+                          </p>
+                        )}
+                      </div>
+                      
+                      {/* その他の店舗（アコーディオン） */}
+                      <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="other-stores">
+                          <AccordionTrigger className="text-sm">
+                            その他の勤務可能店舗 ({stores.length - 1}店舗)
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-3 pt-2">
+                              {stores.slice(1).map((store, index) => (
+                                <div key={store.id} className="border-l-2 border-gray-300 pl-3">
+                                  <p className="font-medium">{store.name}</p>
+                                  {store.address && (
+                                    <p className="text-gray-600 text-sm">{store.address}</p>
+                                  )}
+                                  {store.nearestStation && (
+                                    <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
+                                      <span className="font-medium">最寄り駅:</span> {store.nearestStation}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
                     </div>
                   )}
                 </div>
-                {/* 業態 */}
-                {job.businessType && (
-                  <>
-                    <Separator />
-                    <div>
-                      <h3 className="font-medium text-gray-700">業態</h3>
-                      <p className="mt-1">{job.businessType}</p>
-                    </div>
-                  </>
-                )}
 
                 {/* 職務内容 */}
                 {job.jobDescription && (
                   <>
-                    <Separator />
                     <div>
                       <h3 className="font-medium text-gray-700">職務内容</h3>
                       <p className="mt-1 whitespace-pre-wrap">{job.jobDescription}</p>
@@ -428,43 +474,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                     </div>
                   </>
                 )}
-                <Separator />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {store?.trainingPeriod && (
-                    <>
-                      <div>
-                        <h4 className="font-medium text-gray-700 mb-2">握れるまでのおおよその期間</h4>
-                        <p className="text-sm text-gray-600">{store.trainingPeriod}</p>
-                      </div>
-                    </>
-                  )}
-                  
-                  {/* 店舗基本情報 */}
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-700 mb-2">店舗情報</h4>
-                    <ul>
-                      {(store?.unitPriceLunch || store?.unitPriceDinner) && (
-                        <li className="text-sm text-gray-600">
-                          客単価: 
-                          {store.unitPriceLunch && ` 昼 ${store.unitPriceLunch}円`}
-                          {store.unitPriceLunch && store.unitPriceDinner && ' / '}
-                          {store.unitPriceDinner && ` 夜 ${store.unitPriceDinner}円`}
-                        </li>
-                      )}
-                      {store?.seatCount && (
-                        <li className="text-sm text-gray-600">
-                          座席数: {store.seatCount}席
-                        </li>
-                      )}
-
-                      {store?.isReservationRequired !== undefined && (
-                        <li className="text-sm text-gray-600">
-                          予約: {store.isReservationRequired ? '必要' : '不要'}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
+                
                 {/* 企業特徴 */}
                 {(company?.feature1 || company?.feature2 || company?.feature3) && (
                   <>
@@ -473,13 +483,13 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                       <h4 className="font-medium text-gray-700 mb-2">企業特徴</h4>
                       <div className="space-y-1">
                         {company?.feature1 && (
-                          <p className="text-sm text-gray-600"> ①{company.feature1}</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap"> ①{company.feature1}</p>
                         )}
                         {company?.feature2 && (
-                          <p className="text-sm text-gray-600"> ②{company.feature2}</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap"> ②{company.feature2}</p>
                         )}
                         {company?.feature3 && (
-                          <p className="text-sm text-gray-600"> ③{company.feature3}</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap"> ③{company.feature3}</p>
                         )}
                       </div>
                     </div>
@@ -626,84 +636,189 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
 
           {/* サイドバー */}
           <div className="space-y-6">
-          {/* 店舗情報 */}
-            {store && (
+          {/* 店舗情報（参考店舗のみ表示） */}
+            {stores.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Store className="h-5 w-5" />
-                    店舗情報
+                    店舗情報{stores.length > 1 && ' (参考店舗)'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 px-4 md:px-6">
-
-
+               {/* 店舗情報（複数店舗対応） */}
+                {stores.length > 0 && (
+                  <div>
+                    {/* 参考店舗（1店舗目） */}
+                    <div className="border-l-4 border-blue-500 pl-3 mb-3">
+                      {stores.length > 1 && (
+                        <p className="text-xs text-gray-500 mb-2">参考店舗</p>
+                      )}
+                      <p className="font-medium text-base mb-3">{stores[0].name}</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                        {stores[0].trainingPeriod && (
+                          <div>
+                            <h4 className="font-medium text-gray-700 text-sm mb-1">握れるまでのおおよその期間</h4>
+                            <p className="text-sm text-gray-600">{stores[0].trainingPeriod}</p>
+                          </div>
+                        )}
+                        
+                        {/* 店舗基本情報 */}
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-gray-700 text-sm mb-1">基本情報</h4>
+                          <ul className="space-y-1">
+                            {stores[0].businessType && (
+                              <li className="text-sm text-gray-600">
+                                業態: {stores[0].businessType}
+                              </li>
+                            )}
+                            {(stores[0].unitPriceLunch || stores[0].unitPriceDinner) && (
+                              <li className="text-sm text-gray-600">
+                                客単価: 
+                                {stores[0].unitPriceLunch && ` 昼 ${stores[0].unitPriceLunch}円`}
+                                {stores[0].unitPriceLunch && stores[0].unitPriceDinner && ' / '}
+                                {stores[0].unitPriceDinner && ` 夜 ${stores[0].unitPriceDinner}円`}
+                              </li>
+                            )}
+                            {stores[0].seatCount && (
+                              <li className="text-sm text-gray-600">
+                                座席数: {stores[0].seatCount}席
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* その他の店舗情報（アコーディオン） */}
+                    {stores.length > 1 && (
+                      <Accordion type="single" collapsible className="w-full">
+                        <AccordionItem value="other-stores-info">
+                          <AccordionTrigger className="text-sm">
+                            その他の店舗情報 ({stores.length - 1}店舗)
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-4 pt-2">
+                              {stores.slice(1).map((store, index) => (
+                                <div key={store.id} className="border-l-2 border-gray-300 pl-3 pb-3">
+                                  <p className="font-medium text-base mb-3">{store.name}</p>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {store.trainingPeriod && (
+                                      <div>
+                                        <h4 className="font-medium text-gray-700 text-sm mb-1">握れるまでのおおよその期間</h4>
+                                        <p className="text-sm text-gray-600">{store.trainingPeriod}</p>
+                                      </div>
+                                    )}
+                                    
+                                    {/* 店舗基本情報 */}
+                                    {(store.businessType || store.unitPriceLunch || store.unitPriceDinner || store.seatCount || store.isReservationRequired !== undefined) && (
+                                      <div className="space-y-2">
+                                        <h4 className="font-medium text-gray-700 text-sm mb-1">基本情報</h4>
+                                        <ul className="space-y-1">
+                                          {store.businessType && (
+                                            <li className="text-sm text-gray-600">
+                                              業態: {store.businessType}
+                                            </li>
+                                          )}
+                                          {(store.unitPriceLunch || store.unitPriceDinner) && (
+                                            <li className="text-sm text-gray-600">
+                                              客単価: 
+                                              {store.unitPriceLunch && ` 昼 ${store.unitPriceLunch}円`}
+                                              {store.unitPriceLunch && store.unitPriceDinner && ' / '}
+                                              {store.unitPriceDinner && ` 夜 ${store.unitPriceDinner}円`}
+                                            </li>
+                                          )}
+                                          {store.seatCount && (
+                                            <li className="text-sm text-gray-600">
+                                              座席数: {store.seatCount}席
+                                            </li>
+                                          )}
+                                          {store.isReservationRequired !== undefined && (
+                                            <li className="text-sm text-gray-600">
+                                              予約: {store.isReservationRequired ? '必要' : '不要'}
+                                            </li>
+                                          )}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    )}
+                  </div>
+                )}
                   {/* SNS・口コミ情報 */}
                   <div className="space-y-2">
                     <div className="grid grid-cols-1gap-4">
                       <div className="py-2">
-                        {store?.website && (
+                        {stores[0].website && (
                           <p className="text-sm text-gray-600 flex items-center gap-2">
                             <Globe className="h-3 w-3" />
-                            <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            <a href={stores[0].website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               店舗ウェブサイト
                             </a>
                           </p>
                         )}
-                        {store?.instagramUrl && (
+                        {stores[0].instagramUrl && (
                           <p className="text-sm text-gray-600 flex items-center gap-2">
-                            📷 <a href={store.instagramUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            📷 <a href={stores[0].instagramUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               Instagram
                             </a>
                           </p>
                         )}
-                        {store?.tabelogUrl && (
+                        {stores[0].tabelogUrl && (
                           <p className="text-sm text-gray-600 flex items-center gap-2">
-                            🍽️ <a href={store.tabelogUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            🍽️ <a href={stores[0].tabelogUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               食べログ
                             </a>
                           </p>
                         )}
                       </div>
                       <div>
-                        {store?.tabelogScore && (
+                        {stores[0].tabelogScore && (
                           <div className="mb-2">
                             <h4 className="font-medium text-gray-700 text-sm mb-1 flex items-center gap-2">
                               <Star className="h-3 w-3 text-yellow-500" />
                               食べログスコア
                             </h4>
-                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{store.tabelogScore}</p>
+                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{stores[0].tabelogScore}</p>
                           </div>
                         )}
-                        {store?.googleReviewScore && (
+                        {stores[0].googleReviewScore && (
                           <div className="mb-2">
                             <h4 className="font-medium text-gray-700 text-sm mb-1 flex items-center gap-2">
                               <Star className="h-3 w-3 text-yellow-500" />
                               Google口コミスコア
                             </h4>
-                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{store?.googleReviewScore}</p>
+                            <p className="text-sm text-gray-600 whitespace-pre-wrap">{stores[0].googleReviewScore}</p>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
                   {/* 評判・その他情報 */}
-                  {store?.reputation && (
+                  {stores[0].reputation && (
                     <>
                       <Separator />
                       <div>
                         <h4 className="font-medium text-gray-700 mb-2">その他 / ミシュランなどの獲得状況等の実績</h4>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{store?.reputation}</p>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{stores[0].reputation}</p>
                       </div>
                     </>
                   )}
 
-                  {store?.staffReview && (
+                  {stores[0].staffReview && (
                     <>
                       <Separator />
                       <div>
                         <h4 className="font-medium text-gray-700 mb-2">スタッフからの評価</h4>
-                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{store.staffReview}</p>
+                        <p className="text-sm text-gray-600 whitespace-pre-wrap">{stores[0].staffReview}</p>
                       </div>
                     </>
                   )}
@@ -720,26 +835,26 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                       }
                       
                       // オーナー写真
-                      if (store?.ownerPhoto) {
-                        allPhotos.push({ src: store.ownerPhoto, alt: 'オーナー写真' })
+                      if (stores[0].ownerPhoto) {
+                        allPhotos.push({ src: stores[0].ownerPhoto, alt: 'オーナー写真' })
                       }
                       
                       // 店内写真
-                      if (store?.interiorPhoto) {
-                        allPhotos.push({ src: store.interiorPhoto, alt: '店内写真' })
+                      if (stores[0].interiorPhoto) {
+                        allPhotos.push({ src: stores[0].interiorPhoto, alt: '店内写真' })
                       }
                       
                       // 素材写真 1-7
-                      if (store?.photo1) allPhotos.push({ src: store.photo1, alt: '素材写真1' })
-                      if (store?.photo2) allPhotos.push({ src: store.photo2, alt: '素材写真2' })
-                      if (store?.photo3) allPhotos.push({ src: store.photo3, alt: '素材写真3' })
-                      if (store?.photo4) allPhotos.push({ src: store.photo4, alt: '素材写真4' })
-                      if (store?.photo5) allPhotos.push({ src: store.photo5, alt: '素材写真5' })
-                      if (store?.photo6) allPhotos.push({ src: store.photo6, alt: '素材写真6' })
-                      if (store?.photo7) allPhotos.push({ src: store.photo7, alt: '素材写真7' })
+                      if (stores[0].photo1) allPhotos.push({ src: stores[0].photo1, alt: '素材写真1' })
+                      if (stores[0].photo2) allPhotos.push({ src: stores[0].photo2, alt: '素材写真2' })
+                      if (stores[0].photo3) allPhotos.push({ src: stores[0].photo3, alt: '素材写真3' })
+                      if (stores[0].photo4) allPhotos.push({ src: stores[0].photo4, alt: '素材写真4' })
+                      if (stores[0].photo5) allPhotos.push({ src: stores[0].photo5, alt: '素材写真5' })
+                      if (stores[0].photo6) allPhotos.push({ src: stores[0].photo6, alt: '素材写真6' })
+                      if (stores[0].photo7) allPhotos.push({ src: stores[0].photo7, alt: '素材写真7' })
                       
                       // デバッグ用ログ
-                      console.log('写真データ:', { allPhotos, store, company })
+                      console.log('写真データ:', { allPhotos, stores, company })
                       
                       // テスト用: 写真がない場合はプレースホルダーを追加
                       if (allPhotos.length === 0) {
@@ -784,7 +899,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                     })()}
 
                     {/* オーナー動画 */}
-                    {store?.ownerVideo && (
+                    {stores[0].ownerVideo && (
                       <>
                         <Separator />
                         <div>
@@ -794,7 +909,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                           </h4>
                           <div className="bg-gray-50 rounded-lg p-3 border hover:bg-gray-100 transition-colors duration-200">
                             <a
-                              href={store.ownerVideo}
+                              href={stores[0].ownerVideo}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="block"

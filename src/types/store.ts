@@ -4,6 +4,7 @@ export interface Store {
   
   // 基本情報
   name: string                   // 店舗名
+  businessType?: string          // 業態
   address?: string               // 店舗住所
   nearestStation?: string        // 最寄り駅
   website?: string               // 店舗URL
