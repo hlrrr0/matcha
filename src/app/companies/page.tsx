@@ -545,7 +545,9 @@ function CompaniesPageContent() {
                            (dominoFilter === 'not_connected' && !company.dominoId)
       
       // 担当者フィルター
-      const matchesConsultant = consultantFilter === 'all' || company.consultantId === consultantFilter
+      const matchesConsultant = consultantFilter === 'all' || 
+                               company.consultantId === consultantFilter ||
+                               (consultantFilter === 'unassigned' && (!company.consultantId || company.consultantId === ''))
       
       return matchesSearch && matchesStatus && matchesSize && matchesDomino && matchesConsultant
     })
@@ -850,6 +852,7 @@ function CompaniesPageContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">すべての担当者</SelectItem>
+                  <SelectItem value="unassigned">未設定</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.displayName || user.email}

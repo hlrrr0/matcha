@@ -48,6 +48,13 @@ const statusColors = {
   withdrawn: 'bg-gray-100 text-gray-800'
 }
 
+const campusColors = {
+  tokyo: 'bg-blue-100 text-blue-800 border-blue-200',
+  osaka: 'bg-orange-100 text-orange-800 border-orange-200',
+  awaji: 'bg-green-100 text-green-800 border-green-200',
+  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+}
+
 interface MatchWithDetails extends Match {
   jobTitle?: string
   companyName?: string
@@ -436,7 +443,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">入学校舎 / 入学年月</label>
-                  <p className="mt-1">{candidate.campus ? campusLabels[candidate.campus] : '未登録'} / {candidate.enrollmentDate || '未登録'}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {candidate.campus ? (
+                      <Badge className={`${campusColors[candidate.campus]} border font-medium`}>
+                        {campusLabels[candidate.campus]}
+                      </Badge>
+                    ) : (
+                      <span>未登録</span>
+                    )}
+                    <span>/</span>
+                    <span>{candidate.enrollmentDate || '未登録'}</span>
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">最寄り駅</label>

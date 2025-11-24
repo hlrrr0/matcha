@@ -40,9 +40,6 @@ export default function Header() {
           
           {user && (
             <nav className="flex items-center gap-4">
-              <Link href="/candidates">
-                <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50">求職者</Button>
-              </Link>
               <Link href="/companies">
                 <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">企業</Button>
               </Link>
@@ -51,6 +48,9 @@ export default function Header() {
               </Link>
               <Link href="/jobs">
                 <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">求人</Button>
+              </Link>
+              <Link href="/candidates">
+                <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50">求職者</Button>
               </Link>
               <Link href="/progress">
                 <Button variant="ghost" className="text-orange-800 hover:text-orange-900 hover:bg-orange-50">進捗管理</Button>

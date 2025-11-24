@@ -48,6 +48,13 @@ interface MatchWithDetails extends Match {
   storeId?: string
 }
 
+const campusColors = {
+  tokyo: 'bg-blue-100 text-blue-800 border-blue-200',
+  osaka: 'bg-orange-100 text-orange-800 border-orange-200',
+  awaji: 'bg-green-100 text-green-800 border-green-200',
+  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+}
+
 function ProgressPageContent() {
   const { user, isAdmin } = useAuth()
   const searchParams = useSearchParams()
@@ -1034,7 +1041,7 @@ function ProgressPageContent() {
                                   </span>
                                 )}
                                 {candidate.campus && (
-                                  <Badge variant="secondary" className="text-xs">
+                                  <Badge className={`${campusColors[candidate.campus]} border text-xs font-medium`}>
                                     {campusLabels[candidate.campus]}
                                   </Badge>
                                 )}

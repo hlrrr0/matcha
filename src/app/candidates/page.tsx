@@ -43,6 +43,13 @@ interface CandidateWithProgress extends Candidate {
   activeProgressCount?: number
 }
 
+const campusColors = {
+  tokyo: 'bg-blue-100 text-blue-800 border-blue-200',
+  osaka: 'bg-orange-100 text-orange-800 border-orange-200',
+  awaji: 'bg-green-100 text-green-800 border-green-200',
+  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+}
+
 export default function CandidatesPage() {
   const router = useRouter()
   const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
@@ -234,9 +241,7 @@ export default function CandidatesPage() {
   const getStatusBadge = (status: Candidate['status']) => {
     const variants = {
       active: 'default',
-      inactive: 'secondary',
-      placed: 'default',
-      interviewing: 'outline'
+      inactive: 'secondary'
     } as const
 
     return (
@@ -382,24 +387,12 @@ export default function CandidatesPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                就職済み
-              </CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.byStatus?.placed || 0}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                面接中
+                非アクティブ
               </CardTitle>
               <UserX className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats?.byStatus?.interviewing || 0}</div>
+              <div className="text-2xl font-bold">{stats?.byStatus?.inactive || 0}</div>
             </CardContent>
           </Card>
         </div>
@@ -440,8 +433,6 @@ export default function CandidatesPage() {
                   <SelectItem value="all">すべて</SelectItem>
                   <SelectItem value="active">アクティブ</SelectItem>
                   <SelectItem value="inactive">非アクティブ</SelectItem>
-                  <SelectItem value="placed">就職済み</SelectItem>
-                  <SelectItem value="interviewing">面接中</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -464,13 +455,17 @@ export default function CandidatesPage() {
                 <TableHead>名前</TableHead>
                 <TableHead>入学年月|校舎</TableHead>
                 <TableHead>ステータス</TableHead>
+                <TableHead>進捗</TableHead>
                 <TableHead>更新日</TableHead>
                 <TableHead className="w-24">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCandidates.map((candidate) => (
-                <TableRow key={candidate.id}>
+                <TableRow 
+                  key={candidate.id}
+                  className={candidate.status === 'inactive' ? 'bg-gray-100' : ''}
+                >
                   <TableCell>
                     <div>
                       <div className="font-medium">
@@ -491,15 +486,30 @@ export default function CandidatesPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>
+                    <div className="space-y-1">
                       <div className="text-sm">{candidate.enrollmentDate || '未登録'}</div>
-                      <div className="text-sm text-gray-500">
-                        {candidate.campus ? campusLabels[candidate.campus] : '校舎未登録'}
-                      </div>
+                      {candidate.campus ? (
+                        <Badge className={`${campusColors[candidate.campus]} border text-xs font-medium`}>
+                          {campusLabels[candidate.campus]}
+                        </Badge>
+                      ) : (
+                        <div className="text-sm text-gray-500">校舎未登録</div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(candidate.status)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {progressLoading ? (
+                        <span className="text-sm text-gray-500">...</span>
+                      ) : (
+                        <Badge variant="outline" className="font-mono">
+                          {candidate.activeProgressCount || 0}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {new Date(candidate.updatedAt).toLocaleDateString('ja-JP')}
