@@ -98,10 +98,10 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
         let campus: Candidate['campus'] = ''
         if (row['入学校舎']) {
           const campusMap: Record<string, Candidate['campus']> = {
-            '本店（代々木）': 'honten',
             '東京校': 'tokyo',
             '大阪校': 'osaka',
-            '名古屋校': 'nagoya'
+            '淡路校': 'awaji',
+            '福岡校': 'fukuoka'
           }
           campus = campusMap[row['入学校舎']] || ''
         }
@@ -246,7 +246,7 @@ export const generateCandidatesCSVTemplate = (): string => {
     '090-1234-5678',
     '2000-04-01',
     '2023-04',
-    '本店（代々木）',
+    '東京校',
     'JR代々木駅',
     '家庭での調理経験あり',
     '2024年3月',

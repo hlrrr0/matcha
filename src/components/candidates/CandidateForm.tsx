@@ -22,7 +22,7 @@ interface CandidateFormData {
   phone: string
   dateOfBirth: string
   enrollmentDate: string
-  campus: 'honten' | 'tokyo' | 'osaka' | 'nagoya' | ''
+  campus: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | ''
   nearestStation: string
   cookingExperience: string
   
@@ -183,10 +183,10 @@ export default function CandidateForm({
                   <SelectValue placeholder="校舎を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="honten">本店（代々木）</SelectItem>
                   <SelectItem value="tokyo">東京校</SelectItem>
                   <SelectItem value="osaka">大阪校</SelectItem>
-                  <SelectItem value="nagoya">名古屋校</SelectItem>
+                  <SelectItem value="awaji">淡路校</SelectItem>
+                  <SelectItem value="fukuoka">福岡校</SelectItem>
                 </SelectContent>
               </Select>
             </div>
