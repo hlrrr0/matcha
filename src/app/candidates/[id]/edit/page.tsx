@@ -68,6 +68,37 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
         const candidateDoc = await getDoc(doc(db, 'candidates', candidateId))
         if (candidateDoc.exists()) {
           const candidateData = candidateDoc.data() as Candidate
+          
+          // 日付フィールドをYYYY-MM-DD形式に変換
+          const formatDateForInput = (dateValue: any): string => {
+            if (!dateValue) return ''
+            try {
+              // Timestamp型の場合
+              if (dateValue && typeof dateValue.toDate === 'function') {
+                const date = dateValue.toDate()
+                return date.toISOString().split('T')[0]
+              }
+              // Date型の場合
+              if (dateValue instanceof Date) {
+                return dateValue.toISOString().split('T')[0]
+              }
+              // 文字列の場合（YYYY-MM-DD形式ならそのまま、ISO形式なら変換）
+              if (typeof dateValue === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                  return dateValue
+                }
+                const date = new Date(dateValue)
+                if (!isNaN(date.getTime())) {
+                  return date.toISOString().split('T')[0]
+                }
+              }
+              return ''
+            } catch (error) {
+              console.error('日付変換エラー:', error)
+              return ''
+            }
+          }
+          
           setFormData({
             status: candidateData.status || 'active',
             lastName: candidateData.lastName || '',
@@ -76,7 +107,7 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
             firstNameKana: candidateData.firstNameKana || '',
             email: candidateData.email || '',
             phone: candidateData.phone || '',
-            dateOfBirth: candidateData.dateOfBirth || '',
+            dateOfBirth: formatDateForInput(candidateData.dateOfBirth),
             enrollmentDate: candidateData.enrollmentDate || '',
             campus: candidateData.campus || '',
             nearestStation: candidateData.nearestStation || '',
