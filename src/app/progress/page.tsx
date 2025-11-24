@@ -30,7 +30,7 @@ import {
   Trash2
 } from 'lucide-react'
 import { Match } from '@/types/matching'
-import { Candidate } from '@/types/candidate'
+import { Candidate, campusLabels } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -73,6 +73,7 @@ function ProgressPageContent() {
   const [newMatchData, setNewMatchData] = useState({
     candidateId: '',
     jobId: '',
+    jobIds: [] as string[], // 複数求人選択用
     score: 50,
     notes: ''
   })
@@ -169,45 +170,96 @@ function ProgressPageContent() {
 
   const handleCreateMatch = async () => {
     try {
-      if (!newMatchData.candidateId || !newMatchData.jobId) {
-        alert('求職者と求人を選択してください')
+      if (!newMatchData.candidateId) {
+        alert('求職者を選択してください')
         return
       }
 
-      const selectedJob = jobs.find(j => j.id === newMatchData.jobId)
-      if (!selectedJob) {
-        alert('選択された求人が見つかりません')
-        return
-      }
+      // 複数求人が選択されている場合
+      if (newMatchData.jobIds.length > 0) {
+        let successCount = 0
+        let errorCount = 0
 
-      const matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'> = {
-        candidateId: newMatchData.candidateId,
-        jobId: newMatchData.jobId,
-        companyId: selectedJob.companyId,
-        status: 'suggested',
-        score: newMatchData.score,
-        matchReasons: [{
-          type: 'manual',
-          description: '手動でマッチングを作成',
-          weight: 1.0
-        }],
-        timeline: [{
-          id: `timeline_${Date.now()}`,
+        for (const jobId of newMatchData.jobIds) {
+          try {
+            const selectedJob = jobs.find(j => j.id === jobId)
+            if (!selectedJob) continue
+
+            const matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'> = {
+              candidateId: newMatchData.candidateId,
+              jobId: jobId,
+              companyId: selectedJob.companyId,
+              status: 'suggested',
+              score: newMatchData.score,
+              matchReasons: [{
+                type: 'manual',
+                description: '手動でマッチングを作成',
+                weight: 1.0
+              }],
+              timeline: [{
+                id: `timeline_${Date.now()}_${jobId}`,
+                status: 'suggested',
+                timestamp: new Date(),
+                description: 'マッチングが作成されました',
+                createdBy: user?.uid || '',
+                notes: newMatchData.notes
+              }],
+              createdBy: user?.uid || '',
+              notes: newMatchData.notes
+            }
+
+            await createMatch(matchData)
+            successCount++
+          } catch (error) {
+            console.error(`Failed to create match for job ${jobId}:`, error)
+            errorCount++
+          }
+        }
+
+        alert(`${successCount}件のマッチングを作成しました${errorCount > 0 ? `（${errorCount}件失敗）` : ''}`)
+      } 
+      // 単一求人が選択されている場合（後方互換性）
+      else if (newMatchData.jobId) {
+        const selectedJob = jobs.find(j => j.id === newMatchData.jobId)
+        if (!selectedJob) {
+          alert('選択された求人が見つかりません')
+          return
+        }
+
+        const matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'> = {
+          candidateId: newMatchData.candidateId,
+          jobId: newMatchData.jobId,
+          companyId: selectedJob.companyId,
           status: 'suggested',
-          timestamp: new Date(),
-          description: 'マッチングが作成されました',
+          score: newMatchData.score,
+          matchReasons: [{
+            type: 'manual',
+            description: '手動でマッチングを作成',
+            weight: 1.0
+          }],
+          timeline: [{
+            id: `timeline_${Date.now()}`,
+            status: 'suggested',
+            timestamp: new Date(),
+            description: 'マッチングが作成されました',
+            createdBy: user?.uid || '',
+            notes: newMatchData.notes
+          }],
           createdBy: user?.uid || '',
           notes: newMatchData.notes
-        }],
-        createdBy: user?.uid || '',
-        notes: newMatchData.notes
+        }
+
+        await createMatch(matchData)
+        alert('マッチングを作成しました')
+      } else {
+        alert('求人を選択してください')
+        return
       }
 
-      await createMatch(matchData)
       await loadData() // Reload data
       
       setCreateMatchOpen(false)
-      setNewMatchData({ candidateId: '', jobId: '', score: 50, notes: '' })
+      setNewMatchData({ candidateId: '', jobId: '', jobIds: [], score: 50, notes: '' })
     } catch (error) {
       console.error('マッチング作成エラー:', error)
       alert('マッチングの作成に失敗しました')
@@ -253,7 +305,19 @@ function ProgressPageContent() {
   }
 
   const handleJobSelect = (jobId: string) => {
-    setNewMatchData(prev => ({ ...prev, jobId }))
+    setNewMatchData(prev => {
+      const isSelected = prev.jobIds.includes(jobId)
+      if (isSelected) {
+        // 既に選択されている場合は削除
+        return { ...prev, jobIds: prev.jobIds.filter(id => id !== jobId) }
+      } else {
+        // 選択されていない場合は追加
+        return { ...prev, jobIds: [...prev.jobIds, jobId] }
+      }
+    })
+  }
+
+  const handleJobSelectComplete = () => {
     setJobSelectModalOpen(false)
     setJobSearchTerm('')
   }
@@ -267,7 +331,8 @@ function ProgressPageContent() {
   const getFilteredJobs = () => {
     return jobs.filter(job => {
       const company = companies.find(c => c.id === job.companyId)
-      const searchText = `${job.title} ${company?.name || ''}`.toLowerCase()
+      const store = stores.find(s => s.id === job.storeId)
+      const searchText = `${job.title} ${company?.name || ''} ${store?.name || ''}`.toLowerCase()
       return searchText.includes(jobSearchTerm.toLowerCase())
     })
   }
@@ -280,10 +345,13 @@ function ProgressPageContent() {
   }
 
   const getSelectedJobDisplay = () => {
-    if (!newMatchData.jobId) return '求人を選択'
-    const job = jobs.find(j => j.id === newMatchData.jobId)
-    const company = companies.find(c => c.id === job?.companyId)
-    return job ? `${job.title} - ${company?.name || '不明'}` : '求人を選択'
+    if (newMatchData.jobIds.length === 0) return '求人を選択'
+    if (newMatchData.jobIds.length === 1) {
+      const job = jobs.find(j => j.id === newMatchData.jobIds[0])
+      const company = companies.find(c => c.id === job?.companyId)
+      return job ? `${job.title} - ${company?.name || '不明'}` : '求人を選択'
+    }
+    return `${newMatchData.jobIds.length}件の求人を選択中`
   }
 
   const getSelectedCandidateDisplay = () => {
@@ -385,7 +453,13 @@ function ProgressPageContent() {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   更新
                 </Button>
-                <Dialog open={createMatchOpen} onOpenChange={setCreateMatchOpen}>
+                <Dialog open={createMatchOpen} onOpenChange={(open) => {
+                  setCreateMatchOpen(open)
+                  if (!open) {
+                    // ダイアログを閉じる時に選択をクリア
+                    setNewMatchData({ candidateId: '', jobId: '', jobIds: [], score: 50, notes: '' })
+                  }
+                }}>
                   <DialogTrigger asChild>
                     <Button className="bg-white/20 hover:bg-white/30 text-white border-white/30">
                       <Plus className="h-4 w-4 mr-2" />
@@ -412,7 +486,7 @@ function ProgressPageContent() {
                         </Button>
                       </div>
                       <div>
-                        <Label htmlFor="job">求人</Label>
+                        <Label htmlFor="job">求人（複数選択可）</Label>
                         <Button
                           variant="outline"
                           className="w-full justify-start text-left font-normal"
@@ -421,6 +495,36 @@ function ProgressPageContent() {
                           <Briefcase className="h-4 w-4 mr-2" />
                           {getSelectedJobDisplay()}
                         </Button>
+                        {/* 選択済み求人リスト */}
+                        {newMatchData.jobIds.length > 0 && (
+                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                            {newMatchData.jobIds.map((jobId) => {
+                              const job = jobs.find(j => j.id === jobId)
+                              const company = companies.find(c => c.id === job?.companyId)
+                              const store = stores.find(s => s.id === job?.storeId)
+                              return (
+                                <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium truncate">{job?.title}</div>
+                                    <div className="text-xs text-gray-600 truncate">
+                                      {company?.name}
+                                      {store && <span className="ml-1">- {store.name}</span>}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 ml-2"
+                                    onClick={() => handleJobSelect(jobId)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="score">マッチングスコア ({newMatchData.score})</Label>
@@ -758,9 +862,14 @@ function ProgressPageContent() {
           <Dialog open={jobSelectModalOpen} onOpenChange={setJobSelectModalOpen}>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
               <DialogHeader>
-                <DialogTitle>求人を選択</DialogTitle>
+                <DialogTitle>求人を選択（複数選択可）</DialogTitle>
                 <DialogDescription>
-                  マッチングを作成する求人を選択してください
+                  マッチングを作成する求人を選択してください（複数選択可能）
+                  {newMatchData.jobIds.length > 0 && (
+                    <span className="ml-2 text-orange-600 font-medium">
+                      {newMatchData.jobIds.length}件選択中
+                    </span>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               
@@ -772,7 +881,7 @@ function ProgressPageContent() {
                     <Search className="h-4 w-4 text-gray-400" />
                     <Input
                       id="job-dialog-search"
-                      placeholder="求人名、企業名で検索..."
+                      placeholder="求人名、企業名、店舗名で検索..."
                       value={jobSearchTerm}
                       onChange={(e) => setJobSearchTerm(e.target.value)}
                       className="flex-1"
@@ -785,7 +894,8 @@ function ProgressPageContent() {
                   <div className="space-y-2 p-4">
                     {getFilteredJobs().map((job) => {
                       const company = companies.find(c => c.id === job.companyId)
-                      const isSelected = newMatchData.jobId === job.id
+                      const store = stores.find(s => s.id === job.storeId)
+                      const isSelected = newMatchData.jobIds.includes(job.id)
                       
                       return (
                         <div
@@ -800,6 +910,7 @@ function ProgressPageContent() {
                               <h4 className="font-medium text-lg">{job.title}</h4>
                               <p className="text-gray-600 text-sm mt-1">
                                 {company?.name || '企業名不明'}
+                                {store && <span className="ml-2">- {store.name}</span>}
                               </p>
                               <div className="flex items-center gap-2 mt-2">
                                 <Badge 
@@ -823,7 +934,7 @@ function ProgressPageContent() {
                               )}
                             </div>
                             {isSelected && (
-                              <CheckCircle className="h-5 w-5 text-orange-500 mt-1" />
+                              <CheckCircle className="h-5 w-5 text-orange-500 mt-1 flex-shrink-0" />
                             )}
                           </div>
                         </div>
@@ -850,14 +961,11 @@ function ProgressPageContent() {
                   キャンセル
                 </Button>
                 <Button
-                  onClick={() => {
-                    setJobSelectModalOpen(false)
-                    setJobSearchTerm('')
-                  }}
-                  disabled={!newMatchData.jobId}
+                  onClick={handleJobSelectComplete}
+                  disabled={newMatchData.jobIds.length === 0}
                   className="bg-orange-600 hover:bg-orange-700"
                 >
-                  選択
+                  決定（{newMatchData.jobIds.length}件）
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -894,6 +1002,7 @@ function ProgressPageContent() {
                   <div className="space-y-2 p-4">
                     {getFilteredCandidates().map((candidate) => {
                       const isSelected = newMatchData.candidateId === candidate.id
+                      const age = calculateAge(candidate.dateOfBirth)
                       
                       return (
                         <div
@@ -905,38 +1014,28 @@ function ProgressPageContent() {
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className="font-medium text-lg">
-                                {candidate.firstName} {candidate.lastName}
-                              </h4>
-                              <p className="text-gray-600 text-sm mt-1">
-                                {candidate.firstNameKana} {candidate.lastNameKana}
-                              </p>
-                              {candidate.email && (
-                                <p className="text-gray-500 text-sm mt-1">
-                                  {candidate.email}
-                                </p>
-                              )}
-                              <div className="flex items-center gap-2 mt-2">
-                                {candidate.phone && (
-                                  <span className="text-xs text-gray-500">
-                                    📞 {candidate.phone}
-                                  </span>
-                                )}
-                                {candidate.nearestStation && (
-                                  <span className="text-xs text-gray-500">
-                                    🚉 {candidate.nearestStation}
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-lg">
+                                  {candidate.lastName} {candidate.firstName}
+                                </h4>
+                                {age !== null && (
+                                  <span className="text-sm text-gray-600">
+                                    （{age}歳）
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 mt-2">
-                                {candidate.cookingExperience && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {candidate.cookingExperience}
-                                  </Badge>
+                              <p className="text-gray-600 text-sm mt-1">
+                                {candidate.lastNameKana} {candidate.firstNameKana}
+                              </p>
+                              <div className="flex items-center gap-3 mt-2">
+                                {candidate.enrollmentDate && (
+                                  <span className="text-xs text-gray-600">
+                                    📅 入学: {new Date(candidate.enrollmentDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })}
+                                  </span>
                                 )}
-                                {candidate.preferredArea && (
-                                  <Badge variant="outline" className="text-xs">
-                                    希望エリア: {candidate.preferredArea}
+                                {candidate.campus && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {campusLabels[candidate.campus]}
                                   </Badge>
                                 )}
                               </div>

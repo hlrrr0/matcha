@@ -79,6 +79,18 @@ const statusIcons = {
   withdrawn: AlertCircle
 }
 
+// ステータスフロー定義
+const statusFlow: Record<Match['status'], Match['status'][]> = {
+  suggested: ['interested', 'rejected', 'withdrawn'],
+  interested: ['applied', 'rejected', 'withdrawn'],
+  applied: ['interviewing', 'rejected', 'withdrawn'],
+  interviewing: ['offered', 'rejected', 'withdrawn'],
+  offered: ['accepted', 'rejected', 'withdrawn'],
+  accepted: [],
+  rejected: [],
+  withdrawn: []
+}
+
 export default function MatchDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -165,10 +177,15 @@ export default function MatchDetailPage() {
         }
       }
 
+      // 応募の場合は自動的に更新内容を設定
+      const description = newStatus === 'applied' 
+        ? '応募を行いました' 
+        : statusDescription
+
       await updateMatchStatus(
         match.id,
         newStatus,
-        statusDescription,
+        description,
         user.uid,
         statusNotes || undefined,
         combinedDateTime
@@ -333,49 +350,98 @@ export default function MatchDetailPage() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 更新
               </Button>
-              <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    onClick={() => {
-                      setNewStatus(match.status)
-                      setStatusUpdateOpen(true)
-                    }}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    ステータス更新
-                  </Button>
-                </DialogTrigger>
-              <DialogContent>
+              {statusFlow[match.status].length > 0 && (
+                <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      onClick={() => {
+                        // 次のステータスの最初の選択肢をデフォルトにする
+                        const nextStatuses = statusFlow[match.status]
+                        if (nextStatuses.length > 0) {
+                          setNewStatus(nextStatuses[0])
+                          // 応募の場合は今日の日付をデフォルトに設定
+                          if (nextStatuses[0] === 'applied') {
+                            const today = new Date()
+                            const year = today.getFullYear()
+                            const month = String(today.getMonth() + 1).padStart(2, '0')
+                            const day = String(today.getDate()).padStart(2, '0')
+                            setEventDate(`${year}-${month}-${day}`)
+                          } else {
+                            setEventDate('')
+                          }
+                        }
+                      }}
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      ステータス更新
+                    </Button>
+                  </DialogTrigger>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>ステータス更新</DialogTitle>
                   <DialogDescription>
-                    マッチングのステータスを更新します
+                    次のステータスに進めます
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="status">新しいステータス</Label>
-                    <Select value={newStatus} onValueChange={(value: any) => setNewStatus(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(statusLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  {/* 現在のステータス表示 */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-2">現在のステータス</div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(match.status, 'lg')}
+                    </div>
                   </div>
+
+                  {/* 次のステータス選択 */}
                   <div>
-                    <Label htmlFor="description">更新内容 *</Label>
-                    <Input
-                      value={statusDescription}
-                      onChange={(e) => setStatusDescription(e.target.value)}
-                      placeholder="例: 面接日程調整完了"
-                      required
-                    />
+                    <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {statusFlow[match.status].map((nextStatus) => {
+                        const Icon = statusIcons[nextStatus]
+                        return (
+                          <Button
+                            key={nextStatus}
+                            type="button"
+                            variant={newStatus === nextStatus ? "default" : "outline"}
+                            className={`justify-start h-auto py-3 ${
+                              newStatus === nextStatus 
+                                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => {
+                              setNewStatus(nextStatus)
+                              // 応募が選択された場合は今日の日付をデフォルトに設定
+                              if (nextStatus === 'applied') {
+                                const today = new Date()
+                                const year = today.getFullYear()
+                                const month = String(today.getMonth() + 1).padStart(2, '0')
+                                const day = String(today.getDate()).padStart(2, '0')
+                                setEventDate(`${year}-${month}-${day}`)
+                              }
+                            }}
+                          >
+                            <Icon className="h-5 w-5 mr-2" />
+                            <span className="text-base">{statusLabels[nextStatus]}</span>
+                          </Button>
+                        )
+                      })}
+                    </div>
                   </div>
+                  
+                  {/* 更新内容（応募以外は必須） */}
+                  {newStatus !== 'applied' && (
+                    <div>
+                      <Label htmlFor="description">更新内容 *</Label>
+                      <Input
+                        value={statusDescription}
+                        onChange={(e) => setStatusDescription(e.target.value)}
+                        placeholder="例: 面接日程調整完了"
+                        required
+                      />
+                    </div>
+                  )}
+                  
                   {/* イベント日時入力 */}
                   {['applied', 'interviewing', 'offered', 'accepted', 'rejected'].includes(newStatus) && (
                     <div className="space-y-2">
@@ -425,14 +491,15 @@ export default function MatchDetailPage() {
                   </Button>
                   <Button
                     onClick={handleStatusUpdate}
-                    disabled={!statusDescription.trim()}
+                    disabled={newStatus !== 'applied' && !statusDescription.trim()}
                     className="bg-purple-600 hover:bg-purple-700"
                   >
                     更新
                   </Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+                </Dialog>
+              )}
           </div>
         </div>
 
@@ -636,7 +703,26 @@ export default function MatchDetailPage() {
                 {match.timeline && match.timeline.length > 0 ? (
                   <div className="space-y-4">
                     {match.timeline
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      .map((item) => {
+                        // ステータスに対応するイベント日付を取得
+                        let eventDate: Date | null = null
+                        if (item.status === 'applied' && match.appliedDate) {
+                          eventDate = new Date(match.appliedDate)
+                        } else if (item.status === 'interviewing' && match.interviewDate) {
+                          eventDate = new Date(match.interviewDate)
+                        } else if (item.status === 'offered' && match.offerDate) {
+                          eventDate = new Date(match.offerDate)
+                        } else if (item.status === 'accepted' && match.acceptedDate) {
+                          eventDate = new Date(match.acceptedDate)
+                        } else if (item.status === 'rejected' && match.rejectedDate) {
+                          eventDate = new Date(match.rejectedDate)
+                        } else {
+                          // イベント日付がない場合はtimestampを使用
+                          eventDate = new Date(item.timestamp)
+                        }
+                        return { ...item, displayDate: eventDate }
+                      })
+                      .sort((a, b) => b.displayDate.getTime() - a.displayDate.getTime())
                       .map((item, index) => {
                         const Icon = statusIcons[item.status]
                         const isLatest = index === 0
@@ -673,7 +759,7 @@ export default function MatchDetailPage() {
                                     {statusLabels[item.status]}
                                   </Badge>
                                   <span className="text-xs text-gray-500">
-                                    {formatTimelineDate(item.timestamp)}
+                                    {formatTimelineDate(item.displayDate)}
                                   </span>
                                 </div>
                                 

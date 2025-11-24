@@ -6,16 +6,25 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Users, Edit, TrendingUp, Briefcase, Building, Eye, RefreshCw } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ArrowLeft, Users, Edit, TrendingUp, Briefcase, Building, Eye, RefreshCw, Plus, Search, CheckCircle, Trash2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate, campusLabels } from '@/types/candidate'
 import { Match } from '@/types/matching'
-import { getMatchesByCandidate } from '@/lib/firestore/matches'
-import { getJob } from '@/lib/firestore/jobs'
-import { getCompany } from '@/lib/firestore/companies'
+import { getMatchesByCandidate, createMatch } from '@/lib/firestore/matches'
+import { getJob, getJobs } from '@/lib/firestore/jobs'
+import { getCompany, getCompanies } from '@/lib/firestore/companies'
+import { getStores } from '@/lib/firestore/stores'
+import { Job } from '@/types/job'
+import { Company } from '@/types/company'
+import { Store } from '@/types/store'
+import { useAuth } from '@/contexts/AuthContext'
 
 const statusLabels = {
   suggested: '提案済み',
@@ -52,11 +61,25 @@ interface CandidateDetailPageProps {
 
 export default function CandidateDetailPage({ params }: CandidateDetailPageProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [matchesLoading, setMatchesLoading] = useState(false)
   const [candidateId, setCandidateId] = useState<string>('')
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
+  
+  // マッチング作成用の状態
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [stores, setStores] = useState<Store[]>([])
+  const [createMatchOpen, setCreateMatchOpen] = useState(false)
+  const [jobSelectModalOpen, setJobSelectModalOpen] = useState(false)
+  const [jobSearchTerm, setJobSearchTerm] = useState('')
+  const [newMatchData, setNewMatchData] = useState({
+    jobIds: [] as string[],
+    score: 50,
+    notes: ''
+  })
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -93,7 +116,23 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   useEffect(() => {
     if (!candidateId) return
     loadMatches()
+    loadJobsData()
   }, [candidateId])
+
+  const loadJobsData = async () => {
+    try {
+      const [jobsData, companiesData, storesData] = await Promise.all([
+        getJobs(),
+        getCompanies(),
+        getStores()
+      ])
+      setJobs(jobsData)
+      setCompanies(companiesData)
+      setStores(storesData)
+    } catch (error) {
+      console.error('求人データの取得に失敗しました:', error)
+    }
+  }
 
   const loadMatches = async () => {
     try {
@@ -157,6 +196,114 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         {score}%
       </Badge>
     )
+  }
+
+  const handleCreateMatch = async () => {
+    try {
+      if (!candidateId || newMatchData.jobIds.length === 0) {
+        alert('求人を選択してください')
+        return
+      }
+
+      let successCount = 0
+      let errorCount = 0
+
+      for (const jobId of newMatchData.jobIds) {
+        try {
+          // 既にマッチングが存在するかチェック
+          const existingMatch = matches.find(m => m.jobId === jobId)
+          if (existingMatch) {
+            console.log(`マッチングが既に存在します: Job ID ${jobId}`)
+            errorCount++
+            continue
+          }
+
+          const selectedJob = jobs.find(j => j.id === jobId)
+          if (!selectedJob) continue
+
+          const matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'> = {
+            candidateId: candidateId,
+            jobId: jobId,
+            companyId: selectedJob.companyId,
+            status: 'suggested',
+            score: newMatchData.score,
+            matchReasons: [{
+              type: 'manual',
+              description: '手動でマッチングを作成',
+              weight: 1.0
+            }],
+            timeline: [{
+              id: `timeline_${Date.now()}_${jobId}`,
+              status: 'suggested',
+              timestamp: new Date(),
+              description: 'マッチングが作成されました',
+              createdBy: user?.uid || '',
+              notes: newMatchData.notes
+            }],
+            createdBy: user?.uid || '',
+            notes: newMatchData.notes
+          }
+
+          await createMatch(matchData)
+          successCount++
+        } catch (error) {
+          console.error(`Failed to create match for job ${jobId}:`, error)
+          errorCount++
+        }
+      }
+
+      alert(`${successCount}件のマッチングを作成しました${errorCount > 0 ? `（${errorCount}件失敗）` : ''}`)
+      await loadMatches() // マッチング一覧を再読み込み
+      
+      setCreateMatchOpen(false)
+      setNewMatchData({ jobIds: [], score: 50, notes: '' })
+    } catch (error) {
+      console.error('マッチング作成エラー:', error)
+      alert('マッチングの作成に失敗しました')
+    }
+  }
+
+  const handleJobSelect = (jobId: string) => {
+    setNewMatchData(prev => {
+      const isSelected = prev.jobIds.includes(jobId)
+      if (isSelected) {
+        return { ...prev, jobIds: prev.jobIds.filter(id => id !== jobId) }
+      } else {
+        return { ...prev, jobIds: [...prev.jobIds, jobId] }
+      }
+    })
+  }
+
+  const handleJobSelectComplete = () => {
+    setJobSelectModalOpen(false)
+    setJobSearchTerm('')
+  }
+
+  const getFilteredJobs = () => {
+    // 既にマッチングが存在する求人IDのセット
+    const existingJobIds = new Set(matches.map(m => m.jobId))
+    
+    return jobs.filter(job => {
+      // 既にマッチングが存在する求人は除外
+      if (existingJobIds.has(job.id)) {
+        return false
+      }
+      
+      const company = companies.find(c => c.id === job.companyId)
+      const store = stores.find(s => s.id === job.storeId)
+      const searchText = `${job.title} ${company?.name || ''} ${store?.name || ''}`.toLowerCase()
+      return searchText.includes(jobSearchTerm.toLowerCase())
+    })
+  }
+
+  const getSelectedJobDisplay = () => {
+    if (newMatchData.jobIds.length === 0) return '求人を選択'
+    if (newMatchData.jobIds.length === 1) {
+      const job = jobs.find(j => j.id === newMatchData.jobIds[0])
+      const company = companies.find(c => c.id === job?.companyId)
+      return job ? `${job.title} - ${company?.name || '不明'}` : '求人を選択'
+    }
+    return `${newMatchData.jobIds.length}件の求人を選択中`
   }
 
   const formatDate = (date: Date | string) => {
@@ -233,16 +380,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <RefreshCw className="h-4 w-4 mr-2" />
             更新
           </Button>
-          <Link href={`/progress?candidate=${candidateId}`}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-orange-600 border-orange-200 hover:bg-orange-50"
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              進捗を作成
-            </Button>
-          </Link>
+          <Button
+            onClick={() => setCreateMatchOpen(true)}
+            variant="outline"
+            size="sm"
+            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            進捗を作成
+          </Button>
           <Link href={`/candidates/${candidateId}/edit`}>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <Edit className="h-4 w-4 mr-2" />
@@ -378,16 +524,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   {matches.length}件
                 </Badge>
                 {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
-                <Link href={`/progress?candidate=${candidateId}`}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-orange-600 border-orange-200 hover:bg-orange-50"
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    進捗を作成
-                  </Button>
-                </Link>              
+                <Button
+                  onClick={() => setCreateMatchOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  進捗を作成
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -523,6 +668,217 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         </Card>
       </div>
       </div>
+
+      {/* マッチング作成モーダル */}
+      <Dialog open={createMatchOpen} onOpenChange={(open) => {
+        setCreateMatchOpen(open)
+        if (!open) {
+          setNewMatchData({ jobIds: [], score: 50, notes: '' })
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>新規マッチング作成</DialogTitle>
+            <DialogDescription>
+              {candidate?.lastName} {candidate?.firstName}さんと求人をマッチングします
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="job">求人（複数選択可）</Label>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+                onClick={() => setJobSelectModalOpen(true)}
+              >
+                <Briefcase className="h-4 w-4 mr-2" />
+                {getSelectedJobDisplay()}
+              </Button>
+              {/* 選択済み求人リスト */}
+              {newMatchData.jobIds.length > 0 && (
+                <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                  {newMatchData.jobIds.map((jobId) => {
+                    const job = jobs.find(j => j.id === jobId)
+                    const company = companies.find(c => c.id === job?.companyId)
+                    const store = stores.find(s => s.id === job?.storeId)
+                    return (
+                      <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{job?.title}</div>
+                          <div className="text-xs text-gray-600 truncate">
+                            {company?.name}
+                            {store && <span className="ml-1">- {store.name}</span>}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 ml-2"
+                          onClick={() => handleJobSelect(jobId)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="score">マッチングスコア ({newMatchData.score})</Label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={newMatchData.score}
+                onChange={(e) => setNewMatchData(prev => ({ ...prev, score: parseInt(e.target.value) }))}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <Label htmlFor="notes">備考</Label>
+              <Textarea
+                id="notes"
+                value={newMatchData.notes}
+                onChange={(e) => setNewMatchData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="マッチングに関する備考..."
+                className="min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateMatchOpen(false)}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleCreateMatch}
+              disabled={newMatchData.jobIds.length === 0}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              作成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 求人選択モーダル */}
+      <Dialog open={jobSelectModalOpen} onOpenChange={setJobSelectModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>求人を選択（複数選択可）</DialogTitle>
+            <DialogDescription>
+              マッチングを作成する求人を選択してください（複数選択可能）
+              {newMatchData.jobIds.length > 0 && (
+                <span className="ml-2 text-orange-600 font-medium">
+                  {newMatchData.jobIds.length}件選択中
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            {/* 検索フィールド */}
+            <div>
+              <Label htmlFor="job-dialog-search">検索</Label>
+              <div className="flex items-center space-x-2">
+                <Search className="h-4 w-4 text-gray-400" />
+                <Input
+                  id="job-dialog-search"
+                  placeholder="求人名、企業名、店舗名で検索..."
+                  value={jobSearchTerm}
+                  onChange={(e) => setJobSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+
+            {/* 求人リスト */}
+            <div className="flex-1 overflow-y-auto border rounded-lg">
+              <div className="space-y-2 p-4">
+                {getFilteredJobs().map((job) => {
+                  const company = companies.find(c => c.id === job.companyId)
+                  const store = stores.find(s => s.id === job.storeId)
+                  const isSelected = newMatchData.jobIds.includes(job.id)
+                  
+                  return (
+                    <div
+                      key={job.id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
+                        isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+                      }`}
+                      onClick={() => handleJobSelect(job.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-lg">{job.title}</h4>
+                          <p className="text-gray-600 text-sm mt-1">
+                            {company?.name || '企業名不明'}
+                            {store && <span className="ml-2">- {store.name}</span>}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge 
+                              variant={job.status === 'active' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {job.status === 'draft' && '下書き'}
+                              {job.status === 'active' && '募集中'}
+                              {job.status === 'closed' && '募集終了'}
+                            </Badge>
+                            {(job.salaryInexperienced || job.salaryExperienced) && (
+                              <span className="text-xs text-gray-500">
+                                {job.salaryInexperienced || job.salaryExperienced}
+                              </span>
+                            )}
+                          </div>
+                          {job.jobDescription && (
+                            <p className="text-gray-600 text-sm mt-2 line-clamp-2">
+                              {job.jobDescription}
+                            </p>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <CheckCircle className="h-5 w-5 text-orange-500 mt-1 flex-shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {getFilteredJobs().length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    {jobSearchTerm ? '検索条件に一致する求人が見つかりません' : '求人がありません'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setJobSelectModalOpen(false)
+                setJobSearchTerm('')
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleJobSelectComplete}
+              disabled={newMatchData.jobIds.length === 0}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              決定（{newMatchData.jobIds.length}件）
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       </div>
     </ProtectedRoute>
   )
