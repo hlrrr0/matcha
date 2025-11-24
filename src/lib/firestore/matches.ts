@@ -118,6 +118,12 @@ const matchFromFirestore = (doc: any): Match => {
         ...item,
         timestamp: item.timestamp?.toDate ? item.timestamp.toDate() : safeCreateDate(item.timestamp)
       })),
+      // イベント日時フィールドの変換
+      appliedDate: data.appliedDate?.toDate ? data.appliedDate.toDate() : (data.appliedDate ? safeCreateDate(data.appliedDate) : undefined),
+      interviewDate: data.interviewDate?.toDate ? data.interviewDate.toDate() : (data.interviewDate ? safeCreateDate(data.interviewDate) : undefined),
+      offerDate: data.offerDate?.toDate ? data.offerDate.toDate() : (data.offerDate ? safeCreateDate(data.offerDate) : undefined),
+      acceptedDate: data.acceptedDate?.toDate ? data.acceptedDate.toDate() : (data.acceptedDate ? safeCreateDate(data.acceptedDate) : undefined),
+      rejectedDate: data.rejectedDate?.toDate ? data.rejectedDate.toDate() : (data.rejectedDate ? safeCreateDate(data.rejectedDate) : undefined),
       // 必須フィールドのデフォルト値
       candidateId: data.candidateId || '',
       jobId: data.jobId || '',
@@ -281,7 +287,8 @@ export const updateMatchStatus = async (
   status: Match['status'], 
   description: string, 
   createdBy: string,
-  notes?: string
+  notes?: string,
+  eventDate?: Date | string
 ): Promise<void> => {
   try {
     console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
@@ -310,10 +317,36 @@ export const updateMatchStatus = async (
       更新後件数: updatedTimeline.length
     })
 
-    await updateMatch(id, {
+    // 更新データを準備
+    const updateData: any = {
       status,
       timeline: updatedTimeline
-    })
+    }
+
+    // ステータスに応じてイベント日時を保存
+    if (eventDate) {
+      const dateValue = typeof eventDate === 'string' ? new Date(eventDate) : eventDate
+      
+      switch (status) {
+        case 'applied':
+          updateData.appliedDate = dateValue
+          break
+        case 'interviewing':
+          updateData.interviewDate = dateValue
+          break
+        case 'offered':
+          updateData.offerDate = dateValue
+          break
+        case 'accepted':
+          updateData.acceptedDate = dateValue
+          break
+        case 'rejected':
+          updateData.rejectedDate = dateValue
+          break
+      }
+    }
+
+    await updateMatch(id, updateData)
     
     console.log('✅ ステータス更新完了')
   } catch (error) {

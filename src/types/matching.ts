@@ -15,6 +15,13 @@ export interface Match {
   // 進捗情報
   timeline: MatchTimeline[]
   
+  // イベント日時
+  appliedDate?: string | Date // 応募日
+  interviewDate?: string | Date // 面接日
+  offerDate?: string | Date // オファー日
+  acceptedDate?: string | Date // 承諾日
+  rejectedDate?: string | Date // 不採用日
+  
   // メタデータ
   createdAt: string | Date
   updatedAt: string | Date

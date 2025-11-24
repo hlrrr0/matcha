@@ -120,7 +120,7 @@ function ProgressPageContent() {
 
         return {
           ...match,
-          candidateName: candidate ? `${candidate.firstName} ${candidate.lastName}` : '不明',
+          candidateName: candidate ? `${candidate.lastName} ${candidate.firstName}` : '不明',
           jobTitle: job?.title || '不明',
           companyName: company?.name || '不明'
         }
@@ -278,7 +278,7 @@ function ProgressPageContent() {
   const getSelectedCandidateDisplay = () => {
     if (!newMatchData.candidateId) return '求職者を選択'
     const candidate = candidates.find(c => c.id === newMatchData.candidateId)
-    return candidate ? `${candidate.firstName} ${candidate.lastName}` : '求職者を選択'
+    return candidate ? `${candidate.lastName} ${candidate.firstName}` : '求職者を選択'
   }
 
   const getStatusIcon = (status: Match['status']) => {

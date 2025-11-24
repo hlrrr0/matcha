@@ -92,6 +92,8 @@ export default function MatchDetailPage() {
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
   const [statusDescription, setStatusDescription] = useState('')
   const [statusNotes, setStatusNotes] = useState('')
+  const [eventDate, setEventDate] = useState('')
+  const [eventTime, setEventTime] = useState('')
 
   useEffect(() => {
     if (matchId) {
@@ -138,18 +140,31 @@ export default function MatchDetailPage() {
     if (!match || !user) return
 
     try {
+      // 日時を組み合わせる
+      let combinedDateTime: Date | undefined = undefined
+      if (eventDate) {
+        if (eventTime) {
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
+        } else {
+          combinedDateTime = new Date(eventDate)
+        }
+      }
+
       await updateMatchStatus(
         match.id,
         newStatus,
         statusDescription,
         user.uid,
-        statusNotes || undefined
+        statusNotes || undefined,
+        combinedDateTime
       )
       
       toast.success('ステータスを更新しました')
       setStatusUpdateOpen(false)
       setStatusDescription('')
       setStatusNotes('')
+      setEventDate('')
+      setEventTime('')
       loadMatchData() // データを再読み込み
     } catch (error) {
       console.error('Error updating status:', error)
@@ -329,6 +344,36 @@ export default function MatchDetailPage() {
                       required
                     />
                   </div>
+                  {/* イベント日時入力 */}
+                  {['applied', 'interviewing', 'offered', 'accepted', 'rejected'].includes(newStatus) && (
+                    <div className="space-y-2">
+                      <Label>
+                        {newStatus === 'applied' && '応募日'}
+                        {newStatus === 'interviewing' && '面接日'}
+                        {newStatus === 'offered' && 'オファー日'}
+                        {newStatus === 'accepted' && '承諾日'}
+                        {newStatus === 'rejected' && '不採用日'}
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Input
+                            type="date"
+                            value={eventDate}
+                            onChange={(e) => setEventDate(e.target.value)}
+                            placeholder="日付"
+                          />
+                        </div>
+                        <div>
+                          <Input
+                            type="time"
+                            value={eventTime}
+                            onChange={(e) => setEventTime(e.target.value)}
+                            placeholder="時刻（任意）"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="notes">備考</Label>
                     <Textarea
@@ -382,7 +427,7 @@ export default function MatchDetailPage() {
                     {candidate ? (
                       <div>
                         <div className="font-medium text-lg">
-                          {candidate.firstName} {candidate.lastName}
+                          {candidate.lastName} {candidate.firstName}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
                           {candidate.email}
@@ -490,36 +535,52 @@ export default function MatchDetailPage() {
 
           {/* サイドバー - タイムライン */}
           <div className="space-y-6">
-            {/* メタデータ */}
-            <Card className="border-purple-100">
-              <CardHeader>
-                <CardTitle className="text-lg text-purple-800">詳細情報</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">作成日:</span>
-                  <span className="font-medium">{formatDate(match.createdAt)}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">更新日:</span>
-                  <span className="font-medium">{formatDate(match.updatedAt)}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <User className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">作成者:</span>
-                  <span className="font-medium">{match.createdBy}</span>
-                </div>
-                {match.notes && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm font-medium text-gray-700 mb-1">備考</div>
-                    <div className="text-sm text-gray-600">{match.notes}</div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
+            {/* イベント日時 */}
+            {(match.appliedDate || match.interviewDate || match.offerDate || match.acceptedDate || match.rejectedDate) && (
+              <Card className="border-purple-100">
+                <CardHeader>
+                  <CardTitle className="text-lg text-purple-800">重要日程</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {match.appliedDate && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-purple-500" />
+                      <span className="text-gray-600">応募日:</span>
+                      <span className="font-medium">{formatDate(match.appliedDate)}</span>
+                    </div>
+                  )}
+                  {match.interviewDate && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-orange-500" />
+                      <span className="text-gray-600">面接日:</span>
+                      <span className="font-medium">{formatDate(match.interviewDate)}</span>
+                    </div>
+                  )}
+                  {match.offerDate && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-green-500" />
+                      <span className="text-gray-600">オファー日:</span>
+                      <span className="font-medium">{formatDate(match.offerDate)}</span>
+                    </div>
+                  )}
+                  {match.acceptedDate && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-green-600" />
+                      <span className="text-gray-600">承諾日:</span>
+                      <span className="font-medium">{formatDate(match.acceptedDate)}</span>
+                    </div>
+                  )}
+                  {match.rejectedDate && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-red-500" />
+                      <span className="text-gray-600">不採用日:</span>
+                      <span className="font-medium">{formatDate(match.rejectedDate)}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            
             {/* タイムライン */}
             <Card className="border-purple-100">
               <CardHeader>
@@ -599,6 +660,35 @@ export default function MatchDetailPage() {
                   <div className="text-center py-8 text-gray-500">
                     <Clock className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                     <div>タイムラインデータがありません</div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            {/* メタデータ */}
+            <Card className="border-purple-100">
+              <CardHeader>
+                <CardTitle className="text-lg text-purple-800">詳細情報</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2 text-sm">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">作成日:</span>
+                  <span className="font-medium">{formatDate(match.createdAt)}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">更新日:</span>
+                  <span className="font-medium">{formatDate(match.updatedAt)}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">作成者:</span>
+                  <span className="font-medium">{match.createdBy}</span>
+                </div>
+                {match.notes && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-1">備考</div>
+                    <div className="text-sm text-gray-600">{match.notes}</div>
                   </div>
                 )}
               </CardContent>
