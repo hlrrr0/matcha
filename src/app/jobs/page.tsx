@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -62,6 +63,8 @@ export default function JobsPage() {
 
 function JobsPageContent() {
   const { isAdmin } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [jobs, setJobs] = useState<Job[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [stores, setStores] = useState<StoreType[]>([])
@@ -72,12 +75,12 @@ function JobsPageContent() {
   // 一括選択状態
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
   
-  // フィルター・検索状態
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>('all')
-  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>('all')
-  const [consultantFilter, setConsultantFilter] = useState<string>('all')
-  const [ageLimitFilter, setAgeLimitFilter] = useState<string>('all')
+  // フィルター・検索状態（URLパラメータから初期化）
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>((searchParams.get('status') as Job['status']) || 'all')
+  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>((searchParams.get('employmentType') as Job['employmentType']) || 'all')
+  const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
+  const [ageLimitFilter, setAgeLimitFilter] = useState<string>(searchParams.get('ageLimit') || 'all')
   
   // 店舗条件フィルター
   const [unitPriceLunchMin, setUnitPriceLunchMin] = useState<string>('')
@@ -131,6 +134,25 @@ function JobsPageContent() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // URLパラメータを更新する関数
+  const updateURLParams = (params: { 
+    search?: string
+    status?: string
+    employmentType?: string
+    consultant?: string
+    ageLimit?: string
+  }) => {
+    const newParams = new URLSearchParams()
+    
+    if (params.search) newParams.set('search', params.search)
+    if (params.status && params.status !== 'all') newParams.set('status', params.status)
+    if (params.employmentType && params.employmentType !== 'all') newParams.set('employmentType', params.employmentType)
+    if (params.consultant && params.consultant !== 'all') newParams.set('consultant', params.consultant)
+    if (params.ageLimit && params.ageLimit !== 'all') newParams.set('ageLimit', params.ageLimit)
+    
+    router.push(`/jobs?${newParams.toString()}`)
   }
 
   const handleCSVImport = async (file: File) => {
@@ -597,7 +619,11 @@ function JobsPageContent() {
                 id="job-search"
                 placeholder="求人名・企業名・住所で検索..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setSearchTerm(value)
+                  updateURLParams({ search: value, status: statusFilter, employmentType: employmentTypeFilter, consultant: consultantFilter, ageLimit: ageLimitFilter })
+                }}
                 className="w-full"
               />
             </div>
@@ -605,7 +631,10 @@ function JobsPageContent() {
             {/* ステータスフィルター */}
             <div>
               <Label htmlFor="status-filter">ステータス</Label>
-              <Select value={statusFilter} onValueChange={(value: Job['status'] | 'all') => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: Job['status'] | 'all') => {
+                setStatusFilter(value)
+                updateURLParams({ search: searchTerm, status: value, employmentType: employmentTypeFilter, consultant: consultantFilter, ageLimit: ageLimitFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
                 </SelectTrigger>
@@ -621,7 +650,10 @@ function JobsPageContent() {
             {/* 雇用形態フィルター */}
             <div>
               <Label htmlFor="employment-type-filter">雇用形態</Label>
-              <Select value={employmentTypeFilter} onValueChange={(value: Job['employmentType'] | 'all') => setEmploymentTypeFilter(value)}>
+              <Select value={employmentTypeFilter} onValueChange={(value: Job['employmentType'] | 'all') => {
+                setEmploymentTypeFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, employmentType: value, consultant: consultantFilter, ageLimit: ageLimitFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="雇用形態" />
                 </SelectTrigger>
@@ -888,13 +920,29 @@ function JobsPageContent() {
                         </Link>
                       </TableCell>
                       <TableCell>
-                        {job.storeId ? (
-                          <Link href={`/stores/${job.storeId}`} className="hover:text-purple-600 hover:underline transition-colors">
-                            {getStoreName(job.storeId)}
-                          </Link>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {(() => {
+                          const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+                          if (storeIds.length === 0) {
+                            return <span className="text-gray-400">-</span>
+                          } else if (storeIds.length === 1) {
+                            return (
+                              <Link href={`/stores/${storeIds[0]}`} className="hover:text-purple-600 hover:underline transition-colors">
+                                {getStoreName(storeIds[0])}
+                              </Link>
+                            )
+                          } else {
+                            return (
+                              <div>
+                                <Link href={`/stores/${storeIds[0]}`} className="hover:text-purple-600 hover:underline transition-colors">
+                                  {getStoreName(storeIds[0])}
+                                </Link>
+                                <span className="text-sm text-gray-500 ml-1">
+                                  他{storeIds.length - 1}店舗
+                                </span>
+                              </div>
+                            )
+                          }
+                        })()}
                         <div className="text-sm text-gray-500 truncate max-w-xs">
                           <Link href={`/companies/${job.companyId}`} className="hover:text-purple-600 hover:underline transition-colors">
                             {getCompanyName(job.companyId)}

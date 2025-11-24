@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -62,6 +63,8 @@ const sizeLabels = {
 
 function CompaniesPageContent() {
   const { isAdmin } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
@@ -91,12 +94,12 @@ function CompaniesPageContent() {
     return Math.round((filledCount / companyFields.length) * 100)
   }
   
-  // フィルター・検索状態
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<Company['status'] | 'all'>('all')
-  const [sizeFilter, setSizeFilter] = useState<Company['size'] | 'all'>('all')
-  const [dominoFilter, setDominoFilter] = useState<'all' | 'connected' | 'not_connected'>('all')
-  const [consultantFilter, setConsultantFilter] = useState<string>('all')
+  // フィルター・検索状態（URLパラメータから初期化）
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [statusFilter, setStatusFilter] = useState<Company['status'] | 'all'>((searchParams.get('status') as Company['status']) || 'all')
+  const [sizeFilter, setSizeFilter] = useState<Company['size'] | 'all'>((searchParams.get('size') as Company['size']) || 'all')
+  const [dominoFilter, setDominoFilter] = useState<'all' | 'connected' | 'not_connected'>((searchParams.get('domino') as 'all' | 'connected' | 'not_connected') || 'all')
+  const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
   
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
@@ -126,6 +129,25 @@ function CompaniesPageContent() {
     loadCompanies()
     loadUsers()
   }, [])
+
+  // URLパラメータを更新する関数
+  const updateURLParams = (params: { 
+    search?: string
+    status?: string
+    size?: string
+    domino?: string
+    consultant?: string
+  }) => {
+    const newParams = new URLSearchParams()
+    
+    if (params.search) newParams.set('search', params.search)
+    if (params.status && params.status !== 'all') newParams.set('status', params.status)
+    if (params.size && params.size !== 'all') newParams.set('size', params.size)
+    if (params.domino && params.domino !== 'all') newParams.set('domino', params.domino)
+    if (params.consultant && params.consultant !== 'all') newParams.set('consultant', params.consultant)
+    
+    router.push(`/companies?${newParams.toString()}`)
+  }
 
   const loadUsers = async () => {
     try {
@@ -741,7 +763,11 @@ function CompaniesPageContent() {
                 id="company-search"
                 placeholder="企業名・住所で検索..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setSearchTerm(value)
+                  updateURLParams({ search: value, status: statusFilter, size: sizeFilter, domino: dominoFilter, consultant: consultantFilter })
+                }}
                 className="w-full"
               />
             </div>
@@ -749,7 +775,10 @@ function CompaniesPageContent() {
             {/* ステータスフィルター */}
             <div>
               <Label htmlFor="company-status">ステータス</Label>
-              <Select value={statusFilter} onValueChange={(value: Company['status'] | 'all') => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: Company['status'] | 'all') => {
+                setStatusFilter(value)
+                updateURLParams({ search: searchTerm, status: value, size: sizeFilter, domino: dominoFilter, consultant: consultantFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
                 </SelectTrigger>
@@ -765,7 +794,10 @@ function CompaniesPageContent() {
             {/* 企業規模フィルター */}
             <div>
               <Label htmlFor="company-size">企業規模</Label>
-              <Select value={sizeFilter} onValueChange={(value: Company['size'] | 'all') => setSizeFilter(value)}>
+              <Select value={sizeFilter} onValueChange={(value: Company['size'] | 'all') => {
+                setSizeFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, size: value, domino: dominoFilter, consultant: consultantFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="企業規模" />
                 </SelectTrigger>
@@ -781,7 +813,10 @@ function CompaniesPageContent() {
             {/* Domino連携フィルター */}
             <div>
               <Label htmlFor="company-domino">Domino連携</Label>
-              <Select value={dominoFilter} onValueChange={(value: 'all' | 'connected' | 'not_connected') => setDominoFilter(value)}>
+              <Select value={dominoFilter} onValueChange={(value: 'all' | 'connected' | 'not_connected') => {
+                setDominoFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, size: sizeFilter, domino: value, consultant: consultantFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Domino連携" />
                 </SelectTrigger>
@@ -806,7 +841,10 @@ function CompaniesPageContent() {
             {/* 担当者フィルター */}
             <div>
               <Label htmlFor="company-consultant">担当者</Label>
-              <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+              <Select value={consultantFilter} onValueChange={(value) => {
+                setConsultantFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, size: sizeFilter, domino: dominoFilter, consultant: value })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="担当者" />
                 </SelectTrigger>

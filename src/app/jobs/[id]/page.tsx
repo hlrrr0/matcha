@@ -261,10 +261,10 @@ function JobDetailContent({ params }: JobDetailPageProps) {
       <div className="container mx-auto px-4 py-8">
       {/* ヘッダー */}
       <div className="mb-8">
-      <Link href="/jobs">
+      <Link href={company ? `/jobs?search=${encodeURIComponent(company.name)}` : '/jobs'}>
         <Button variant="outline" size="sm">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          求人一覧に戻る
+          {company ? `${company.name}の求人一覧に戻る` : '求人一覧に戻る'}
         </Button>
       </Link>
       </div>

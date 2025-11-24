@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
 import { 
@@ -21,7 +22,8 @@ import {
   Briefcase,
   TrendingUp,
   DollarSign,
-  Edit
+  Edit,
+  Copy
 } from 'lucide-react'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -40,6 +42,30 @@ export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
     <ProtectedRoute>
       <CompanyDetailContent params={params} />
     </ProtectedRoute>
+  )
+}
+
+// 展開可能な特徴コンポーネント
+function ExpandableFeature({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  // テキストが3行を超えるかチェック（おおよそ）
+  const needsExpansion = text.length > 150 || text.split('\n').length > 3
+  
+  return (
+    <div 
+      onClick={() => needsExpansion && setIsExpanded(!isExpanded)}
+      className={`bg-gray-50 p-3 rounded-lg ${needsExpansion ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}
+    >
+      <p className={`text-sm text-gray-800 break-words whitespace-pre-wrap ${!isExpanded && needsExpansion ? 'line-clamp-3' : ''}`}>
+        {text}
+      </p>
+      {needsExpansion && (
+        <div className="text-sm text-blue-600 hover:text-blue-700 mt-2 font-medium">
+          {isExpanded ? '閉じる' : '続きを読む'}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -323,21 +349,18 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                   <Separator />
                   <div>
                     <h3 className="font-medium text-gray-700 mb-3">会社特徴</h3>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
+                      {/* 特徴1 */}
                       {company.feature1 && (
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{company.feature1}</p>
-                        </div>
+                        <ExpandableFeature text={company.feature1} />
                       )}
+                      {/* 特徴2 */}
                       {company.feature2 && (
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{company.feature2}</p>
-                        </div>
+                        <ExpandableFeature text={company.feature2} />
                       )}
+                      {/* 特徴3 */}
                       {company.feature3 && (
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-sm text-gray-800 break-words whitespace-pre-wrap">{company.feature3}</p>
-                        </div>
+                        <ExpandableFeature text={company.feature3} />
                       )}
                     </div>
                   </div>
@@ -438,27 +461,48 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
           {/* 関連店舗 */}
           {relatedStores.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="flex items-center gap-2">
                   <Store className="h-5 w-5" />
                   関連店舗 ({relatedStores.length}件)
                 </CardTitle>
+                <Link href={`/stores/new?company=${companyId}`}>
+                  <Button variant="outline" size="sm">
+                    <Store className="h-4 w-4 mr-2" />
+                    新しい店舗を追加
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {relatedStores.slice(0, 5).map((store) => (
-                    <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{store.name}</h4>
-                        <p className="text-sm text-gray-600">{store.address}</p>
+                  {[...relatedStores]
+                    .sort((a, b) => {
+                      const addressA = a.address || ''
+                      const addressB = b.address || ''
+                      return addressA.localeCompare(addressB, 'ja')
+                    })
+                    .slice(0, 5)
+                    .map((store) => (
+                      <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <h4 className="font-medium">{store.name}</h4>
+                          <p className="text-sm text-gray-600">{store.address}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/stores/${store.id}`}>
+                            <Button variant="outline" size="sm">
+                              詳細
+                            </Button>
+                          </Link>
+                          <Link href={`/stores/new?duplicate=${store.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Copy className="h-4 w-4 mr-1" />
+                              複製
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
-                      <Link href={`/stores/${store.id}`}>
-                        <Button variant="outline" size="sm">
-                          詳細
-                        </Button>
-                      </Link>
-                    </div>
-                  ))}
+                    ))}
                   {relatedStores.length > 5 && (
                     <div className="text-center">
                       <Link href={`/stores?company=${companyId}`}>
@@ -474,30 +518,59 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
           {/* 関連求人 */}
           {relatedJobs.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="flex items-center gap-2">
                   <Briefcase className="h-5 w-5" />
                   関連求人 ({relatedJobs.length}件)
                 </CardTitle>
+                <Link href={`/jobs/new?company=${companyId}`}>
+                  <Button variant="outline" className="w-full justify-start">
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    新しい求人を作成
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {relatedJobs.slice(0, 5).map((job) => (
-                    <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{job.title}</h4>
-                        <p className="text-sm text-gray-600">{job.location}</p>
+                  {relatedJobs.slice(0, 5).map((job) => {
+                    // 求人に紐付く店舗を取得
+                    const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+                    const jobStores = storeIds
+                      .map((storeId: string) => relatedStores.find(s => s.id === storeId))
+                      .filter(Boolean)
+                    
+                    return (
+                      <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium">{job.title}</h4>
+                          {jobStores.length > 0 && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <Store className="h-3 w-3 text-gray-500" />
+                              <p className="text-sm text-gray-600">
+                                {jobStores[0].name}
+                                {jobStores.length > 1 && (
+                                  <span className="text-gray-500 ml-1">
+                                    他{jobStores.length - 1}店舗
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {job.location && (
+                            <p className="text-sm text-gray-500 mt-1">{job.location}</p>
+                          )}
+                        </div>
+                        <Link href={`/jobs/${job.id}`}>
+                          <Button variant="outline" size="sm">
+                            詳細
+                          </Button>
+                        </Link>
                       </div>
-                      <Link href={`/jobs/${job.id}`}>
-                        <Button variant="outline" size="sm">
-                          詳細
-                        </Button>
-                      </Link>
-                    </div>
-                  ))}
+                    )
+                  })}
                   {relatedJobs.length > 5 && (
                     <div className="text-center">
-                      <Link href={`/jobs?company=${companyId}`}>
+                      <Link href={`/jobs?search=${encodeURIComponent(company.name)}`}>
                         <Button variant="outline">すべての求人を見る</Button>
                       </Link>
                     </div>
