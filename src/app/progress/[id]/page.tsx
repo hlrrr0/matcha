@@ -35,11 +35,13 @@ import { Match, MatchTimeline } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
+import { Store } from '@/types/store'
 import { User } from '@/types/user'
 import { getMatch, updateMatchStatus } from '@/lib/firestore/matches'
 import { getCandidate } from '@/lib/firestore/candidates'
 import { getJob } from '@/lib/firestore/jobs'
 import { getCompany } from '@/lib/firestore/companies'
+import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
@@ -87,6 +89,7 @@ export default function MatchDetailPage() {
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [job, setJob] = useState<Job | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
+  const [store, setStore] = useState<Store | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -120,17 +123,24 @@ export default function MatchDetailPage() {
       setMatch(matchData)
 
       // 関連データを並行して取得
-      const [candidateData, jobData, companyData, usersData] = await Promise.all([
+      const [candidateData, jobData, companyData, usersData, storesData] = await Promise.all([
         getCandidate(matchData.candidateId),
         getJob(matchData.jobId),
         getCompany(matchData.companyId),
-        getUsers()
+        getUsers(),
+        getStores()
       ])
 
       setCandidate(candidateData)
       setJob(jobData)
       setCompany(companyData)
       setUsers(usersData)
+      
+      // 求人に紐づく店舗を取得
+      if (jobData?.storeId) {
+        const storeData = storesData.find(s => s.id === jobData.storeId)
+        setStore(storeData || null)
+      }
 
       console.log('✅ マッチング詳細データ読み込み完了')
     } catch (error) {
@@ -241,6 +251,18 @@ export default function MatchDetailPage() {
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId)
     return user ? user.displayName : userId
+  }
+
+  const calculateAge = (dateOfBirth: Date | string | undefined) => {
+    if (!dateOfBirth) return null
+    const birth = new Date(dateOfBirth)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age
   }
 
   if (loading) {
@@ -429,84 +451,92 @@ export default function MatchDetailPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 候補者情報 */}
-                <div className="flex items-start space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <UserIcon className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-blue-800 mb-2">候補者</h3>
-                    {candidate ? (
-                      <div>
-                        <div className="font-medium text-lg">
-                          {candidate.lastName} {candidate.firstName}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {candidate.email}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline" asChild>
+                {/* 候補者情報と求人情報 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* 候補者情報 */}
+                  <div className="flex items-start space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div>
+                      <UserIcon className="h-6 w-6 text-blue-600 flex-shrink-0" />
+                      <h3 className="font-semibold text-blue-800 ">候補者</h3>
+                    </div>
+                    <div className="flex-1">
+                      {candidate ? (
+                        <div className="space-y-2">
+                          <div className="font-medium text-lg">
+                            {candidate.lastName} {candidate.firstName}
+                            <div className="text-sm text-gray-600">
+                              {candidate.dateOfBirth && (
+                                <>
+                                  （{calculateAge(candidate.dateOfBirth)}歳）
+                                </>
+                              )}
+                            </div>
+                            {candidate.enrollmentDate && (
+                              <div className="text-sm text-gray-600">
+                                入学日: {new Date(candidate.enrollmentDate).toLocaleDateString('ja-JP')}
+                              </div>
+                            )}
+                            {candidate.campus && (
+                              <div className="text-sm text-gray-600">
+                                校舎: {candidate.campus === 'tokyo' && '東京'}
+                                {candidate.campus === 'osaka' && '大阪'}
+                                {candidate.campus === 'awaji' && '淡路'}
+                                {candidate.campus === 'fukuoka' && '福岡'}
+                              </div>
+                            )}
+                          </div>
+                          <Button size="sm" variant="outline" asChild className="w-full">
                             <Link href={`/candidates/${candidate.id}`}>
                               <Eye className="h-3 w-3 mr-1" />
                               詳細
                             </Link>
                           </Button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500">候補者情報を読み込み中...</div>
-                    )}
+                      ) : (
+                        <div className="text-gray-500">候補者情報を読み込み中...</div>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* 求人情報 */}
-                <div className="flex items-start space-x-4 p-4 bg-green-50 rounded-lg border border-green-100">
-                  <Briefcase className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-green-800 mb-2">求人</h3>
-                    {job ? (
-                      <div>
-                        <div className="font-medium text-lg">
-                          {job.title}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {job.employmentType}{job.salaryInexperienced ? ` • ${job.salaryInexperienced}` : ''}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline" asChild>
+                  {/* 求人情報 */}
+                  <div className="flex items-start space-x-4 p-4 bg-green-50 rounded-lg border border-green-100">
+                    <div>
+                      <Briefcase className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
+                      <h3 className="font-semibold text-green-800 mb-2">求人</h3>
+                    </div>
+
+                    <div className="flex-1">
+                      {job ? (
+                        <div className="space-y-2">
+                          <div>
+                            <div className="font-medium text-lg">
+                              {job.title}
+                            </div>
+                            {company && (
+                              <div className="text-sm text-gray-600">
+                                {company.name}
+                              </div>
+                            )}
+                            {store && (
+                              <div className="text-sm text-gray-600">
+                                {store.name}
+                              </div>
+                            )}
+                            <div className="text-sm text-gray-600 mt-1">
+                              {job.employmentType}
+                            </div>
+                          </div>
+                          <Button size="sm" variant="outline" asChild className="w-full">
                             <Link href={`/jobs/${job.id}`}>
                               <Eye className="h-3 w-3 mr-1" />
                               詳細
                             </Link>
                           </Button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500">求人情報を読み込み中...</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 企業情報 */}
-                <div className="flex items-start space-x-4 p-4 bg-orange-50 rounded-lg border border-orange-100">
-                  <Building className="h-6 w-6 text-orange-600 mt-1 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-orange-800 mb-2">企業</h3>
-                    {company ? (
-                      <div>
-                        <div className="font-medium text-lg">
-                          {company.name}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/companies/${company.id}`}>
-                              <Eye className="h-3 w-3 mr-1" />
-                              詳細
-                            </Link>
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500">企業情報を読み込み中...</div>
-                    )}
+                      ) : (
+                        <div className="text-gray-500">求人情報を読み込み中...</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

@@ -292,6 +292,18 @@ function ProgressPageContent() {
     return candidate ? `${candidate.lastName} ${candidate.firstName}` : '求職者を選択'
   }
 
+  const calculateAge = (dateOfBirth: Date | string | undefined) => {
+    if (!dateOfBirth) return null
+    const birth = new Date(dateOfBirth)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age
+  }
+
   const getStatusIcon = (status: Match['status']) => {
     switch (status) {
       case 'suggested': return <Clock className="h-4 w-4" />
@@ -527,7 +539,11 @@ function ProgressPageContent() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredMatches.map((match) => (
+                      filteredMatches.map((match) => {
+                        const candidate = candidates.find(c => c.id === match.candidateId)
+                        const age = candidate?.dateOfBirth ? calculateAge(candidate.dateOfBirth) : null
+                        
+                        return (
                         <TableRow key={match.id}>
                           <TableCell className="font-medium">
                             <Link 
@@ -536,6 +552,11 @@ function ProgressPageContent() {
                             >
                               {match.candidateName}
                             </Link>
+                            {age !== null && (
+                              <>
+                                （{age}歳）
+                              </>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Link 
@@ -633,7 +654,8 @@ function ProgressPageContent() {
                             </div>
                           </TableCell>
                         </TableRow>
-                      ))
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>
