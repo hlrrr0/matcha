@@ -33,15 +33,19 @@ import { Match } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
+import { Store } from '@/types/store'
 import { getMatches, createMatch, updateMatchStatus, deleteMatch } from '@/lib/firestore/matches'
 import { getCandidates } from '@/lib/firestore/candidates'
 import { getJobs } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
+import { getStores } from '@/lib/firestore/stores'
 
 interface MatchWithDetails extends Match {
   candidateName?: string
   jobTitle?: string
   companyName?: string
+  storeName?: string
+  storeId?: string
 }
 
 function ProgressPageContent() {
@@ -52,6 +56,7 @@ function ProgressPageContent() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
+  const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Match['status'] | 'all'>('all')
@@ -101,28 +106,33 @@ function ProgressPageContent() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [matchesData, candidatesData, jobsData, companiesData] = await Promise.all([
+      const [matchesData, candidatesData, jobsData, companiesData, storesData] = await Promise.all([
         getMatches(),
         getCandidates(),
         getJobs(),
-        getCompanies()
+        getCompanies(),
+        getStores()
       ])
 
       setCandidates(candidatesData)
       setJobs(jobsData)
       setCompanies(companiesData)
+      setStores(storesData)
 
       // Add names to matches
       const matchesWithDetails = matchesData.map(match => {
         const candidate = candidatesData.find(c => c.id === match.candidateId)
         const job = jobsData.find(j => j.id === match.jobId)
         const company = companiesData.find(c => c.id === job?.companyId)
+        const store = storesData.find(s => s.id === job?.storeId)
 
         return {
           ...match,
           candidateName: candidate ? `${candidate.lastName} ${candidate.firstName}` : '不明',
           jobTitle: job?.title || '不明',
-          companyName: company?.name || '不明'
+          companyName: company?.name || '不明',
+          storeName: store?.name || '-',
+          storeId: store?.id
         }
       })
 
@@ -141,7 +151,8 @@ function ProgressPageContent() {
       filtered = filtered.filter(match => 
         match.candidateName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         match.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        match.companyName?.toLowerCase().includes(searchTerm.toLowerCase())
+        match.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        match.storeName?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -501,6 +512,7 @@ function ProgressPageContent() {
                       <TableHead>求職者</TableHead>
                       <TableHead>職種</TableHead>
                       <TableHead>企業</TableHead>
+                      <TableHead>店舗</TableHead>
                       <TableHead>スコア</TableHead>
                       <TableHead>ステータス</TableHead>
                       <TableHead>更新日</TableHead>
@@ -510,7 +522,7 @@ function ProgressPageContent() {
                   <TableBody>
                     {filteredMatches.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           マッチングデータがありません
                         </TableCell>
                       </TableRow>
@@ -518,10 +530,41 @@ function ProgressPageContent() {
                       filteredMatches.map((match) => (
                         <TableRow key={match.id}>
                           <TableCell className="font-medium">
-                            {match.candidateName}
+                            <Link 
+                              href={`/candidates/${match.candidateId}`}
+                              className="hover:underline text-blue-600 hover:text-blue-800"
+                            >
+                              {match.candidateName}
+                            </Link>
                           </TableCell>
-                          <TableCell>{match.jobTitle}</TableCell>
-                          <TableCell>{match.companyName}</TableCell>
+                          <TableCell>
+                            <Link 
+                              href={`/jobs/${match.jobId}`}
+                              className="hover:underline text-blue-600 hover:text-blue-800"
+                            >
+                              {match.jobTitle}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            <Link 
+                              href={`/companies/${match.companyId}`}
+                              className="hover:underline text-blue-600 hover:text-blue-800"
+                            >
+                              {match.companyName}
+                            </Link>
+                          </TableCell>
+                          <TableCell>
+                            {match.storeId ? (
+                              <Link 
+                                href={`/stores/${match.storeId}`}
+                                className="hover:underline text-blue-600 hover:text-blue-800"
+                              >
+                                {match.storeName}
+                              </Link>
+                            ) : (
+                              <span className="text-gray-400">{match.storeName}</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center">
                               <span className="text-sm font-medium mr-2">

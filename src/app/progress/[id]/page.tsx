@@ -17,7 +17,7 @@ import {
   ArrowLeft,
   Calendar,
   Clock,
-  User,
+  User as UserIcon,
   Briefcase,
   Building,
   Star,
@@ -35,10 +35,12 @@ import { Match, MatchTimeline } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
+import { User } from '@/types/user'
 import { getMatch, updateMatchStatus } from '@/lib/firestore/matches'
 import { getCandidate } from '@/lib/firestore/candidates'
 import { getJob } from '@/lib/firestore/jobs'
 import { getCompany } from '@/lib/firestore/companies'
+import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -85,6 +87,7 @@ export default function MatchDetailPage() {
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [job, setJob] = useState<Job | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
   // ステータス更新モーダル
@@ -117,15 +120,17 @@ export default function MatchDetailPage() {
       setMatch(matchData)
 
       // 関連データを並行して取得
-      const [candidateData, jobData, companyData] = await Promise.all([
+      const [candidateData, jobData, companyData, usersData] = await Promise.all([
         getCandidate(matchData.candidateId),
         getJob(matchData.jobId),
-        getCompany(matchData.companyId)
+        getCompany(matchData.companyId),
+        getUsers()
       ])
 
       setCandidate(candidateData)
       setJob(jobData)
       setCompany(companyData)
+      setUsers(usersData)
 
       console.log('✅ マッチング詳細データ読み込み完了')
     } catch (error) {
@@ -231,6 +236,11 @@ export default function MatchDetailPage() {
         day: 'numeric'
       })
     }
+  }
+
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId)
+    return user ? user.displayName : userId
   }
 
   if (loading) {
@@ -421,7 +431,7 @@ export default function MatchDetailPage() {
               <CardContent className="space-y-6">
                 {/* 候補者情報 */}
                 <div className="flex items-start space-x-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <User className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
+                  <UserIcon className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                   <div className="flex-1">
                     <h3 className="font-semibold text-blue-800 mb-2">候補者</h3>
                     {candidate ? (
@@ -648,7 +658,7 @@ export default function MatchDetailPage() {
                                 )}
                                 
                                 <div className="text-xs text-gray-500 mt-1">
-                                  作成者: {item.createdBy}
+                                  作成者: {getUserName(item.createdBy)}
                                 </div>
                               </div>
                             </div>
@@ -681,9 +691,9 @@ export default function MatchDetailPage() {
                   <span className="font-medium">{formatDate(match.updatedAt)}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm">
-                  <User className="h-4 w-4 text-gray-500" />
+                  <UserIcon className="h-4 w-4 text-gray-500" />
                   <span className="text-gray-600">作成者:</span>
-                  <span className="font-medium">{match.createdBy}</span>
+                  <span className="font-medium">{getUserName(match.createdBy)}</span>
                 </div>
                 {match.notes && (
                   <div className="mt-4 p-3 bg-gray-50 rounded-lg">
