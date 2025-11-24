@@ -305,3 +305,27 @@ export const getCandidate = async (id: string): Promise<Candidate | null> => {
     throw error
   }
 }
+
+// メールアドレスで候補者を検索
+export const getCandidateByEmail = async (email: string): Promise<Candidate | null> => {
+  try {
+    if (!email) return null
+    
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('email', '==', email.trim()),
+      limit(1)
+    )
+    
+    const snapshot = await getDocs(q)
+    
+    if (snapshot.empty) {
+      return null
+    }
+    
+    return candidateFromFirestore(snapshot.docs[0])
+  } catch (error) {
+    console.error('Error getting candidate by email:', error)
+    throw error
+  }
+}

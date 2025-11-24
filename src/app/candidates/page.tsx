@@ -29,11 +29,14 @@ import {
   Eye,
   Edit,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Upload
 } from 'lucide-react'
 import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
 import { getCandidates, getCandidateStats, deleteCandidate } from '@/lib/firestore/candidates'
 import { getMatchesByCandidate } from '@/lib/firestore/matches'
+import { importCandidatesFromCSV, generateCandidatesCSVTemplate } from '@/lib/csv/candidates'
 import { toast } from 'sonner'
 
 interface CandidateWithProgress extends Candidate {
@@ -46,6 +49,7 @@ export default function CandidatesPage() {
   const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
   const [stats, setStats] = useState<any>(null)
   
   // フィルタ・検索の状態
@@ -185,6 +189,48 @@ export default function CandidatesPage() {
     }
   }
 
+  // CSVテンプレートをダウンロード
+  const downloadCSVTemplate = () => {
+    const csvContent = generateCandidatesCSVTemplate()
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', '求職者インポートテンプレート.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // CSVインポート
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setCsvImporting(true)
+    try {
+      const text = await file.text()
+      const result = await importCandidatesFromCSV(text)
+      
+      if (result.errors.length > 0) {
+        toast.error(`インポート完了（エラーあり）\n成功: ${result.success}件、更新: ${result.updated}件\nエラー: ${result.errors.length}件`)
+        console.error('Import errors:', result.errors)
+      } else {
+        toast.success(`CSVインポート完了\n成功: ${result.success}件、更新: ${result.updated}件`)
+      }
+      
+      await loadData()
+    } catch (error) {
+      console.error('CSV import error:', error)
+      toast.error('CSVインポートに失敗しました')
+    } finally {
+      setCsvImporting(false)
+      // ファイル入力をリセット
+      event.target.value = ''
+    }
+  }
+
   const getStatusBadge = (status: Candidate['status']) => {
     const variants = {
       active: 'default',
@@ -263,6 +309,38 @@ export default function CandidatesPage() {
             >
               <RefreshCw className="h-4 w-4" />
               更新
+            </Button>
+            <Button
+              onClick={downloadCSVTemplate}
+              variant="outline"
+              className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              テンプレート
+            </Button>
+            <Button
+              variant="outline"
+              className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2 relative"
+              disabled={csvImporting}
+            >
+              {csvImporting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  インポート中...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  CSVインポート
+                </>
+              )}
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleCSVImport}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={csvImporting}
+              />
             </Button>
             <Link href="/candidates/new">
               <Button variant="outline" className="bg-white text-red-600 hover:bg-red-50 border-white">
