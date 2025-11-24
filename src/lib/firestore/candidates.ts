@@ -329,3 +329,32 @@ export const getCandidateByEmail = async (email: string): Promise<Candidate | nu
     throw error
   }
 }
+
+// 名前とメールアドレスで候補者を検索（重複チェック用）
+export const getCandidateByNameAndEmail = async (
+  lastName: string, 
+  firstName: string, 
+  email?: string
+): Promise<Candidate | null> => {
+  try {
+    // メールアドレスがある場合はメールでも検索
+    if (email && email.trim()) {
+      const candidateByEmail = await getCandidateByEmail(email)
+      if (candidateByEmail) {
+        return candidateByEmail
+      }
+    }
+    
+    // 名前で検索
+    const candidates = await getCandidates()
+    const matchingCandidate = candidates.find(c => 
+      c.lastName.trim() === lastName.trim() && 
+      c.firstName.trim() === firstName.trim()
+    )
+    
+    return matchingCandidate || null
+  } catch (error) {
+    console.error('Error getting candidate by name and email:', error)
+    throw error
+  }
+}

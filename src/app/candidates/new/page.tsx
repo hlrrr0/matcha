@@ -7,7 +7,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import CandidateForm, { CandidateFormData } from '@/components/candidates/CandidateForm'
 import { ArrowLeft } from 'lucide-react'
-import { createCandidate } from '@/lib/firestore/candidates'
+import { createCandidate, getCandidateByNameAndEmail } from '@/lib/firestore/candidates'
 import { toast } from 'sonner'
 
 export default function NewCandidatePage() {
@@ -58,6 +58,19 @@ export default function NewCandidatePage() {
 
     try {
       setLoading(true)
+
+      // 重複チェック: 名前とメールアドレスが一致する求職者が既に存在するか確認
+      const existingCandidate = await getCandidateByNameAndEmail(
+        formData.lastName,
+        formData.firstName,
+        formData.email
+      )
+
+      if (existingCandidate) {
+        toast.error('同じ名前とメールアドレスの求職者が既に登録されています')
+        setLoading(false)
+        return
+      }
 
       // undefinedや空文字列のフィールドを除外してデータを準備
       const candidateData: any = {

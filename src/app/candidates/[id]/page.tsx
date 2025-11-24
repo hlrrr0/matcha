@@ -263,7 +263,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <label className="text-sm font-medium text-gray-500">氏名</label>
-                  <p className="text-lg">{candidate.firstName} {candidate.lastName}：（{candidate.firstNameKana} {candidate.lastNameKana}）</p>
+                  <p className="text-lg">{candidate.lastName}　{candidate.firstName}<br></br>（{candidate.lastNameKana} {candidate.firstNameKana}）</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">生年月日</label>

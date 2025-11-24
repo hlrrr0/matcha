@@ -107,7 +107,8 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
         }
 
         // 求職者データを構築
-        const candidateData: Omit<Candidate, 'id' | 'createdAt' | 'updatedAt'> = {
+        // 求職者データを構築（undefinedを含む）
+        const rawCandidateData: any = {
           status,
           lastName: row['名前（姓）'].trim(),
           firstName: row['名前（名）'].trim(),
@@ -135,14 +136,23 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
           interviewMemo: row['面談メモ']?.trim() || undefined,
         }
 
-        // メールアドレスで既存の求職者を検索（メールアドレスがある場合）
+        // undefinedフィールドを除去（Firestoreはundefinedを許可しない）
+        const candidateData: any = {}
+        Object.keys(rawCandidateData).forEach(key => {
+          if (rawCandidateData[key] !== undefined) {
+            candidateData[key] = rawCandidateData[key]
+          }
+        })
+
+        // メールアドレスをキーとして既存の求職者を検索
         let existingCandidate = null
-        if (candidateData.email) {
+        if (candidateData.email && candidateData.email.trim()) {
+          // メールアドレスがある場合はメールアドレスで検索
           existingCandidate = await getCandidateByEmail(candidateData.email)
         }
 
         if (existingCandidate) {
-          // 既存の求職者を更新
+          // メールアドレスが一致する既存の求職者を更新
           await updateCandidate(existingCandidate.id, candidateData)
           result.updated++
         } else {

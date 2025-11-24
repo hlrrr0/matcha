@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate } from '@/types/candidate'
+import { getCandidateByNameAndEmail } from '@/lib/firestore/candidates'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import CandidateForm, { CandidateFormData } from '@/components/candidates/CandidateForm'
@@ -115,6 +116,19 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
     setSaving(true)
 
     try {
+      // 重複チェック: 名前とメールアドレスが一致する求職者が既に存在するか確認（自分自身を除く）
+      const existingCandidate = await getCandidateByNameAndEmail(
+        formData.lastName,
+        formData.firstName,
+        formData.email
+      )
+
+      if (existingCandidate && existingCandidate.id !== candidateId) {
+        toast.error('同じ名前とメールアドレスの求職者が既に登録されています')
+        setSaving(false)
+        return
+      }
+
       // undefinedや空文字列のフィールドを除外してデータを準備
       const updateData: any = {
         status: formData.status,
