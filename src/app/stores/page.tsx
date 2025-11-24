@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,15 @@ const statusColors = {
 export default function StoresPage() {
   return (
     <ProtectedRoute>
-      <StoresPageContent />
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center">読み込み中...</div>
+          </div>
+        </div>
+      }>
+        <StoresPageContent />
+      </Suspense>
     </ProtectedRoute>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -56,7 +56,15 @@ const statusColors = {
 export default function JobsPage() {
   return (
     <ProtectedRoute>
-      <JobsPageContent />
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-violet-100">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center">読み込み中...</div>
+          </div>
+        </div>
+      }>
+        <JobsPageContent />
+      </Suspense>
     </ProtectedRoute>
   )
 }

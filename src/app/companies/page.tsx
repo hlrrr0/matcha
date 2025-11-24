@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -1195,5 +1195,15 @@ function CompaniesPageContent() {
 }
 
 export default function CompaniesPage() {
-  return <CompaniesPageContent />
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">読み込み中...</div>
+        </div>
+      </div>
+    }>
+      <CompaniesPageContent />
+    </Suspense>
+  )
 }
