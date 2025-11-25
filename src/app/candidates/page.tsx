@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
@@ -52,6 +52,7 @@ const campusColors = {
 
 export default function CandidatesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
   const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,9 +60,12 @@ export default function CandidatesPage() {
   const [csvImporting, setCsvImporting] = useState(false)
   const [stats, setStats] = useState<any>(null)
   
-  // フィルタ・検索の状態
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  // フィルタ・検索の状態（URLパラメータから初期化）
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all')
+  const [campusFilter, setCampusFilter] = useState<string>(searchParams.get('campus') || 'all')
+  const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>(searchParams.get('enrollment') || 'all')
+  const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
 
   useEffect(() => {
     loadData()
@@ -69,7 +73,35 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     applyFilters()
-  }, [candidates, searchTerm, statusFilter])
+    updateURLParams()
+  }, [candidates, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter])
+
+  // 入学年月のユニーク値を抽出
+  useEffect(() => {
+    if (candidates.length > 0) {
+      const months = candidates
+        .filter(c => c.enrollmentDate)
+        .map(c => c.enrollmentDate!.substring(0, 7)) // YYYY-MM形式
+        .filter((value, index, self) => self.indexOf(value) === index)
+        .sort((a, b) => b.localeCompare(a)) // 降順（新しい順）
+      setUniqueEnrollmentMonths(months)
+    }
+  }, [candidates])
+
+  // URLパラメータを更新
+  const updateURLParams = () => {
+    const params = new URLSearchParams()
+    
+    if (searchTerm) params.set('search', searchTerm)
+    if (statusFilter !== 'all') params.set('status', statusFilter)
+    if (campusFilter !== 'all') params.set('campus', campusFilter)
+    if (enrollmentMonthFilter !== 'all') params.set('enrollment', enrollmentMonthFilter)
+    
+    const queryString = params.toString()
+    const newUrl = queryString ? `?${queryString}` : '/candidates'
+    
+    router.replace(newUrl, { scroll: false })
+  }
 
   const loadData = async () => {
     try {
@@ -145,6 +177,20 @@ export default function CandidatesPage() {
     if (statusFilter !== 'all') {
       filtered = filtered.filter(candidate => candidate.status === statusFilter)
       console.log('📊 ステータスフィルタ後:', filtered.length)
+    }
+
+    // 校舎フィルタ
+    if (campusFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.campus === campusFilter)
+      console.log('🏫 校舎フィルタ後:', filtered.length)
+    }
+
+    // 入学年月フィルタ
+    if (enrollmentMonthFilter !== 'all') {
+      filtered = filtered.filter(candidate => 
+        candidate.enrollmentDate && candidate.enrollmentDate.startsWith(enrollmentMonthFilter)
+      )
+      console.log('📅 入学年月フィルタ後:', filtered.length)
     }
 
     // 検索フィルタ
@@ -425,6 +471,7 @@ export default function CandidatesPage() {
 
             {/* ステータスフィルタ */}
             <div className="w-48">
+              <Label>ステータス</Label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
@@ -433,6 +480,41 @@ export default function CandidatesPage() {
                   <SelectItem value="all">すべて</SelectItem>
                   <SelectItem value="active">アクティブ</SelectItem>
                   <SelectItem value="inactive">非アクティブ</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 校舎フィルタ */}
+            <div className="w-48">
+              <Label>校舎</Label>
+              <Select value={campusFilter} onValueChange={setCampusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="校舎" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="tokyo">東京</SelectItem>
+                  <SelectItem value="osaka">大阪</SelectItem>
+                  <SelectItem value="awaji">淡路</SelectItem>
+                  <SelectItem value="fukuoka">福岡</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 入学年月フィルタ */}
+            <div className="w-48">
+              <Label>入学年月</Label>
+              <Select value={enrollmentMonthFilter} onValueChange={setEnrollmentMonthFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="入学年月" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  {uniqueEnrollmentMonths.map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
