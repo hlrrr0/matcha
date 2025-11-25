@@ -87,9 +87,7 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
         if (row['ステータス']) {
           const statusMap: Record<string, Candidate['status']> = {
             'アクティブ': 'active',
-            '非アクティブ': 'inactive',
-            '就職済み': 'placed',
-            '面接中': 'interviewing'
+            '非アクティブ': 'inactive'
           }
           status = statusMap[row['ステータス']] || 'active'
         }
