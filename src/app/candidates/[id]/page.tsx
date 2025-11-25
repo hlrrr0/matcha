@@ -717,14 +717,23 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   {newMatchData.jobIds.map((jobId) => {
                     const job = jobs.find(j => j.id === jobId)
                     const company = companies.find(c => c.id === job?.companyId)
-                    const store = stores.find(s => s.id === job?.storeId)
+                    // storeIds（配列）またはstoreId（単一）に対応
+                    const jobStores = job?.storeIds && job.storeIds.length > 0
+                      ? stores.filter(s => job.storeIds?.includes(s.id))
+                      : job?.storeId
+                      ? [stores.find(s => s.id === job.storeId)].filter(Boolean)
+                      : []
                     return (
                       <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">{job?.title}</div>
                           <div className="text-xs text-gray-600 truncate">
                             {company?.name}
-                            {store && <span className="ml-1">- {store.name}</span>}
+                            {jobStores.length > 0 && (
+                              <span className="ml-1">
+                                - {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <Button
@@ -819,7 +828,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               <div className="space-y-2 p-4">
                 {getFilteredJobs().map((job) => {
                   const company = companies.find(c => c.id === job.companyId)
-                  const store = stores.find(s => s.id === job.storeId)
+                  // storeIds（配列）またはstoreId（単一）に対応
+                  const jobStores = job.storeIds && job.storeIds.length > 0
+                    ? stores.filter(s => job.storeIds?.includes(s.id))
+                    : job.storeId
+                    ? [stores.find(s => s.id === job.storeId)].filter(Boolean)
+                    : []
                   const isSelected = newMatchData.jobIds.includes(job.id)
                   
                   return (
@@ -835,7 +849,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                           <h4 className="font-medium text-lg">{job.title}</h4>
                           <p className="text-gray-600 text-sm mt-1">
                             {company?.name || '企業名不明'}
-                            {store && <span className="ml-2">- {store.name}</span>}
+                            {jobStores.length > 0 && (
+                              <span className="ml-2">
+                                - {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                              </span>
+                            )}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge 
