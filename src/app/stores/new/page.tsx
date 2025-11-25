@@ -5,7 +5,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Store } from 'lucide-react'
-import { createStore, checkStoreByNameAndCompany, checkStoreByTabelogUrl } from '@/lib/firestore/stores'
+import { createStore, checkStoreByNameAndCompany, checkStoreByTabelogUrl, getStoreById } from '@/lib/firestore/stores'
 import { Store as StoreType } from '@/types/store'
 import StoreForm from '@/components/stores/StoreForm'
 
@@ -15,12 +15,33 @@ function NewStorePageContent() {
   const [loading, setLoading] = useState(false)
   const [initialData, setInitialData] = useState<Partial<StoreType>>({})
 
-  // URLパラメータから企業IDを取得して初期データを設定
+  // URLパラメータから企業IDまたは複製元店舗IDを取得して初期データを設定
   useEffect(() => {
-    const companyParam = searchParams.get('company')
-    if (companyParam) {
-      setInitialData({ companyId: companyParam })
+    const loadInitialData = async () => {
+      const companyParam = searchParams.get('company')
+      const duplicateParam = searchParams.get('duplicate')
+      
+      if (duplicateParam) {
+        // 複製元の店舗データを読み込む
+        try {
+          const sourceStore = await getStoreById(duplicateParam)
+          if (sourceStore) {
+            // IDとタイムスタンプを除外して、他のデータをコピー
+            const { id, createdAt, updatedAt, ...storeData } = sourceStore
+            setInitialData({
+              ...storeData,
+              name: `${sourceStore.name}（コピー）` // 店舗名に「コピー」を追加
+            })
+          }
+        } catch (error) {
+          console.error('複製元店舗の取得に失敗しました:', error)
+        }
+      } else if (companyParam) {
+        setInitialData({ companyId: companyParam })
+      }
     }
+    
+    loadInitialData()
   }, [searchParams])
 
   const handleSubmit = async (data: Partial<StoreType>) => {

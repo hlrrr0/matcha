@@ -20,7 +20,7 @@ import { Match } from '@/types/matching'
 import { getMatchesByCandidate, createMatch } from '@/lib/firestore/matches'
 import { getJob, getJobs } from '@/lib/firestore/jobs'
 import { getCompany, getCompanies } from '@/lib/firestore/companies'
-import { getStores } from '@/lib/firestore/stores'
+import { getStoreById, getStores } from '@/lib/firestore/stores'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -150,7 +150,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       const matchesData = await getMatchesByCandidate(candidateId)
       console.log('📋 取得したマッチング数:', matchesData.length)
       
-      // 各マッチングに求人と企業の詳細情報を追加
+      // 各マッチングに求人と企業、店舗の詳細情報を追加
       const matchesWithDetails = await Promise.all(
         matchesData.map(async (match) => {
           try {
@@ -159,17 +159,35 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               getCompany(match.companyId)
             ])
             
+            // 店舗情報を取得（storeIdsまたはstoreIdに対応）
+            let storeNames: string[] = []
+            if (jobData) {
+              if (jobData.storeIds && jobData.storeIds.length > 0) {
+                const storesData = await Promise.all(
+                  jobData.storeIds.map(id => getStoreById(id).catch(() => null))
+                )
+                storeNames = storesData
+                  .filter((s): s is Store => s !== null)
+                  .map(s => s.name)
+              } else if (jobData.storeId) {
+                const storeData = await getStoreById(jobData.storeId).catch(() => null)
+                if (storeData) storeNames = [storeData.name]
+              }
+            }
+            
             return {
               ...match,
               jobTitle: jobData?.title || '求人不明',
-              companyName: companyData?.name || '企業不明'
+              companyName: companyData?.name || '企業不明',
+              storeNames: storeNames
             }
           } catch (error) {
             console.error('マッチング詳細取得エラー:', error)
             return {
               ...match,
               jobTitle: '取得エラー',
-              companyName: '取得エラー'
+              companyName: '取得エラー',
+              storeNames: []
             }
           }
         })
@@ -565,6 +583,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   <TableRow>
                     <TableHead>求人</TableHead>
                     <TableHead>企業</TableHead>
+                    <TableHead>店舗</TableHead>
                     <TableHead>スコア</TableHead>
                     <TableHead>ステータス</TableHead>
                     <TableHead>作成日</TableHead>
@@ -572,7 +591,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {matches.map((match) => (
+                  {matches.map((match: any) => (
                     <TableRow key={match.id} className="hover:bg-purple-50">
                       <TableCell>
                         <div className="flex items-center space-x-2">
@@ -583,7 +602,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                             </Link>
                             {match.matchReasons.length > 0 && (
                               <div className="text-xs text-gray-500 mt-1">
-                                {match.matchReasons.slice(0, 2).map((reason, index) => (
+                                {match.matchReasons.slice(0, 2).map((reason: any, index: number) => (
                                   <span key={index} className="mr-2">
                                     {reason.description}
                                   </span>
@@ -600,6 +619,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                             <span className="font-medium">{match.companyName}</span>
                           </div>
                         </Link>
+                      </TableCell>
+                      <TableCell>
+                        {match.storeNames && match.storeNames.length > 0 ? (
+                          <div className="text-sm">
+                            {match.storeNames.join(', ')}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {getScoreBadge(match.score)}
@@ -693,7 +721,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
           setNewMatchData({ jobIds: [], score: 50, notes: '' })
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>新規マッチング作成</DialogTitle>
             <DialogDescription>
@@ -713,7 +741,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               </Button>
               {/* 選択済み求人リスト */}
               {newMatchData.jobIds.length > 0 && (
-                <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2">
                   {newMatchData.jobIds.map((jobId) => {
                     const job = jobs.find(j => j.id === jobId)
                     const company = companies.find(c => c.id === job?.companyId)
@@ -724,15 +752,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                       ? [stores.find(s => s.id === job.storeId)].filter(Boolean)
                       : []
                     return (
-                      <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{job?.title}</div>
-                          <div className="text-xs text-gray-600 truncate">
-                            {company?.name}
+                      <div key={jobId} className="flex items-start gap-2 p-3 bg-gray-50 rounded text-sm border border-gray-200">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="font-medium">{job?.title}</div>
+                          <div className="text-xs text-gray-600">
+                            <div>{company?.name}</div>
                             {jobStores.length > 0 && (
-                              <span className="ml-1">
-                                - {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
-                              </span>
+                              <div className="mt-0.5">
+                                {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -740,10 +768,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0 ml-2"
+                          className="h-8 w-8 p-0 flex-shrink-0"
                           onClick={() => handleJobSelect(jobId)}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     )
