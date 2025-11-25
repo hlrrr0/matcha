@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
@@ -52,7 +52,6 @@ const campusColors = {
 
 export default function CandidatesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
   const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,12 +59,27 @@ export default function CandidatesPage() {
   const [csvImporting, setCsvImporting] = useState(false)
   const [stats, setStats] = useState<any>(null)
   
-  // フィルタ・検索の状態（URLパラメータから初期化）
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
-  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all')
-  const [campusFilter, setCampusFilter] = useState<string>(searchParams.get('campus') || 'all')
-  const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>(searchParams.get('enrollment') || 'all')
+  // フィルタ・検索の状態
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [campusFilter, setCampusFilter] = useState<string>('all')
+  const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>('all')
   const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
+
+  // マウント時にURLの検索パラメータからフィルタを復元（クライアントサイドのみ）
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const s = params.get('search') || ''
+    const st = params.get('status') || 'all'
+    const cp = params.get('campus') || 'all'
+    const en = params.get('enrollment') || 'all'
+
+    setSearchTerm(s)
+    setStatusFilter(st)
+    setCampusFilter(cp)
+    setEnrollmentMonthFilter(en)
+  }, [])
 
   useEffect(() => {
     loadData()
