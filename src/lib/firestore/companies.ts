@@ -286,6 +286,9 @@ export async function createCompany(companyData: Omit<Company, 'id' | 'createdAt
  */
 export async function updateCompany(id: string, companyData: Partial<Omit<Company, 'id' | 'createdAt'>>): Promise<void> {
   try {
+    if (!id || id.trim() === '') {
+      throw new Error('無効な企業IDです')
+    }
     console.log(`🔄 企業ID「${id}」の更新を開始...`)
     
     // 企業が存在するかチェック
@@ -319,6 +322,10 @@ export async function updateCompany(id: string, companyData: Partial<Omit<Compan
  */
 export async function deleteCompany(id: string): Promise<void> {
   try {
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ 無効な企業IDです')
+      return
+    }
     console.log(`🗑️ Firestore企業削除開始: ID「${id}」`)
     
     // 削除前に企業が存在するかチェック
@@ -504,6 +511,9 @@ export async function importCompaniesFromDomino(companies: Company[]): Promise<{
 // 個別の企業取得
 export const getCompany = async (id: string): Promise<Company | null> => {
   try {
+    if (!id || id.trim() === '') {
+      return null
+    }
     const docRef = doc(companiesCollection, id)
     const docSnap = await getDoc(docRef)
     

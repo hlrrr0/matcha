@@ -25,6 +25,11 @@ export default function EditJobPage({ params }: EditJobPageProps) {
   useEffect(() => {
     const loadParams = async () => {
       const resolvedParams = await params
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な求人IDです')
+        window.location.href = '/jobs'
+        return
+      }
       setJobId(resolvedParams.id)
     }
     loadParams()

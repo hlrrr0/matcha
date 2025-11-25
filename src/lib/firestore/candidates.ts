@@ -171,6 +171,9 @@ export const getCandidates = async (options?: {
 // 求職者詳細取得
 export const getCandidateById = async (id: string): Promise<Candidate | null> => {
   try {
+    if (!id || id.trim() === '') {
+      return null
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     const docSnap = await getDoc(docRef)
     
@@ -204,6 +207,9 @@ export const createCandidate = async (candidateData: Omit<Candidate, 'id' | 'cre
 // 求職者更新
 export const updateCandidate = async (id: string, candidateData: Partial<Omit<Candidate, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      throw new Error('無効な候補者IDです')
+    }
     const docRef = doc(db, 'candidates', id)
     const updateData = candidateToFirestore({
       ...candidateData,
@@ -224,6 +230,10 @@ export const updateCandidate = async (id: string, candidateData: Partial<Omit<Ca
 // 求職者削除
 export const deleteCandidate = async (id: string): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ 無効な候補者IDです')
+      return
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     await deleteDoc(docRef)
   } catch (error) {

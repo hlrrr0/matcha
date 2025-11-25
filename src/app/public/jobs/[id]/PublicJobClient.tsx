@@ -50,6 +50,13 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
   useEffect(() => {
     const initializeComponent = async () => {
       const resolvedParams = await params
+      
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        setJob(null)
+        setLoading(false)
+        return
+      }
+      
       setJobId(resolvedParams.id)
       
       const fetchJobData = async () => {
@@ -68,7 +75,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
             setJob({ ...jobData, id: resolvedParams.id })
             
             // 関連企業の取得
-            if (jobData.companyId) {
+            if (jobData.companyId && jobData.companyId.trim() !== '') {
               const companyDoc = await getDoc(doc(db, 'companies', jobData.companyId))
               if (companyDoc.exists()) {
                 setCompany({ ...companyDoc.data() as Company, id: jobData.companyId })
@@ -78,9 +85,10 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
             // 関連店舗の取得（複数対応）
             const storesList: StoreType[] = []
             const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
+            const validStoreIds = storeIds.filter(id => id && id.trim() !== '')
             
-            if (storeIds.length > 0) {
-              for (const storeId of storeIds) {
+            if (validStoreIds.length > 0) {
+              for (const storeId of validStoreIds) {
                 const storeDoc = await getDoc(doc(db, 'stores', storeId))
                 if (storeDoc.exists()) {
                   storesList.push({ ...storeDoc.data() as StoreType, id: storeId })
@@ -435,7 +443,12 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                             <div className="space-y-3 pt-2">
                               {stores.slice(1).map((store, index) => (
                                 <div key={store.id} className="border-l-2 border-gray-300 pl-3">
-                                  <p className="font-medium">{store.name}</p>
+                                  <p className="font-medium">
+                                    {store.name}
+                                    {store.prefecture && (
+                                      <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                                    )}
+                                  </p>
                                   {store.address && (
                                     <p className="text-gray-600 text-sm">{store.address}</p>
                                   )}
@@ -702,7 +715,12 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                             <div className="space-y-4 pt-2">
                               {stores.slice(1).map((store, index) => (
                                 <div key={store.id} className="border-l-2 border-gray-300 pl-3 pb-3">
-                                  <p className="font-medium text-base mb-3">{store.name}</p>
+                                  <p className="font-medium text-base mb-3">
+                                    {store.name}
+                                    {store.prefecture && (
+                                      <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                                    )}
+                                  </p>
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {store.trainingPeriod && (

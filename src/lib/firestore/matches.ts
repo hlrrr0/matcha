@@ -205,6 +205,9 @@ export const getMatches = async (options?: {
 // マッチング詳細取得
 export const getMatch = async (id: string): Promise<Match | null> => {
   try {
+    if (!id || id.trim() === '') {
+      return null
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     const docSnap = await getDoc(docRef)
     
@@ -241,6 +244,9 @@ export const createMatch = async (matchData: Omit<Match, 'id' | 'createdAt' | 'u
 // マッチング更新
 export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      throw new Error('無効なマッチングIDです')
+    }
     console.log('🔄 マッチング更新開始 ID:', id, 'データ:', matchData)
     
     const docRef = doc(db, COLLECTION_NAME, id)
@@ -273,6 +279,10 @@ export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id
 // マッチング削除
 export const deleteMatch = async (id: string): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ 無効なマッチングIDです')
+      return
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     await deleteDoc(docRef)
   } catch (error) {
@@ -357,16 +367,25 @@ export const updateMatchStatus = async (
 
 // 候補者のマッチング取得
 export const getMatchesByCandidate = async (candidateId: string): Promise<Match[]> => {
+  if (!candidateId || candidateId.trim() === '') {
+    return []
+  }
   return getMatches({ candidateId })
 }
 
 // 求人のマッチング取得
 export const getMatchesByJob = async (jobId: string): Promise<Match[]> => {
+  if (!jobId || jobId.trim() === '') {
+    return []
+  }
   return getMatches({ jobId })
 }
 
 // 企業のマッチング取得
 export const getMatchesByCompany = async (companyId: string): Promise<Match[]> => {
+  if (!companyId || companyId.trim() === '') {
+    return []
+  }
   return getMatches({ companyId })
 }
 

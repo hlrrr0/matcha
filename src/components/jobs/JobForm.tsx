@@ -368,6 +368,9 @@ export default function JobForm({
                         />
                         <Label htmlFor={`store-${store.id}`} className="text-sm font-normal cursor-pointer">
                           {store.name}
+                          {store.prefecture && (
+                            <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                          )}
                         </Label>
                       </div>
                     ))

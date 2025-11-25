@@ -1082,7 +1082,12 @@ function CompaniesPageContent() {
                                     className="bg-white p-3 rounded border border-gray-200 flex justify-between items-start"
                                   >
                                     <div>
-                                      <div className="font-medium">{store.name}</div>
+                                      <div className="font-medium">
+                                        {store.name}
+                                        {store.prefecture && (
+                                          <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                                        )}
+                                      </div>
                                       <div className="text-sm text-gray-600">
                                         {store.address && <div>📍 {store.address}</div>}
                                         {store.website && <div>🌐 <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{store.website}</a></div>}

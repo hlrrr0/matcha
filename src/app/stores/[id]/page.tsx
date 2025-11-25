@@ -50,6 +50,13 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
   useEffect(() => {
     const initializeComponent = async () => {
       const resolvedParams = await params
+      
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な店舗IDです')
+        router.push('/stores')
+        return
+      }
+      
       setStoreId(resolvedParams.id)
       
       const fetchStoreData = async () => {
@@ -60,7 +67,7 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
             setStore({ ...storeData, id: resolvedParams.id })
             
             // 関連会社の情報を取得
-            if (storeData.companyId) {
+            if (storeData.companyId && storeData.companyId.trim() !== '') {
               const companyDoc = await getDoc(doc(db, 'companies', storeData.companyId))
               if (companyDoc.exists()) {
                 setCompany({ ...companyDoc.data(), id: storeData.companyId } as Company)
@@ -242,6 +249,18 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               <CardTitle>基本情報</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+
+              {store.prefecture && (
+                <div>
+                  <h3 className="font-medium text-gray-700 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    都道府県
+                  </h3>
+                  <p className="mt-1">
+                    <Badge variant="outline">{store.prefecture}</Badge>
+                  </p>
+                </div>
+              )}
 
               {store.address && (
                 <div>

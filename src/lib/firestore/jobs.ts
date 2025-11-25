@@ -136,6 +136,9 @@ export async function findJobByTitleAndCompany(
 // 求人更新
 export const updateJob = async (id: string, jobData: Partial<Omit<Job, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      throw new Error('無効な求人IDです')
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     const updateData = jobToFirestore({
       ...jobData,
@@ -155,6 +158,10 @@ export const updateJob = async (id: string, jobData: Partial<Omit<Job, 'id' | 'c
 // 求人削除
 export const deleteJob = async (id: string): Promise<void> => {
   try {
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ 無効な求人IDです')
+      return
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     await deleteDoc(docRef)
   } catch (error) {
@@ -179,6 +186,9 @@ export const getJobs = async (): Promise<Job[]> => {
 // 求人詳細取得
 export const getJobById = async (id: string): Promise<Job | null> => {
   try {
+    if (!id || id.trim() === '') {
+      return null
+    }
     const docRef = doc(db, COLLECTION_NAME, id)
     const docSnap = await getDoc(docRef)
     
@@ -196,6 +206,9 @@ export const getJobById = async (id: string): Promise<Job | null> => {
 // 企業の求人一覧取得
 export const getJobsByCompany = async (companyId: string): Promise<Job[]> => {
   try {
+    if (!companyId || companyId.trim() === '') {
+      return []
+    }
     const q = query(
       collection(db, COLLECTION_NAME),
       where('companyId', '==', companyId),
@@ -213,6 +226,9 @@ export const getJobsByCompany = async (companyId: string): Promise<Job[]> => {
 // 店舗の求人一覧取得
 export const getJobsByStore = async (storeId: string): Promise<Job[]> => {
   try {
+    if (!storeId || storeId.trim() === '') {
+      return []
+    }
     const q = query(
       collection(db, COLLECTION_NAME),
       where('storeId', '==', storeId),

@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
     let storeNames: string[] = []
 
     // 関連企業の取得
-    if (jobData.companyId) {
+    if (jobData.companyId && jobData.companyId.trim() !== '') {
       const companyDoc = await getDoc(doc(db, 'companies', jobData.companyId))
       if (companyDoc.exists()) {
         const companyData = companyDoc.data() as Company
@@ -65,8 +65,9 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
 
     // 関連店舗の取得（複数対応）
     const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
-    if (storeIds.length > 0) {
-      for (const storeId of storeIds) {
+    const validStoreIds = storeIds.filter(id => id && id.trim() !== '')
+    if (validStoreIds.length > 0) {
+      for (const storeId of validStoreIds) {
         const storeDoc = await getDoc(doc(db, 'stores', storeId))
         if (storeDoc.exists()) {
           const storeData = storeDoc.data() as StoreType

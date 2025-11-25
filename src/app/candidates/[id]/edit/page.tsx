@@ -55,6 +55,11 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
   useEffect(() => {
     const initializeParams = async () => {
       const resolvedParams = await params
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な求職者IDです')
+        window.location.href = '/candidates'
+        return
+      }
       setCandidateId(resolvedParams.id)
     }
     initializeParams()

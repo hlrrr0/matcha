@@ -114,6 +114,11 @@ export default function MatchDetailPage() {
   const [eventTime, setEventTime] = useState('')
 
   useEffect(() => {
+    if (!matchId || matchId.trim() === '') {
+      alert('無効なマッチングIDです')
+      router.push('/progress')
+      return
+    }
     if (matchId) {
       loadMatchData()
     }
@@ -587,6 +592,9 @@ export default function MatchDetailPage() {
                             {store && (
                               <div className="text-sm text-gray-600">
                                 {store.name}
+                                {store.prefecture && (
+                                  <span className="ml-2">【{store.prefecture}】</span>
+                                )}
                               </div>
                             )}
                             <div className="text-sm text-gray-600 mt-1">

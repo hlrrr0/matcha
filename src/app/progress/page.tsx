@@ -139,7 +139,7 @@ function ProgressPageContent() {
           candidateName: candidate ? `${candidate.lastName} ${candidate.firstName}` : '不明',
           jobTitle: job?.title || '不明',
           companyName: company?.name || '不明',
-          storeName: store?.name || '-',
+          storeName: store?.name && store.prefecture ? `${store.name}【${store.prefecture}】` : (store?.name || '-'),
           storeId: store?.id
         }
       })
@@ -515,7 +515,12 @@ function ProgressPageContent() {
                                     <div className="font-medium truncate">{job?.title}</div>
                                     <div className="text-xs text-gray-600 truncate">
                                       {company?.name}
-                                      {store && <span className="ml-1">- {store.name}</span>}
+                                      {store && (
+                                        <span className="ml-1">
+                                          - {store.name}
+                                          {store.prefecture && `【${store.prefecture}】`}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                   <Button
@@ -917,7 +922,12 @@ function ProgressPageContent() {
                               <h4 className="font-medium text-lg">{job.title}</h4>
                               <p className="text-gray-600 text-sm mt-1">
                                 {company?.name || '企業名不明'}
-                                {store && <span className="ml-2">- {store.name}</span>}
+                                {store && (
+                                  <span className="ml-2">
+                                    - {store.name}
+                                    {store.prefecture && `【${store.prefecture}】`}
+                                  </span>
+                                )}
                               </p>
                               <div className="flex items-center gap-2 mt-2">
                                 <Badge 

@@ -25,6 +25,7 @@ import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
 import { useAuth } from '@/contexts/AuthContext'
+import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/utils/prefecture'
 
 const statusLabels = {
   suggested: '提案済み',
@@ -91,6 +92,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   useEffect(() => {
     const initializeParams = async () => {
       const resolvedParams = await params
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な求職者IDです')
+        window.location.href = '/candidates'
+        return
+      }
       setCandidateId(resolvedParams.id)
     }
     initializeParams()
@@ -163,13 +169,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             let storeNames: string[] = []
             if (jobData) {
               if (jobData.storeIds && jobData.storeIds.length > 0) {
-                const storesData = await Promise.all(
-                  jobData.storeIds.map(id => getStoreById(id).catch(() => null))
-                )
-                storeNames = storesData
-                  .filter((s): s is Store => s !== null)
-                  .map(s => s.name)
-              } else if (jobData.storeId) {
+                // 有効なIDのみをフィルタリング
+                const validStoreIds = jobData.storeIds.filter(id => id && id.trim() !== '')
+                if (validStoreIds.length > 0) {
+                  const storesData = await Promise.all(
+                    validStoreIds.map(id => getStoreById(id).catch(() => null))
+                  )
+                  storeNames = storesData
+                    .filter((s): s is Store => s !== null)
+                    .map(s => s.name)
+                }
+              } else if (jobData.storeId && jobData.storeId.trim() !== '') {
                 const storeData = await getStoreById(jobData.storeId).catch(() => null)
                 if (storeData) storeNames = [storeData.name]
               }
@@ -751,15 +761,18 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                       : job?.storeId
                       ? [stores.find(s => s.id === job.storeId)].filter(Boolean)
                       : []
+                    // 求人タイトルに都道府県を付与（店舗の都道府県を使用）
+                    const prefecture = jobStores[0]?.prefecture
+                    const displayTitle = getJobTitleWithPrefecture(job?.title || '', prefecture)
                     return (
                       <div key={jobId} className="flex items-start gap-2 p-3 bg-gray-50 rounded text-sm border border-gray-200">
                         <div className="flex-1 min-w-0 space-y-1">
-                          <div className="font-medium">{job?.title}</div>
+                          <div className="font-medium">{displayTitle}</div>
                           <div className="text-xs text-gray-600">
                             <div>{company?.name}</div>
                             {jobStores.length > 0 && (
                               <div className="mt-0.5">
-                                {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                                {jobStores.map(s => getStoreNameWithPrefecture(s?.name || '', s?.prefecture)).filter(Boolean).join(', ')}
                               </div>
                             )}
                           </div>
@@ -864,6 +877,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                     : []
                   const isSelected = newMatchData.jobIds.includes(job.id)
                   
+                  // 求人タイトルに都道府県を付与（店舗の都道府県を使用）
+                  const prefecture = jobStores[0]?.prefecture
+                  const displayTitle = getJobTitleWithPrefecture(job.title, prefecture)
+                  
                   return (
                     <div
                       key={job.id}
@@ -874,12 +891,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-medium text-lg">{job.title}</h4>
+                          <h4 className="font-medium text-lg">{displayTitle}</h4>
                           <p className="text-gray-600 text-sm mt-1">
                             {company?.name || '企業名不明'}
                             {jobStores.length > 0 && (
                               <span className="ml-2">
-                                - {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                                - {jobStores.map(s => getStoreNameWithPrefecture(s?.name || '', s?.prefecture)).filter(Boolean).join(', ')}
                               </span>
                             )}
                           </p>

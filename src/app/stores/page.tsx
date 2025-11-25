@@ -652,7 +652,12 @@ function StoresPageContent() {
                       </TableCell>
                     )}
                     <TableCell className="font-medium">
-                      <div className="font-semibold">{store.name}</div>
+                      <div className="font-semibold">
+                        {store.name}
+                        {store.prefecture && (
+                          <span className="ml-2 text-gray-500 font-normal">【{store.prefecture}】</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{getCompanyName(store.companyId) ? (
                       <Link 

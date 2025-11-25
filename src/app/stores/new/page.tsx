@@ -21,7 +21,7 @@ function NewStorePageContent() {
       const companyParam = searchParams.get('company')
       const duplicateParam = searchParams.get('duplicate')
       
-      if (duplicateParam) {
+      if (duplicateParam && duplicateParam.trim() !== '') {
         // 複製元の店舗データを読み込む
         try {
           const sourceStore = await getStoreById(duplicateParam)

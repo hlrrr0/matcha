@@ -339,7 +339,8 @@ function JobsPageContent() {
   const getStoreName = (storeId?: string) => {
     if (!storeId) return '-'
     const store = stores.find(s => s.id === storeId)
-    return store?.name || '不明な店舗'
+    if (!store) return '不明な店舗'
+    return store.prefecture ? `${store.name}【${store.prefecture}】` : store.name
   }
 
   const getConsultantName = (userId?: string) => {

@@ -27,6 +27,11 @@ export default function EditCompanyPage({ params }: EditCompanyPageProps) {
   useEffect(() => {
     const initializeParams = async () => {
       const resolvedParams = await params
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な企業IDです')
+        window.location.href = '/companies'
+        return
+      }
       setCompanyId(resolvedParams.id)
     }
     initializeParams()

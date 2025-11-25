@@ -27,6 +27,11 @@ export default function EditStorePage({ params }: EditStorePageProps) {
   useEffect(() => {
     const initializeParams = async () => {
       const resolvedParams = await params
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な店舗IDです')
+        window.location.href = '/stores'
+        return
+      }
       setStoreId(resolvedParams.id)
     }
     initializeParams()

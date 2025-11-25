@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Badge } from '@/components/ui/badge'
 import { Save, Loader2, Plus, Minus } from 'lucide-react'
 import { Store } from '@/types/store'
 import { Company } from '@/types/company'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { extractPrefecture } from '@/lib/utils/prefecture'
 
 interface StoreFormProps {
   initialData?: Partial<Store>
@@ -338,6 +340,18 @@ export default function StoreForm({
               placeholder="店舗の住所を入力してください"
               required
             />
+            {formData.address && (
+              <div className="mt-2">
+                <span className="text-sm text-gray-500">自動抽出された都道府県: </span>
+                {extractPrefecture(formData.address) ? (
+                  <Badge variant="outline" className="ml-1">
+                    {extractPrefecture(formData.address)}
+                  </Badge>
+                ) : (
+                  <span className="text-sm text-amber-600">都道府県を抽出できませんでした</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

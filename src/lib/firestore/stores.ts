@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Store } from '@/types/store'
+import { extractPrefecture } from '@/lib/utils/prefecture'
 
 export const storesCollection = collection(db, 'stores')
 
@@ -125,6 +126,9 @@ export async function findStoreByNameAndCompany(name: string, companyId: string)
 // 企業の店舗一覧を取得
 export async function getStoresByCompany(companyId: string): Promise<Store[]> {
   try {
+    if (!companyId || companyId.trim() === '') {
+      return []
+    }
     const q = query(
       storesCollection, 
       where('companyId', '==', companyId),
@@ -147,6 +151,9 @@ export async function getStoresByCompany(companyId: string): Promise<Store[]> {
 // 特定の店舗を取得
 export async function getStoreById(id: string): Promise<Store | null> {
   try {
+    if (!id || id.trim() === '') {
+      return null
+    }
     const docRef = doc(storesCollection, id)
     const docSnap = await getDoc(docRef)
     
@@ -169,8 +176,12 @@ export async function getStoreById(id: string): Promise<Store | null> {
 // 店舗を新規作成
 export async function createStore(data: Omit<Store, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
+    // 住所から都道府県を自動抽出
+    const prefecture = extractPrefecture(data.address)
+    
     const storeData = {
       ...data,
+      prefecture, // 都道府県を追加
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
@@ -192,9 +203,17 @@ export async function updateStore(
   data: Partial<Omit<Store, 'id' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> {
   try {
+    if (!id || id.trim() === '') {
+      throw new Error('無効な店舗IDです')
+    }
     const docRef = doc(storesCollection, id)
+    
+    // 住所が更新される場合は都道府県も更新
+    const prefecture = data.address ? extractPrefecture(data.address) : undefined
+    
     const updateData = {
       ...data,
+      ...(prefecture !== undefined && { prefecture }), // 都道府県がある場合のみ追加
       updatedAt: serverTimestamp(),
     }
     
@@ -211,6 +230,10 @@ export async function updateStore(
 // 店舗を削除（関連する求人も削除）
 export async function deleteStore(id: string): Promise<void> {
   try {
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ 無効な店舗IDです')
+      return
+    }
     console.log(`🗑️ 店舗削除開始: ID「${id}」`)
     
     // 削除前に店舗が存在するかチェック

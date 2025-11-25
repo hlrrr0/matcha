@@ -81,6 +81,13 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
   useEffect(() => {
     const initializeComponent = async () => {
       const resolvedParams = await params
+      
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な企業IDです')
+        router.push('/companies')
+        return
+      }
+      
       setCompanyId(resolvedParams.id)
       
       const fetchCompanyData = async () => {
@@ -91,7 +98,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
             setCompany({ ...companyData, id: resolvedParams.id })
             
             // 担当コンサルタントの取得
-            if (companyData.consultantId) {
+            if (companyData.consultantId && companyData.consultantId.trim() !== '') {
               const consultantDoc = await getDoc(doc(db, 'users', companyData.consultantId))
               if (consultantDoc.exists()) {
                 setConsultant({ ...consultantDoc.data() as User, id: companyData.consultantId })
@@ -485,7 +492,12 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                     .map((store) => (
                       <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
-                          <h4 className="font-medium">{store.name}</h4>
+                          <h4 className="font-medium">
+                            {store.name}
+                            {store.prefecture && (
+                              <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                            )}
+                          </h4>
                           <p className="text-sm text-gray-600">{store.address}</p>
                         </div>
                         <div className="flex items-center gap-2">

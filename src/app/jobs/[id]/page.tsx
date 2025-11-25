@@ -57,6 +57,13 @@ function JobDetailContent({ params }: JobDetailPageProps) {
   useEffect(() => {
     const initializeComponent = async () => {
       const resolvedParams = await params
+      
+      if (!resolvedParams.id || resolvedParams.id.trim() === '') {
+        alert('無効な求人IDです')
+        router.push('/jobs')
+        return
+      }
+      
       setJobId(resolvedParams.id)
       
       const fetchJobData = async () => {
@@ -67,7 +74,7 @@ function JobDetailContent({ params }: JobDetailPageProps) {
             setJob({ ...jobData, id: resolvedParams.id })
             
             // 関連企業の取得
-            if (jobData.companyId) {
+            if (jobData.companyId && jobData.companyId.trim() !== '') {
               const companyDoc = await getDoc(doc(db, 'companies', jobData.companyId))
               if (companyDoc.exists()) {
                 setCompany({ ...companyDoc.data() as Company, id: jobData.companyId })
@@ -77,9 +84,10 @@ function JobDetailContent({ params }: JobDetailPageProps) {
             // 関連店舗の取得（複数対応）
             const storesList: any[] = []
             const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
+            const validStoreIds = storeIds.filter(id => id && id.trim() !== '')
             
-            if (storeIds.length > 0) {
-              for (const storeId of storeIds) {
+            if (validStoreIds.length > 0) {
+              for (const storeId of validStoreIds) {
                 const storeDoc = await getDoc(doc(db, 'stores', storeId))
                 if (storeDoc.exists()) {
                   storesList.push({ ...storeDoc.data(), id: storeId })
@@ -401,7 +409,12 @@ function JobDetailContent({ params }: JobDetailPageProps) {
                       <div key={store.id} className="flex items-center gap-2">
                         <Badge variant="outline">{index + 1}</Badge>
                         <div>
-                          <p className="font-medium">{store.name}</p>
+                          <p className="font-medium">
+                            {store.name}
+                            {store.prefecture && (
+                              <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                            )}
+                          </p>
                           {store.address && (
                             <p className="text-sm text-gray-600">{store.address}</p>
                           )}
@@ -531,7 +544,12 @@ function JobDetailContent({ params }: JobDetailPageProps) {
                   <div className="mt-2 space-y-2">
                     {stores.map((store) => (
                       <div key={store.id} className="flex items-center justify-between">
-                        <span className="text-sm">{store.name}</span>
+                        <span className="text-sm">
+                          {store.name}
+                          {store.prefecture && (
+                            <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                          )}
+                        </span>
                         <Link href={`/stores/${store.id}`}>
                           <Button variant="outline" size="sm">詳細</Button>
                         </Link>
