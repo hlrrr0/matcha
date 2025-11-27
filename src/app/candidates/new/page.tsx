@@ -1,18 +1,21 @@
 "use client"
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import CandidateForm, { CandidateFormData } from '@/components/candidates/CandidateForm'
 import { ArrowLeft } from 'lucide-react'
 import { createCandidate, getCandidateByNameAndEmail } from '@/lib/firestore/candidates'
+import { getUsers } from '@/lib/firestore/users'
+import { User } from '@/types/user'
 import { toast } from 'sonner'
 
 export default function NewCandidatePage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [users, setUsers] = useState<User[]>([])
   const [formData, setFormData] = useState<CandidateFormData>({
     // 基本情報（必須）
     status: 'active',
@@ -45,8 +48,21 @@ export default function NewCandidatePage() {
     teacherComment: '',
     personalityScore: '',
     skillScore: '',
-    interviewMemo: ''
+    interviewMemo: '',
+    assignedUserId: ''
   })
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersData = await getUsers()
+        setUsers(usersData)
+      } catch (error) {
+        console.error('ユーザー取得エラー:', error)
+      }
+    }
+    loadUsers()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -146,6 +162,9 @@ export default function NewCandidatePage() {
       if (formData.interviewMemo && formData.interviewMemo.trim()) {
         candidateData.interviewMemo = formData.interviewMemo
       }
+      if (formData.assignedUserId && formData.assignedUserId.trim()) {
+        candidateData.assignedUserId = formData.assignedUserId
+      }
 
       const newId = await createCandidate(candidateData)
       toast.success('求職者を作成しました')
@@ -179,6 +198,7 @@ export default function NewCandidatePage() {
             submitLabel="求職者を作成"
             title="新規求職者登録"
             description="新しい求職者の情報を入力してください"
+            users={users}
           />
         </div>
       </div>

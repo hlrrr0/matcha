@@ -33,6 +33,7 @@ export interface Candidate {
   personalityScore?: string                                   // スコア（人物）（任意）
   skillScore?: string                                         // スコア（スキル）（任意）
   interviewMemo?: string                                      // 面談メモ（任意）
+  assignedUserId?: string                                     // 担当者ID（任意）
   
   // システム管理項目
   createdAt: string

@@ -29,7 +29,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Target
+  Target,
+  FileText
 } from 'lucide-react'
 import { Match, MatchTimeline } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
@@ -46,49 +47,82 @@ import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 
-const statusLabels = {
+const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
-  interested: '興味あり',
   applied: '応募済み',
-  interviewing: '面接中',
-  offered: '内定',
-  accepted: '受諾',
-  rejected: '不合格',
+  document_screening: '書類選考中',
+  document_passed: '書類選考通過（面接設定中）',
+  interview: '面接',
+  interview_passed: '面接合格（次回面接設定中）',
+  offer: '内定',
+  offer_accepted: '内定承諾',
+  rejected: '不採用',
   withdrawn: '辞退'
 }
 
-const statusColors = {
+const statusColors: Record<Match['status'], string> = {
   suggested: 'bg-blue-100 text-blue-800 border-blue-200',
-  interested: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   applied: 'bg-purple-100 text-purple-800 border-purple-200',
-  interviewing: 'bg-orange-100 text-orange-800 border-orange-200',
-  offered: 'bg-green-100 text-green-800 border-green-200',
-  accepted: 'bg-green-600 text-white border-green-600',
+  document_screening: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  document_passed: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  interview: 'bg-orange-100 text-orange-800 border-orange-200',
+  interview_passed: 'bg-teal-100 text-teal-800 border-teal-200',
+  offer: 'bg-green-100 text-green-800 border-green-200',
+  offer_accepted: 'bg-green-600 text-white border-green-600',
   rejected: 'bg-red-100 text-red-800 border-red-200',
   withdrawn: 'bg-gray-100 text-gray-800 border-gray-200'
 }
 
-const statusIcons = {
+const statusIcons: Record<Match['status'], any> = {
   suggested: Target,
-  interested: Eye,
   applied: Briefcase,
-  interviewing: MessageSquare,
-  offered: Star,
-  accepted: CheckCircle,
+  document_screening: Eye,
+  document_passed: Calendar,
+  interview: MessageSquare,
+  interview_passed: CheckCircle,
+  offer: Star,
+  offer_accepted: CheckCircle,
   rejected: XCircle,
   withdrawn: AlertCircle
 }
 
-// ステータスフロー定義
+// ステータスに応じた表示ラベルを取得（面接回数を含む）
+const getStatusLabel = (status: Match['status'], interviewRound?: number): string => {
+  if (status === 'interview' && interviewRound) {
+    return `${interviewRound}次面接`
+  }
+  if (status === 'interview_passed' && interviewRound) {
+    return `${interviewRound}次面接合格（${interviewRound + 1}次面接設定中）`
+  }
+  return statusLabels[status]
+}
+
+// ステータスフロー定義（どのステータスからどのステータスへ遷移できるか）
 const statusFlow: Record<Match['status'], Match['status'][]> = {
-  suggested: ['interested', 'rejected', 'withdrawn'],
-  interested: ['applied', 'rejected', 'withdrawn'],
-  applied: ['interviewing', 'rejected', 'withdrawn'],
-  interviewing: ['offered', 'rejected', 'withdrawn'],
-  offered: ['accepted', 'rejected', 'withdrawn'],
-  accepted: [],
+  suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
+  applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
+  document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
+  document_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  interview: ['interview_passed', 'offer', 'rejected', 'withdrawn'],
+  interview_passed: ['interview', 'offer', 'rejected', 'withdrawn'], // 次の面接へループ可能
+  offer: ['offer_accepted', 'rejected', 'withdrawn'],
+  offer_accepted: [],
   rejected: [],
   withdrawn: []
+}
+
+// ステータスの表示順序（タイムライン用）
+const statusOrder: Record<Match['status'], number> = {
+  suggested: 1,
+  applied: 2,
+  document_screening: 3,
+  document_passed: 4,
+  interview: 5,
+  interview_passed: 6,
+  offer: 7,
+  offer_accepted: 8,
+  rejected: 9,
+  withdrawn: 10
 }
 
 export default function MatchDetailPage() {
@@ -108,10 +142,15 @@ export default function MatchDetailPage() {
   // ステータス更新モーダル
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
-  const [statusDescription, setStatusDescription] = useState('')
-  const [statusNotes, setStatusNotes] = useState('')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
+  const [statusNotes, setStatusNotes] = useState('')
+
+  // タイムライン編集モーダル
+  const [timelineEditOpen, setTimelineEditOpen] = useState(false)
+  const [editingTimeline, setEditingTimeline] = useState<MatchTimeline | null>(null)
+  const [editDescription, setEditDescription] = useState('')
+  const [editNotes, setEditNotes] = useState('')
 
   useEffect(() => {
     if (!matchId || matchId.trim() === '') {
@@ -182,15 +221,10 @@ export default function MatchDetailPage() {
         }
       }
 
-      // 応募の場合は自動的に更新内容を設定
-      const description = newStatus === 'applied' 
-        ? '応募を行いました' 
-        : statusDescription
-
       await updateMatchStatus(
         match.id,
         newStatus,
-        description,
+        '', // 説明文は空
         user.uid,
         statusNotes || undefined,
         combinedDateTime
@@ -198,10 +232,9 @@ export default function MatchDetailPage() {
       
       toast.success('ステータスを更新しました')
       setStatusUpdateOpen(false)
-      setStatusDescription('')
-      setStatusNotes('')
       setEventDate('')
       setEventTime('')
+      setStatusNotes('')
       loadMatchData() // データを再読み込み
     } catch (error) {
       console.error('Error updating status:', error)
@@ -209,14 +242,46 @@ export default function MatchDetailPage() {
     }
   }
 
-  const getStatusBadge = (status: Match['status'], size: 'sm' | 'lg' = 'sm') => {
+  const handleOpenTimelineEdit = (timeline: MatchTimeline) => {
+    setEditingTimeline(timeline)
+    setEditDescription(timeline.description)
+    setEditNotes(timeline.notes || '')
+    setTimelineEditOpen(true)
+  }
+
+  const handleTimelineUpdate = async () => {
+    if (!editingTimeline || !match) return
+
+    try {
+      const { updateTimelineItem } = await import('@/lib/firestore/matches')
+      
+      await updateTimelineItem(
+        match.id,
+        editingTimeline.id,
+        editDescription,
+        editNotes || undefined
+      )
+
+      toast.success('タイムラインを更新しました')
+      setTimelineEditOpen(false)
+      setEditingTimeline(null)
+      setEditDescription('')
+      setEditNotes('')
+      loadMatchData() // データを再読み込み
+    } catch (error) {
+      console.error('Error updating timeline:', error)
+      toast.error('タイムラインの更新に失敗しました')
+    }
+  }
+
+  const getStatusBadge = (status: Match['status'], size: 'sm' | 'lg' = 'sm', interviewRound?: number) => {
     const Icon = statusIcons[status]
     const sizeClass = size === 'lg' ? 'text-base px-4 py-2' : 'text-sm px-3 py-1'
     
     return (
       <Badge className={`${statusColors[status]} border ${sizeClass} font-medium flex items-center gap-2`}>
         <Icon className={size === 'lg' ? 'h-4 w-4' : 'h-3 w-3'} />
-        {statusLabels[status]}
+        {getStatusLabel(status, interviewRound)}
       </Badge>
     )
   }
@@ -364,27 +429,18 @@ export default function MatchDetailPage() {
                         const nextStatuses = statusFlow[match.status]
                         if (nextStatuses.length > 0) {
                           setNewStatus(nextStatuses[0])
-                          // 応募の場合は今日の日付をデフォルトに設定
-                          if (nextStatuses[0] === 'applied') {
-                            const today = new Date()
-                            const year = today.getFullYear()
-                            const month = String(today.getMonth() + 1).padStart(2, '0')
-                            const day = String(today.getDate()).padStart(2, '0')
-                            setEventDate(`${year}-${month}-${day}`)
-                          } else {
-                            setEventDate('')
-                          }
+                          setEventDate('')
                         }
                       }}
                       className="bg-orange-600 hover:bg-orange-700 text-white"
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
-                      ステータス更新
+                      次の進捗へ
                     </Button>
                   </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>ステータス更新</DialogTitle>
+                  <DialogTitle>次の進捗へ</DialogTitle>
                   <DialogDescription>
                     次のステータスに進めます
                   </DialogDescription>
@@ -401,60 +457,73 @@ export default function MatchDetailPage() {
                   {/* 次のステータス選択 */}
                   <div>
                     <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {statusFlow[match.status].map((nextStatus) => {
-                        const Icon = statusIcons[nextStatus]
-                        return (
-                          <Button
-                            key={nextStatus}
-                            type="button"
-                            variant={newStatus === nextStatus ? "default" : "outline"}
-                            className={`justify-start h-auto py-3 ${
-                              newStatus === nextStatus 
-                                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                            onClick={() => {
-                              setNewStatus(nextStatus)
-                              // 応募が選択された場合は今日の日付をデフォルトに設定
-                              if (nextStatus === 'applied') {
-                                const today = new Date()
-                                const year = today.getFullYear()
-                                const month = String(today.getMonth() + 1).padStart(2, '0')
-                                const day = String(today.getDate()).padStart(2, '0')
-                                setEventDate(`${year}-${month}-${day}`)
-                              }
-                            }}
-                          >
-                            <Icon className="h-5 w-5 mr-2" />
-                            <span className="text-base">{statusLabels[nextStatus]}</span>
-                          </Button>
-                        )
-                      })}
+                    <div className="space-y-2">
+                      {/* 通常のステータス（縦並び） */}
+                      <div className="grid grid-cols-1 gap-2">
+                        {statusFlow[match.status]
+                          .filter(s => !['offer', 'rejected', 'withdrawn'].includes(s))
+                          .map((nextStatus) => {
+                            const Icon = statusIcons[nextStatus]
+                            return (
+                              <Button
+                                key={nextStatus}
+                                type="button"
+                                variant={newStatus === nextStatus ? "default" : "outline"}
+                                className={`justify-start h-auto py-3 ${
+                                  newStatus === nextStatus 
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                    : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => {
+                                  setNewStatus(nextStatus)
+                                }}
+                              >
+                                <Icon className="h-5 w-5 mr-2" />
+                                <span className="text-base">{statusLabels[nextStatus]}</span>
+                              </Button>
+                            )
+                          })}
+                      </div>
+                      
+                      {/* 終了ステータス（横並び・小さめ） */}
+                      {statusFlow[match.status].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {statusFlow[match.status]
+                            .filter(s => ['offer', 'rejected', 'withdrawn'].includes(s))
+                            .map((nextStatus) => {
+                              const Icon = statusIcons[nextStatus]
+                              return (
+                                <Button
+                                  key={nextStatus}
+                                  type="button"
+                                  variant={newStatus === nextStatus ? "default" : "outline"}
+                                  className={`justify-center h-auto py-2 text-sm ${
+                                    newStatus === nextStatus 
+                                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                      : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => {
+                                    setNewStatus(nextStatus)
+                                  }}
+                                >
+                                  <Icon className="h-4 w-4 mr-1" />
+                                  <span className="text-sm">{statusLabels[nextStatus]}</span>
+                                </Button>
+                              )
+                            })}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {/* 更新内容（応募以外は必須） */}
-                  {newStatus !== 'applied' && (
-                    <div>
-                      <Label htmlFor="description">更新内容 *</Label>
-                      <Input
-                        value={statusDescription}
-                        onChange={(e) => setStatusDescription(e.target.value)}
-                        placeholder="例: 面接日程調整完了"
-                        required
-                      />
-                    </div>
-                  )}
-                  
-                  {/* イベント日時入力 */}
-                  {['applied', 'interviewing', 'offered', 'accepted', 'rejected'].includes(newStatus) && (
+                  {/* イベント日時入力（応募は除外） */}
+                  {['interview', 'interview_passed', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
                     <div className="space-y-2">
                       <Label>
-                        {newStatus === 'applied' && '応募日'}
-                        {newStatus === 'interviewing' && '面接日'}
-                        {newStatus === 'offered' && 'オファー日'}
-                        {newStatus === 'accepted' && '承諾日'}
+                        {newStatus === 'interview' && '面接日'}
+                        {newStatus === 'interview_passed' && '面接実施日'}
+                        {newStatus === 'offer' && '内定日'}
+                        {newStatus === 'offer_accepted' && '内定承諾日'}
                         {newStatus === 'rejected' && '不採用日'}
                       </Label>
                       <div className="grid grid-cols-2 gap-2">
@@ -477,9 +546,12 @@ export default function MatchDetailPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* 備考欄 */}
                   <div>
-                    <Label htmlFor="notes">備考</Label>
+                    <Label htmlFor="statusNotes">備考</Label>
                     <Textarea
+                      id="statusNotes"
                       value={statusNotes}
                       onChange={(e) => setStatusNotes(e.target.value)}
                       placeholder="詳細なメモがあれば記入してください"
@@ -496,7 +568,6 @@ export default function MatchDetailPage() {
                   </Button>
                   <Button
                     onClick={handleStatusUpdate}
-                    disabled={newStatus !== 'applied' && !statusDescription.trim()}
                     className="bg-purple-600 hover:bg-purple-700"
                   >
                     更新
@@ -716,11 +787,11 @@ export default function MatchDetailPage() {
                         let eventDate: Date | null = null
                         if (item.status === 'applied' && match.appliedDate) {
                           eventDate = new Date(match.appliedDate)
-                        } else if (item.status === 'interviewing' && match.interviewDate) {
+                        } else if ((item.status === 'interview' || item.status === 'interview_passed') && match.interviewDate) {
                           eventDate = new Date(match.interviewDate)
-                        } else if (item.status === 'offered' && match.offerDate) {
+                        } else if (item.status === 'offer' && match.offerDate) {
                           eventDate = new Date(match.offerDate)
-                        } else if (item.status === 'accepted' && match.acceptedDate) {
+                        } else if (item.status === 'offer_accepted' && match.acceptedDate) {
                           eventDate = new Date(match.acceptedDate)
                         } else if (item.status === 'rejected' && match.rejectedDate) {
                           eventDate = new Date(match.rejectedDate)
@@ -730,9 +801,19 @@ export default function MatchDetailPage() {
                         }
                         return { ...item, displayDate: eventDate }
                       })
-                      .sort((a, b) => b.displayDate.getTime() - a.displayDate.getTime())
+                      .sort((a, b) => {
+                        // ステータス順でソート（降順 = 進んだステータスが上）
+                        const orderA = statusOrder[a.status] || 0
+                        const orderB = statusOrder[b.status] || 0
+                        if (orderA !== orderB) {
+                          return orderB - orderA
+                        }
+                        // 同じステータスの場合は日付で降順ソート
+                        return b.displayDate.getTime() - a.displayDate.getTime()
+                      })
                       .map((item, index) => {
-                        const Icon = statusIcons[item.status]
+                        // アイコンを取得、存在しない場合はデフォルトアイコンを使用
+                        const Icon = statusIcons[item.status] || Clock
                         const isLatest = index === 0
                         
                         return (
@@ -760,11 +841,11 @@ export default function MatchDetailPage() {
                                   <Badge className={`
                                     text-xs border
                                     ${isLatest 
-                                      ? statusColors[item.status]
+                                      ? (statusColors[item.status] || 'bg-gray-100 text-gray-600 border-gray-200')
                                       : 'bg-gray-100 text-gray-600 border-gray-200'
                                     }
                                   `}>
-                                    {statusLabels[item.status]}
+                                    {statusLabels[item.status] || item.status}
                                   </Badge>
                                   <span className="text-xs text-gray-500">
                                     {formatTimelineDate(item.displayDate)}
@@ -781,8 +862,19 @@ export default function MatchDetailPage() {
                                   </div>
                                 )}
                                 
-                                <div className="text-xs text-gray-500 mt-1">
-                                  作成者: {getUserName(item.createdBy)}
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="text-xs text-gray-500">
+                                    作成者: {getUserName(item.createdBy)}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleOpenTimelineEdit(item)}
+                                    className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    編集
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -830,6 +922,63 @@ export default function MatchDetailPage() {
           </div>
         </div>
         </div>
+
+        {/* タイムライン編集モーダル */}
+        <Dialog open={timelineEditOpen} onOpenChange={setTimelineEditOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>タイムライン編集</DialogTitle>
+              <DialogDescription>
+                進捗の説明と備考を編集できます
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {editingTimeline && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-1">ステータス</div>
+                  {getStatusBadge(editingTimeline.status)}
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="editDescription">説明</Label>
+                <Textarea
+                  id="editDescription"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="進捗の説明を入力..."
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="editNotes">備考</Label>
+                <Textarea
+                  id="editNotes"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="追加のメモがあれば入力..."
+                  rows={2}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setTimelineEditOpen(false)}>
+                キャンセル
+              </Button>
+              <Button
+                onClick={handleTimelineUpdate}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                更新
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   )

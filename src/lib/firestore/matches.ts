@@ -298,7 +298,8 @@ export const updateMatchStatus = async (
   description: string, 
   createdBy: string,
   notes?: string,
-  eventDate?: Date | string
+  eventDate?: Date | string,
+  interviewRound?: number
 ): Promise<void> => {
   try {
     console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
@@ -333,6 +334,11 @@ export const updateMatchStatus = async (
       timeline: updatedTimeline
     }
 
+    // 面接回数を更新
+    if (interviewRound !== undefined && (status === 'interview' || status === 'interview_passed')) {
+      updateData.currentInterviewRound = interviewRound
+    }
+
     // ステータスに応じてイベント日時を保存
     if (eventDate) {
       const dateValue = typeof eventDate === 'string' ? new Date(eventDate) : eventDate
@@ -341,13 +347,14 @@ export const updateMatchStatus = async (
         case 'applied':
           updateData.appliedDate = dateValue
           break
-        case 'interviewing':
+        case 'interview':
+        case 'interview_passed':
           updateData.interviewDate = dateValue
           break
-        case 'offered':
+        case 'offer':
           updateData.offerDate = dateValue
           break
-        case 'accepted':
+        case 'offer_accepted':
           updateData.acceptedDate = dateValue
           break
         case 'rejected':
@@ -398,11 +405,13 @@ export const getMatchStats = async () => {
       total: matches.length,
       byStatus: {
         suggested: matches.filter(m => m.status === 'suggested').length,
-        interested: matches.filter(m => m.status === 'interested').length,
         applied: matches.filter(m => m.status === 'applied').length,
-        interviewing: matches.filter(m => m.status === 'interviewing').length,
-        offered: matches.filter(m => m.status === 'offered').length,
-        accepted: matches.filter(m => m.status === 'accepted').length,
+        document_screening: matches.filter(m => m.status === 'document_screening').length,
+        document_passed: matches.filter(m => m.status === 'document_passed').length,
+        interview: matches.filter(m => m.status === 'interview').length,
+        interview_passed: matches.filter(m => m.status === 'interview_passed').length,
+        offer: matches.filter(m => m.status === 'offer').length,
+        offer_accepted: matches.filter(m => m.status === 'offer_accepted').length,
         rejected: matches.filter(m => m.status === 'rejected').length,
         withdrawn: matches.filter(m => m.status === 'withdrawn').length
       },
@@ -419,6 +428,58 @@ export const getMatchStats = async () => {
     return stats
   } catch (error) {
     console.error('Error getting match stats:', error)
+    throw error
+  }
+}
+
+// タイムラインアイテムの編集
+export const updateTimelineItem = async (
+  matchId: string,
+  timelineId: string,
+  description: string,
+  notes?: string
+): Promise<void> => {
+  if (!matchId || matchId.trim() === '') {
+    throw new Error('Invalid match ID')
+  }
+  if (!timelineId || timelineId.trim() === '') {
+    throw new Error('Invalid timeline ID')
+  }
+
+  try {
+    const matchRef = doc(db, COLLECTION_NAME, matchId)
+    const matchDoc = await getDoc(matchRef)
+    
+    if (!matchDoc.exists()) {
+      throw new Error('Match not found')
+    }
+
+    const matchData = matchDoc.data() as Match
+    const timeline = matchData.timeline || []
+    
+    // 該当するタイムラインアイテムを更新
+    const updatedTimeline = timeline.map(item => {
+      if (item.id === timelineId) {
+        return {
+          ...item,
+          description,
+          notes: notes || item.notes
+        }
+      }
+      return item
+    })
+
+    await updateDoc(matchRef, {
+      timeline: updatedTimeline.map(item => ({
+        ...item,
+        timestamp: item.timestamp instanceof Date 
+          ? Timestamp.fromDate(item.timestamp)
+          : Timestamp.fromDate(safeCreateDate(item.timestamp))
+      })),
+      updatedAt: Timestamp.fromDate(new Date())
+    })
+  } catch (error) {
+    console.error('Error updating timeline item:', error)
     throw error
   }
 }

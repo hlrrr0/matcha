@@ -215,6 +215,34 @@ export default function CompanyForm({
           </div>
 
           <div>
+            <Label htmlFor="consultantId">企業担当者</Label>
+            <Select 
+              value={formData.consultantId || 'unassigned'} 
+              onValueChange={(value) => handleChange('consultantId', value === 'unassigned' ? undefined : value)}
+              disabled={loadingUsers}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={loadingUsers ? "ユーザーを読み込み中..." : "企業担当者を選択してください"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">未設定</SelectItem>
+                {users.filter(u => u.status === 'active').map((user) => {
+                  const displayName = user.displayName || 
+                    (user.firstName && user.lastName ? `${user.lastName} ${user.firstName}` : '') ||
+                    user.email
+                  const roleLabel = user.role === 'admin' ? ' (管理者)' : ''
+                  
+                  return (
+                    <SelectItem key={user.id} value={user.id}>
+                      {displayName}{roleLabel}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
             <Label htmlFor="memo">メモ</Label>
             <Textarea
               id="memo"

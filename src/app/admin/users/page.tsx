@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { 
   Users, 
@@ -16,7 +19,8 @@ import {
   Clock,
   UserX,
   UserCheck,
-  UserMinus
+  UserMinus,
+  Edit
 } from 'lucide-react'
 import { collection, getDocs, updateDoc, doc, query, orderBy } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -33,6 +37,11 @@ export default function UserManagementPage() {
 function UserManagementContent() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [editDisplayName, setEditDisplayName] = useState('')
+  const [editPhotoURL, setEditPhotoURL] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     loadUsers()
@@ -95,6 +104,41 @@ function UserManagementContent() {
     } catch (error) {
       console.error('ユーザーステータスの更新に失敗しました:', error)
       alert('ユーザーステータスの更新に失敗しました')
+    }
+  }
+
+  const openEditDialog = (user: User) => {
+    setSelectedUser(user)
+    setEditDisplayName(user.displayName || '')
+    setEditPhotoURL(user.photoURL || '')
+    setEditDialogOpen(true)
+  }
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      setSaving(true)
+      await updateDoc(doc(db, 'users', selectedUser.id), {
+        displayName: editDisplayName,
+        photoURL: editPhotoURL,
+        updatedAt: new Date().toISOString()
+      })
+
+      // ローカル状態を更新
+      setUsers(prev => prev.map(user => 
+        user.id === selectedUser.id 
+          ? { ...user, displayName: editDisplayName, photoURL: editPhotoURL, updatedAt: new Date().toISOString() }
+          : user
+      ))
+
+      alert('ユーザー情報を更新しました')
+      setEditDialogOpen(false)
+    } catch (error) {
+      console.error('ユーザー情報の更新に失敗しました:', error)
+      alert('ユーザー情報の更新に失敗しました')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -290,6 +334,15 @@ function UserManagementContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDialog(user)}
+                          className="flex items-center gap-1"
+                        >
+                          <Edit className="h-3 w-3" />
+                          編集
+                        </Button>
                         {user.role === 'pending' && (
                           <>
                             <Button
@@ -384,6 +437,76 @@ function UserManagementContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* ユーザー編集ダイアログ */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>ユーザー情報を編集</DialogTitle>
+            <DialogDescription>
+              表示名とアイコンURLを変更できます
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedUser && (
+              <div className="flex items-center gap-4 mb-4">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={editPhotoURL || selectedUser.photoURL} />
+                  <AvatarFallback>
+                    {editDisplayName ? editDisplayName.charAt(0) : selectedUser.email.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm text-gray-600">{selectedUser.email}</p>
+                  <Badge className="mt-1">
+                    {getRoleLabel(selectedUser.role)}
+                  </Badge>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label htmlFor="displayName">表示名</Label>
+              <Input
+                id="displayName"
+                value={editDisplayName}
+                onChange={(e) => setEditDisplayName(e.target.value)}
+                placeholder="表示名を入力"
+                disabled={saving}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="photoURL">アイコンURL</Label>
+              <Input
+                id="photoURL"
+                value={editPhotoURL}
+                onChange={(e) => setEditPhotoURL(e.target.value)}
+                placeholder="https://example.com/avatar.jpg"
+                disabled={saving}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                画像のURLを入力してください（任意）
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialogOpen(false)}
+              disabled={saving}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleUpdateUser}
+              disabled={saving}
+            >
+              {saving ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Save, RefreshCw } from 'lucide-react'
 import { Candidate } from '@/types/candidate'
+import { User } from '@/types/user'
 
 interface CandidateFormData {
   // 基本情報（必須）
@@ -42,6 +43,7 @@ interface CandidateFormData {
   personalityScore: string
   skillScore: string
   interviewMemo: string
+  assignedUserId: string
 }
 
 interface CandidateFormProps {
@@ -52,6 +54,7 @@ interface CandidateFormProps {
   submitLabel: string
   title: string
   description: string
+  users?: User[]
 }
 
 export default function CandidateForm({
@@ -61,7 +64,8 @@ export default function CandidateForm({
   loading,
   submitLabel,
   title,
-  description
+  description,
+  users = []
 }: CandidateFormProps) {
   const handleInputChange = (field: keyof CandidateFormData, value: string) => {
     setFormData(prev => ({
@@ -387,6 +391,29 @@ export default function CandidateForm({
               disabled={loading}
               rows={4}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="assignedUserId">担当者</Label>
+            <Select
+              value={formData.assignedUserId || 'unassigned'}
+              onValueChange={(value) => handleInputChange('assignedUserId', value === 'unassigned' ? '' : value)}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="担当者を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">未設定</SelectItem>
+                {users
+                  .filter(user => user.status === 'active')
+                  .map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName || user.email}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

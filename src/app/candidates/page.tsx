@@ -36,6 +36,8 @@ import {
 import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
 import { getCandidates, getCandidateStats, deleteCandidate } from '@/lib/firestore/candidates'
 import { getMatchesByCandidate } from '@/lib/firestore/matches'
+import { getUsers } from '@/lib/firestore/users'
+import { User as UserType } from '@/types/user'
 import { importCandidatesFromCSV, generateCandidatesCSVTemplate } from '@/lib/csv/candidates'
 import { toast } from 'sonner'
 
@@ -54,6 +56,7 @@ export default function CandidatesPage() {
   const router = useRouter()
   const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
   const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
+  const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
@@ -121,9 +124,10 @@ export default function CandidatesPage() {
     try {
       setLoading(true)
       console.log('🔍 求職者データを読み込み開始...')
-      const [candidatesData, statsData] = await Promise.all([
+      const [candidatesData, statsData, usersData] = await Promise.all([
         getCandidates(),
-        getCandidateStats()
+        getCandidateStats(),
+        getUsers()
       ])
       console.log('📋 取得した求職者データ:', candidatesData)
       console.log('📊 統計データ:', statsData)
@@ -131,6 +135,7 @@ export default function CandidatesPage() {
       // 進捗件数も含めて設定
       setCandidates(candidatesData)
       setStats(statsData)
+      setUsers(usersData)
       
       // 進捗データを並行して取得
       loadProgressCounts(candidatesData)
@@ -550,6 +555,7 @@ export default function CandidatesPage() {
               <TableRow>
                 <TableHead>名前</TableHead>
                 <TableHead>入学年月|校舎</TableHead>
+                <TableHead>担当者</TableHead>
                 <TableHead>ステータス</TableHead>
                 <TableHead>進捗</TableHead>
                 <TableHead>更新日</TableHead>
@@ -590,6 +596,15 @@ export default function CandidatesPage() {
                         </Badge>
                       ) : (
                         <div className="text-sm text-gray-500">校舎未登録</div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {candidate.assignedUserId ? (
+                        users.find(u => u.id === candidate.assignedUserId)?.displayName || '不明'
+                      ) : (
+                        <span className="text-gray-400">未設定</span>
                       )}
                     </div>
                   </TableCell>

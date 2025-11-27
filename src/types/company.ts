@@ -39,7 +39,7 @@ export interface Company {
   contractDetails?: string                // 契約詳細
   status: 'active' | 'inactive'  // 取引状況
   isPublic: boolean                       // 公開状況（公開／非公開）
-  consultantId?: string                   // 担当コンサルタントID
+  consultantId?: string                   // 担当者ID（企業担当者）
   memo?: string                           // メモ・特記事項
   
   // メタデータ

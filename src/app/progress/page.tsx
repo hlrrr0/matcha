@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
   TrendingUp, 
   Plus, 
@@ -27,25 +29,38 @@ import {
   Eye,
   Briefcase,
   Users,
-  Trash2
+  Trash2,
+  ArrowRight,
+  Target,
+  MessageSquare,
+  Calendar,
+  Star,
+  XCircle,
+  FileText,
+  ChevronDown
 } from 'lucide-react'
 import { Match } from '@/types/matching'
 import { Candidate, campusLabels } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
+import { User } from '@/types/user'
 import { getMatches, createMatch, updateMatchStatus, deleteMatch } from '@/lib/firestore/matches'
 import { getCandidates } from '@/lib/firestore/candidates'
 import { getJobs } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
 import { getStores } from '@/lib/firestore/stores'
+import { getUsers } from '@/lib/firestore/users'
 
 interface MatchWithDetails extends Match {
   candidateName?: string
   jobTitle?: string
+  jobEmploymentType?: string
   companyName?: string
   storeName?: string
   storeId?: string
+  candidateAssignedUserId?: string
+  companyAssignedUserId?: string
 }
 
 const campusColors = {
@@ -53,6 +68,48 @@ const campusColors = {
   osaka: 'bg-orange-100 text-orange-800 border-orange-200',
   awaji: 'bg-green-100 text-green-800 border-green-200',
   fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+}
+
+// ステータスラベル定義
+const statusLabels: Record<Match['status'], string> = {
+  suggested: '提案済み',
+  applied: '応募済み',
+  document_screening: '書類選考中',
+  document_passed: '書類選考通過',
+  interview: '面接',
+  interview_passed: '面接通過',
+  offer: '内定',
+  offer_accepted: '内定承諾',
+  rejected: '不採用',
+  withdrawn: '辞退'
+}
+
+// ステータスアイコン定義
+const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
+  suggested: Target,
+  applied: Send,
+  document_screening: Eye,
+  document_passed: CheckCircle,
+  interview: MessageSquare,
+  interview_passed: CheckCircle,
+  offer: Star,
+  offer_accepted: CheckCircle,
+  rejected: XCircle,
+  withdrawn: AlertCircle
+}
+
+// ステータスフロー定義
+const statusFlow: Record<Match['status'], Match['status'][]> = {
+  suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
+  applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
+  document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
+  document_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  interview: ['interview_passed', 'offer', 'rejected', 'withdrawn'],
+  interview_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  offer: ['offer_accepted', 'rejected', 'withdrawn'],
+  offer_accepted: [],
+  rejected: [],
+  withdrawn: []
 }
 
 function ProgressPageContent() {
@@ -64,19 +121,36 @@ function ProgressPageContent() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [stores, setStores] = useState<Store[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<Match['status'] | 'all'>('all')
+  // デフォルトで「辞退」と「不合格」を除外
+  const [statusFilter, setStatusFilter] = useState<Set<Match['status']>>(new Set([
+    'suggested', 
+    'applied', 
+    'document_screening', 
+    'document_passed', 
+    'interview', 
+    'interview_passed', 
+    'offer', 
+    'offer_accepted'
+  ]))
   const [companyFilter, setCompanyFilter] = useState<string>('all')
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false)
 
   // Dialog states
   const [createMatchOpen, setCreateMatchOpen] = useState(false)
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
+  const [bulkStatusUpdateOpen, setBulkStatusUpdateOpen] = useState(false)
   const [jobSelectModalOpen, setJobSelectModalOpen] = useState(false)
   const [candidateSelectModalOpen, setCandidateSelectModalOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
+  const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
+  const [eventDate, setEventDate] = useState('')
+  const [eventTime, setEventTime] = useState('')
+  const [statusNotes, setStatusNotes] = useState('')
   const [newMatchData, setNewMatchData] = useState({
     candidateId: '',
     jobId: '',
@@ -114,18 +188,37 @@ function ProgressPageContent() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [matchesData, candidatesData, jobsData, companiesData, storesData] = await Promise.all([
+      const [matchesData, candidatesData, jobsData, companiesData, storesData, usersData] = await Promise.all([
         getMatches(),
         getCandidates(),
         getJobs(),
         getCompanies(),
-        getStores()
+        getStores(),
+        getUsers()
       ])
+
+      console.log('📊 データ読み込み完了:')
+      console.log('  企業数:', companiesData.length)
+      console.log('  企業担当者設定数:', companiesData.filter(c => c.consultantId).length)
+      console.log('  ユーザー数:', usersData.length)
+      
+      // 企業担当者の詳細
+      const companiesWithAssigned = companiesData.filter(c => c.consultantId)
+      if (companiesWithAssigned.length > 0) {
+        console.log('✅ 担当者が設定されている企業:')
+        companiesWithAssigned.forEach(c => {
+          const user = usersData.find(u => u.id === c.consultantId)
+          console.log(`  - ${c.name} → ${user?.displayName || user?.email || 'ユーザー不明'} (ID: ${c.consultantId})`)
+        })
+      } else {
+        console.log('⚠️ 担当者が設定されている企業が見つかりません')
+      }
 
       setCandidates(candidatesData)
       setJobs(jobsData)
       setCompanies(companiesData)
       setStores(storesData)
+      setUsers(usersData)
 
       // Add names to matches
       const matchesWithDetails = matchesData.map(match => {
@@ -134,14 +227,33 @@ function ProgressPageContent() {
         const company = companiesData.find(c => c.id === job?.companyId)
         const store = storesData.find(s => s.id === job?.storeId)
 
+        // デバッグ用ログ
+        if (company?.consultantId) {
+          console.log('企業担当者情報:', {
+            companyName: company.name,
+            consultantId: company.consultantId,
+            user: usersData.find(u => u.id === company.consultantId)
+          })
+        }
+
         return {
           ...match,
           candidateName: candidate ? `${candidate.lastName} ${candidate.firstName}` : '不明',
           jobTitle: job?.title || '不明',
+          jobEmploymentType: job?.employmentType || '',
           companyName: company?.name || '不明',
           storeName: store?.name && store.prefecture ? `${store.name}【${store.prefecture}】` : (store?.name || '-'),
-          storeId: store?.id
+          storeId: store?.id,
+          candidateAssignedUserId: candidate?.assignedUserId,
+          companyAssignedUserId: company?.consultantId
         }
+      })
+
+      // 更新日の降順にソート
+      matchesWithDetails.sort((a, b) => {
+        const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt || 0)
+        const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt || 0)
+        return dateB.getTime() - dateA.getTime()
       })
 
       setMatches(matchesWithDetails)
@@ -164,8 +276,9 @@ function ProgressPageContent() {
       )
     }
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(match => match.status === statusFilter)
+    // ステータスフィルター: 選択されたステータスのみ表示
+    if (statusFilter.size > 0) {
+      filtered = filtered.filter(match => statusFilter.has(match.status))
     }
 
     if (companyFilter !== 'all') {
@@ -277,38 +390,150 @@ function ProgressPageContent() {
     if (!selectedMatch) return
 
     try {
+      // 日時を組み合わせる
+      let combinedDateTime: Date | undefined = undefined
+      if (eventDate) {
+        if (eventTime) {
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
+        } else {
+          combinedDateTime = new Date(eventDate)
+        }
+      }
+
       await updateMatchStatus(
         selectedMatch.id,
         newStatus,
-        `ステータスを${getStatusLabel(newStatus)}に更新`,
+        '',
         user?.uid || '',
-        ''
+        statusNotes || undefined,
+        combinedDateTime
       )
       
       await loadData() // Reload data
       
       setStatusUpdateOpen(false)
       setSelectedMatch(null)
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
+      alert('ステータスを更新しました')
     } catch (error) {
       console.error('ステータス更新エラー:', error)
       alert('ステータスの更新に失敗しました')
     }
   }
 
-  const handleDeleteMatch = async () => {
-    if (!selectedMatch) return
+  const handleBulkStatusUpdate = async () => {
+    if (selectedMatchIds.size === 0) return
 
     try {
-      await deleteMatch(selectedMatch.id)
+      // 日時を組み合わせる
+      let combinedDateTime: Date | undefined = undefined
+      if (eventDate) {
+        if (eventTime) {
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
+        } else {
+          combinedDateTime = new Date(eventDate)
+        }
+      }
+
+      // 全ての選択された進捗を更新
+      await Promise.all(
+        Array.from(selectedMatchIds).map(matchId =>
+          updateMatchStatus(
+            matchId,
+            newStatus,
+            '',
+            user?.uid || '',
+            statusNotes || undefined,
+            combinedDateTime
+          )
+        )
+      )
+      
       await loadData() // Reload data
       
-      setDeleteDialogOpen(false)
-      setSelectedMatch(null)
-      alert('進捗を削除しました')
+      setBulkStatusUpdateOpen(false)
+      setSelectedMatchIds(new Set())
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
+      alert(`${selectedMatchIds.size}件の進捗を更新しました`)
     } catch (error) {
-      console.error('進捗削除エラー:', error)
+      console.error('一括ステータス更新エラー:', error)
+      alert('ステータスの更新に失敗しました')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedMatchIds.size === 0) return
+
+    try {
+      const deletePromises = Array.from(selectedMatchIds).map(id => deleteMatch(id))
+      await Promise.all(deletePromises)
+      
+      await loadData() // Reload data
+      
+      setBulkDeleteDialogOpen(false)
+      setSelectedMatchIds(new Set())
+      alert(`${deletePromises.length}件の進捗を削除しました`)
+    } catch (error) {
+      console.error('一括削除エラー:', error)
       alert('進捗の削除に失敗しました')
     }
+  }
+
+  const toggleSelectMatch = (matchId: string) => {
+    setSelectedMatchIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(matchId)) {
+        newSet.delete(matchId)
+      } else {
+        newSet.add(matchId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedMatchIds.size === filteredMatches.length) {
+      setSelectedMatchIds(new Set())
+    } else {
+      setSelectedMatchIds(new Set(filteredMatches.map(m => m.id)))
+    }
+  }
+
+  // 選択された進捗が全て同じステータスかチェック
+  const getSelectedMatchesStatus = (): Match['status'] | null => {
+    if (selectedMatchIds.size === 0) return null
+    
+    const selectedMatches = matches.filter(m => selectedMatchIds.has(m.id))
+    const firstStatus = selectedMatches[0]?.status
+    
+    const allSameStatus = selectedMatches.every(m => m.status === firstStatus)
+    return allSameStatus ? firstStatus : null
+  }
+
+  // 一括ステータス更新を開く
+  const openBulkStatusUpdate = () => {
+    const commonStatus = getSelectedMatchesStatus()
+    if (!commonStatus) {
+      alert('選択された進捗のステータスが異なるため、一括更新できません')
+      return
+    }
+
+    const nextStatuses = statusFlow[commonStatus]
+    if (nextStatuses.length === 0) {
+      alert('このステータスから進められる次のステータスがありません')
+      return
+    }
+
+    // デフォルトで最初の次ステータスを設定
+    setNewStatus(nextStatuses[0])
+    setEventDate('')
+    setEventTime('')
+    setStatusNotes('')
+    setBulkStatusUpdateOpen(true)
   }
 
   const handleJobSelect = (jobId: string) => {
@@ -382,11 +607,13 @@ function ProgressPageContent() {
   const getStatusIcon = (status: Match['status']) => {
     switch (status) {
       case 'suggested': return <Clock className="h-4 w-4" />
-      case 'interested': return <Send className="h-4 w-4" />
       case 'applied': return <Send className="h-4 w-4" />
-      case 'interviewing': return <CheckCircle className="h-4 w-4" />
-      case 'offered': return <CheckCircle className="h-4 w-4" />
-      case 'accepted': return <CheckCircle className="h-4 w-4" />
+      case 'document_screening': return <Eye className="h-4 w-4" />
+      case 'document_passed': return <CheckCircle className="h-4 w-4" />
+      case 'interview': return <Users className="h-4 w-4" />
+      case 'interview_passed': return <CheckCircle className="h-4 w-4" />
+      case 'offer': return <Briefcase className="h-4 w-4" />
+      case 'offer_accepted': return <CheckCircle className="h-4 w-4" />
       case 'rejected': return <AlertCircle className="h-4 w-4" />
       case 'withdrawn': return <AlertCircle className="h-4 w-4" />
       default: return <Clock className="h-4 w-4" />
@@ -396,11 +623,13 @@ function ProgressPageContent() {
   const getStatusColor = (status: Match['status']) => {
     switch (status) {
       case 'suggested': return 'bg-gray-100 text-gray-800'
-      case 'interested': return 'bg-blue-100 text-blue-800'
-      case 'applied': return 'bg-orange-100 text-orange-800'
-      case 'interviewing': return 'bg-purple-100 text-purple-800'
-      case 'offered': return 'bg-green-100 text-green-800'
-      case 'accepted': return 'bg-emerald-100 text-emerald-800'
+      case 'applied': return 'bg-blue-100 text-blue-800'
+      case 'document_screening': return 'bg-yellow-100 text-yellow-800'
+      case 'document_passed': return 'bg-green-100 text-green-800'
+      case 'interview': return 'bg-purple-100 text-purple-800'
+      case 'interview_passed': return 'bg-emerald-100 text-emerald-800'
+      case 'offer': return 'bg-orange-100 text-orange-800'
+      case 'offer_accepted': return 'bg-green-100 text-green-800'
       case 'rejected': return 'bg-red-100 text-red-800'
       case 'withdrawn': return 'bg-red-100 text-red-800'
       default: return 'bg-gray-100 text-gray-800'
@@ -410,11 +639,13 @@ function ProgressPageContent() {
   const getStatusLabel = (status: Match['status']) => {
     switch (status) {
       case 'suggested': return '提案済み'
-      case 'interested': return '興味あり'
       case 'applied': return '応募済み'
-      case 'interviewing': return '面接中'
-      case 'offered': return '内定'
-      case 'accepted': return '承諾'
+      case 'document_screening': return '書類選考中'
+      case 'document_passed': return '書類選考通過'
+      case 'interview': return '面接'
+      case 'interview_passed': return '面接通過'
+      case 'offer': return '内定'
+      case 'offer_accepted': return '内定承諾'
       case 'rejected': return '不採用'
       case 'withdrawn': return '辞退'
       default: return status
@@ -452,6 +683,29 @@ function ProgressPageContent() {
                 </div>
               </div>
               <div className="flex gap-4">
+                {selectedMatchIds.size > 0 && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={openBulkStatusUpdate}
+                      disabled={getSelectedMatchesStatus() === null}
+                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      一括で進捗更新 ({selectedMatchIds.size})
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setBulkDeleteDialogOpen(true)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        選択中を削除 ({selectedMatchIds.size})
+                      </Button>
+                    )}
+                  </>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => loadData()}
@@ -601,24 +855,98 @@ function ProgressPageContent() {
                     />
                   </div>
                 </div>
-                <div className="">
-                  <Label htmlFor="progress-status">ステータス</Label>
-                  <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="ステータス" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">すべて</SelectItem>
-                      <SelectItem value="suggested">提案済み</SelectItem>
-                      <SelectItem value="interested">興味あり</SelectItem>
-                      <SelectItem value="applied">応募済み</SelectItem>
-                      <SelectItem value="interviewing">面接中</SelectItem>
-                      <SelectItem value="offered">内定</SelectItem>
-                      <SelectItem value="accepted">承諾</SelectItem>
-                      <SelectItem value="rejected">不採用</SelectItem>
-                      <SelectItem value="withdrawn">辞退</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilterOpen(!statusFilterOpen)}
+                    className="w-full flex items-center justify-between p-3 border rounded-md hover:bg-accent transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Label className="cursor-pointer">ステータスフィルター</Label>
+                      <Badge variant="secondary" className="text-xs">
+                        {statusFilter.size}/10
+                      </Badge>
+                    </div>
+                    <ChevronDown 
+                      className={`h-4 w-4 transition-transform ${statusFilterOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  
+                  {statusFilterOpen && (
+                    <div className="space-y-2 border rounded-md p-3 max-h-[300px] overflow-y-auto bg-background">
+                      <div className="flex items-center space-x-2 pb-2 border-b">
+                        <Checkbox
+                          id="status-all"
+                          checked={statusFilter.size === 10}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setStatusFilter(new Set([
+                                'suggested',
+                                'applied',
+                                'document_screening',
+                                'document_passed',
+                                'interview',
+                                'interview_passed',
+                                'offer',
+                                'offer_accepted',
+                                'rejected',
+                                'withdrawn'
+                              ]))
+                            } else {
+                              setStatusFilter(new Set())
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor="status-all"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          すべて
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        {[
+                          { value: 'suggested', label: '提案済み' },
+                          { value: 'applied', label: '応募済み' },
+                          { value: 'document_screening', label: '書類選考中' },
+                          { value: 'document_passed', label: '書類選考通過' },
+                          { value: 'interview', label: '面接' },
+                          { value: 'interview_passed', label: '面接通過' },
+                          { value: 'offer', label: '内定' },
+                          { value: 'offer_accepted', label: '内定承諾' },
+                          { value: 'rejected', label: '不合格' },
+                          { value: 'withdrawn', label: '辞退' }
+                        ].map((status) => {
+                          const isNegativeStatus = status.value === 'rejected' || status.value === 'withdrawn'
+                          return (
+                            <div key={status.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`status-${status.value}`}
+                                checked={statusFilter.has(status.value as Match['status'])}
+                                onCheckedChange={(checked) => {
+                                  const newFilter = new Set(statusFilter)
+                                  if (checked) {
+                                    newFilter.add(status.value as Match['status'])
+                                  } else {
+                                    newFilter.delete(status.value as Match['status'])
+                                  }
+                                  setStatusFilter(newFilter)
+                                }}
+                              />
+                              <label
+                                htmlFor={`status-${status.value}`}
+                                className={`text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${
+                                  isNegativeStatus ? 'text-muted-foreground' : ''
+                                }`}
+                              >
+                                {status.label}
+                              </label>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -637,11 +965,15 @@ function ProgressPageContent() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedMatchIds.size === filteredMatches.length && filteredMatches.length > 0}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
                       <TableHead>求職者</TableHead>
                       <TableHead>職種</TableHead>
                       <TableHead>企業</TableHead>
-                      <TableHead>店舗</TableHead>
-                      <TableHead>スコア</TableHead>
                       <TableHead>ステータス</TableHead>
                       <TableHead>更新日</TableHead>
                       <TableHead>操作</TableHead>
@@ -650,7 +982,7 @@ function ProgressPageContent() {
                   <TableBody>
                     {filteredMatches.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                           マッチングデータがありません
                         </TableCell>
                       </TableRow>
@@ -661,57 +993,86 @@ function ProgressPageContent() {
                         
                         return (
                         <TableRow key={match.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedMatchIds.has(match.id)}
+                              onCheckedChange={() => toggleSelectMatch(match.id)}
+                            />
+                          </TableCell>
                           <TableCell className="font-medium">
-                            <Link 
-                              href={`/candidates/${match.candidateId}`}
-                              className="hover:underline text-blue-600 hover:text-blue-800"
-                            >
-                              {match.candidateName}
-                            </Link>
-                            {age !== null && (
-                              <>
-                                （{age}歳）
-                              </>
-                            )}
+                            <div className="flex items-start gap-2">
+                              {match.candidateAssignedUserId ? (
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarImage src={users.find(u => u.id === match.candidateAssignedUserId)?.photoURL} />
+                                  <AvatarFallback className="text-xs bg-green-100">
+                                    {users.find(u => u.id === match.candidateAssignedUserId)?.displayName?.charAt(0) || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ) : null}
+                              <div>
+                                <div>
+                                  <Link 
+                                    href={`/candidates/${match.candidateId}`}
+                                    className="hover:underline text-blue-600 hover:text-blue-800"
+                                  >
+                                    {match.candidateName}
+                                  </Link>
+                                  {age !== null && (
+                                    <>
+                                      （{age}歳）
+                                    </>
+                                  )}
+                                </div>
+                                {candidate?.assignedUserId && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    担当者：{users.find(u => u.id === candidate.assignedUserId)?.displayName || '担当者不明'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <Link 
-                              href={`/jobs/${match.jobId}`}
-                              className="hover:underline text-blue-600 hover:text-blue-800"
-                            >
-                              {match.jobTitle}
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            <Link 
-                              href={`/companies/${match.companyId}`}
-                              className="hover:underline text-blue-600 hover:text-blue-800"
-                            >
-                              {match.companyName}
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            {match.storeId ? (
+                            <div>
                               <Link 
-                                href={`/stores/${match.storeId}`}
+                                href={`/jobs/${match.jobId}`}
                                 className="hover:underline text-blue-600 hover:text-blue-800"
                               >
-                                {match.storeName}
+                                {match.jobTitle}
                               </Link>
-                            ) : (
-                              <span className="text-gray-400">{match.storeName}</span>
-                            )}
+                              {match.jobEmploymentType && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {match.jobEmploymentType}
+                                </div>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center">
-                              <span className="text-sm font-medium mr-2">
-                                {match.score}
-                              </span>
-                              <div className="w-16 bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-orange-600 h-2 rounded-full"
-                                  style={{ width: `${Math.min(match.score, 100)}%` }}
-                                />
+                            <div className="flex items-start gap-2">
+                              {match.companyAssignedUserId ? (
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarImage src={users.find(u => u.id === match.companyAssignedUserId)?.photoURL} />
+                                  <AvatarFallback className="text-xs bg-blue-100">
+                                    {users.find(u => u.id === match.companyAssignedUserId)?.displayName?.charAt(0) || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ) : null}
+                              <div>
+                                <Link 
+                                  href={`/companies/${match.companyId}`}
+                                  className="hover:underline text-blue-600 hover:text-blue-800"
+                                >
+                                  {match.companyName}
+                                </Link><br></br>
+                                {match.storeId ? (
+                                  <Link 
+                                    href={`/stores/${match.storeId}`}
+                                    className="hover:underline text-blue-600 hover:text-blue-800 text-xs text-gray-500 mt-1"
+                                  >
+                                    {match.storeName}
+                                  </Link>
+                                ) : (
+                                  <span className="text-xs text-gray-500 mt-1">{match.storeName}</span>
+                                )}
                               </div>
                             </div>
                           </TableCell>
@@ -742,29 +1103,23 @@ function ProgressPageContent() {
                                   <Eye className="h-4 w-4" />
                                 </Link>
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedMatch(match)
-                                  setNewStatus(match.status)
-                                  setStatusUpdateOpen(true)
-                                }}
-                                className="h-8 w-8 p-0"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              {isAdmin && (
+                              {statusFlow[match.status].length > 0 && (
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
                                     setSelectedMatch(match)
-                                    setDeleteDialogOpen(true)
+                                    const nextStatuses = statusFlow[match.status]
+                                    if (nextStatuses.length > 0) {
+                                      setNewStatus(nextStatuses[0])
+                                      setEventDate('')
+                                    }
+                                    setStatusUpdateOpen(true)
                                   }}
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                  className="h-8 px-2"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <ArrowRight className="h-4 w-4 mr-1" />
+                                  <span className="text-xs">次へ</span>
                                 </Button>
                               )}
                             </div>
@@ -781,31 +1136,132 @@ function ProgressPageContent() {
 
           {/* ステータス更新ダイアログ */}
           <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-            <DialogContent>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>ステータス更新</DialogTitle>
+                <DialogTitle>次の進捗へ</DialogTitle>
                 <DialogDescription>
-                  {selectedMatch?.candidateName} - {selectedMatch?.jobTitle} のステータスを変更
+                  {selectedMatch?.candidateName} - {selectedMatch?.jobTitle}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                {/* 現在のステータス表示 */}
+                {selectedMatch && (
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-2">現在のステータス</div>
+                    <Badge className={`${getStatusColor(selectedMatch.status)} border-0`}>
+                      <div className="flex items-center gap-1">
+                        {getStatusIcon(selectedMatch.status)}
+                        {getStatusLabel(selectedMatch.status)}
+                      </div>
+                    </Badge>
+                  </div>
+                )}
+
+                {/* 次のステータス選択 */}
+                {selectedMatch && (
+                  <div>
+                    <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
+                    <div className="space-y-2">
+                      {/* 通常のステータス（縦並び） */}
+                      <div className="grid grid-cols-1 gap-2">
+                        {statusFlow[selectedMatch.status]
+                          .filter(s => !['offer', 'rejected', 'withdrawn'].includes(s))
+                          .map((nextStatus) => {
+                            const Icon = statusIcons[nextStatus]
+                            return (
+                              <Button
+                                key={nextStatus}
+                                type="button"
+                                variant={newStatus === nextStatus ? "default" : "outline"}
+                                className={`justify-start h-auto py-3 ${
+                                  newStatus === nextStatus 
+                                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                    : 'hover:bg-gray-50'
+                                }`}
+                                onClick={() => {
+                                  setNewStatus(nextStatus)
+                                }}
+                              >
+                                <Icon className="h-5 w-5 mr-2" />
+                                <span className="text-base">{statusLabels[nextStatus]}</span>
+                              </Button>
+                            )
+                          })}
+                      </div>
+                      
+                      {/* 終了ステータス（横並び・小さめ） */}
+                      {statusFlow[selectedMatch.status].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {statusFlow[selectedMatch.status]
+                            .filter(s => ['offer', 'rejected', 'withdrawn'].includes(s))
+                            .map((nextStatus) => {
+                              const Icon = statusIcons[nextStatus]
+                              return (
+                                <Button
+                                  key={nextStatus}
+                                  type="button"
+                                  variant={newStatus === nextStatus ? "default" : "outline"}
+                                  className={`justify-center h-auto py-2 text-sm ${
+                                    newStatus === nextStatus 
+                                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                      : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => {
+                                    setNewStatus(nextStatus)
+                                  }}
+                                >
+                                  <Icon className="h-4 w-4 mr-1" />
+                                  <span className="text-sm">{statusLabels[nextStatus]}</span>
+                                </Button>
+                              )
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* イベント日時入力（応募は除外） */}
+                {['interview', 'interview_passed', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
+                  <div className="space-y-2">
+                    <Label>
+                      {newStatus === 'interview' && '面接日'}
+                      {newStatus === 'interview_passed' && '面接実施日'}
+                      {newStatus === 'offer' && '内定日'}
+                      {newStatus === 'offer_accepted' && '内定承諾日'}
+                      {newStatus === 'rejected' && '不採用日'}
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Input
+                          type="date"
+                          value={eventDate}
+                          onChange={(e) => setEventDate(e.target.value)}
+                          placeholder="日付"
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          type="time"
+                          value={eventTime}
+                          onChange={(e) => setEventTime(e.target.value)}
+                          placeholder="時刻（任意）"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 備考欄 */}
                 <div>
-                  <Label htmlFor="newStatus">新しいステータス</Label>
-                  <Select value={newStatus} onValueChange={(value: any) => setNewStatus(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="suggested">提案済み</SelectItem>
-                      <SelectItem value="interested">興味あり</SelectItem>
-                      <SelectItem value="applied">応募済み</SelectItem>
-                      <SelectItem value="interviewing">面接中</SelectItem>
-                      <SelectItem value="offered">内定</SelectItem>
-                      <SelectItem value="accepted">承諾</SelectItem>
-                      <SelectItem value="rejected">不採用</SelectItem>
-                      <SelectItem value="withdrawn">辞退</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="statusNotes">備考</Label>
+                  <Textarea
+                    id="statusNotes"
+                    value={statusNotes}
+                    onChange={(e) => setStatusNotes(e.target.value)}
+                    placeholder="詳細なメモがあれば記入してください"
+                    rows={3}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -825,46 +1281,174 @@ function ProgressPageContent() {
             </DialogContent>
           </Dialog>
 
-          {/* 削除確認ダイアログ */}
-          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <DialogContent>
+          {/* 一括ステータス更新ダイアログ */}
+          <Dialog open={bulkStatusUpdateOpen} onOpenChange={setBulkStatusUpdateOpen}>
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>進捗を削除</DialogTitle>
+                <DialogTitle>一括ステータス更新</DialogTitle>
                 <DialogDescription>
-                  この進捗を削除してもよろしいですか？この操作は取り消せません。
+                  選択した {selectedMatchIds.size} 件の進捗を次のステータスに更新します
                 </DialogDescription>
               </DialogHeader>
-              {selectedMatch && (
-                <div className="space-y-2">
-                  <div>
-                    <span className="font-medium">求職者:</span> {selectedMatch.candidateName}
+              <div className="space-y-6 py-4">
+                {/* 現在のステータス表示 */}
+                {getSelectedMatchesStatus() && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-sm text-gray-600 mb-2">現在のステータス</p>
+                    <Badge className={`${getStatusColor(getSelectedMatchesStatus()!)} px-3 py-1 flex items-center gap-2 w-fit`}>
+                      {React.createElement(statusIcons[getSelectedMatchesStatus()!], { className: "h-4 w-4" })}
+                      {statusLabels[getSelectedMatchesStatus()!]}
+                    </Badge>
                   </div>
+                )}
+
+                {/* 次のステータス選択 */}
+                <div>
+                  <Label className="text-base font-medium mb-3 block">次のステータスを選択</Label>
+                  {getSelectedMatchesStatus() && statusFlow[getSelectedMatchesStatus()!].length > 0 ? (
+                    <div className="space-y-2">
+                      {/* 通常の進捗フロー */}
+                      {statusFlow[getSelectedMatchesStatus()!].filter(s => !['offer', 'rejected', 'withdrawn'].includes(s)).length > 0 && (
+                        <div className="space-y-2">
+                          {statusFlow[getSelectedMatchesStatus()!].filter(s => !['offer', 'rejected', 'withdrawn'].includes(s)).map((status) => {
+                            const Icon = statusIcons[status]
+                            return (
+                              <Button
+                                key={status}
+                                variant={newStatus === status ? "default" : "outline"}
+                                className={`w-full justify-start gap-3 h-auto py-3 ${
+                                  newStatus === status ? 'bg-orange-600 hover:bg-orange-700 text-white' : ''
+                                }`}
+                                onClick={() => setNewStatus(status)}
+                              >
+                                <Icon className="h-5 w-5" />
+                                <span className="font-medium">{statusLabels[status]}</span>
+                              </Button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* 終了ステータス（内定・不採用・辞退） */}
+                      {statusFlow[getSelectedMatchesStatus()!].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
+                        <div className="pt-2">
+                          <p className="text-sm text-gray-600 mb-2">または終了ステータス</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {statusFlow[getSelectedMatchesStatus()!].filter(s => ['offer', 'rejected', 'withdrawn'].includes(s)).map((status) => {
+                              const Icon = statusIcons[status]
+                              return (
+                                <Button
+                                  key={status}
+                                  variant={newStatus === status ? "default" : "outline"}
+                                  className={`justify-start gap-2 h-auto py-3 ${
+                                    newStatus === status ? 'bg-orange-600 hover:bg-orange-700 text-white' : ''
+                                  }`}
+                                  onClick={() => setNewStatus(status)}
+                                >
+                                  <Icon className="h-4 w-4" />
+                                  <span className="text-sm">{statusLabels[status]}</span>
+                                </Button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-600">次に進められるステータスがありません</p>
+                  )}
+                </div>
+
+                {/* 日時入力（応募済み以外） */}
+                {newStatus !== 'applied' && ['document_screening', 'document_passed', 'interview', 'interview_passed', 'offer', 'offer_accepted'].includes(newStatus) && (
                   <div>
-                    <span className="font-medium">求人:</span> {selectedMatch.jobTitle}
+                    <Label className="text-base font-medium mb-2 block">イベント日時</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Input
+                          type="date"
+                          value={eventDate}
+                          onChange={(e) => setEventDate(e.target.value)}
+                          placeholder="日付"
+                        />
+                      </div>
+                      <div>
+                        <Input
+                          type="time"
+                          value={eventTime}
+                          onChange={(e) => setEventTime(e.target.value)}
+                          placeholder="時刻（任意）"
+                        />
+                      </div>
+                    </div>
                   </div>
+                )}
+
+                {/* 備考欄 */}
+                <div>
+                  <Label htmlFor="bulkStatusNotes">備考</Label>
+                  <Textarea
+                    id="bulkStatusNotes"
+                    value={statusNotes}
+                    onChange={(e) => setStatusNotes(e.target.value)}
+                    placeholder="全ての進捗に共通のメモを記入してください"
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkStatusUpdateOpen(false)}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={handleBulkStatusUpdate}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {selectedMatchIds.size}件を更新
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* 一括削除確認ダイアログ */}
+          <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>一括削除の確認</DialogTitle>
+                <DialogDescription>
+                  選択した {selectedMatchIds.size} 件の進捗を削除してもよろしいですか？この操作は取り消せません。
+                </DialogDescription>
+              </DialogHeader>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                   <div>
-                    <span className="font-medium">企業:</span> {selectedMatch.companyName}
-                  </div>
-                  <div>
-                    <span className="font-medium">ステータス:</span> {getStatusLabel(selectedMatch.status)}
+                    <p className="text-sm font-medium text-yellow-800">
+                      注意: この操作は取り消せません
+                    </p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      {selectedMatchIds.size} 件のマッチング進捗が完全に削除されます。
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
               <DialogFooter>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setDeleteDialogOpen(false)
-                    setSelectedMatch(null)
+                    setBulkDeleteDialogOpen(false)
                   }}
                 >
                   キャンセル
                 </Button>
                 <Button
-                  onClick={handleDeleteMatch}
+                  onClick={handleBulkDelete}
                   className="bg-red-600 hover:bg-red-700"
                 >
-                  削除
+                  {selectedMatchIds.size}件を削除
                 </Button>
               </DialogFooter>
             </DialogContent>

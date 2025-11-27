@@ -7,6 +7,8 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate } from '@/types/candidate'
 import { getCandidateByNameAndEmail } from '@/lib/firestore/candidates'
+import { getUsers } from '@/lib/firestore/users'
+import { User } from '@/types/user'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import CandidateForm, { CandidateFormData } from '@/components/candidates/CandidateForm'
@@ -24,6 +26,7 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [candidateId, setCandidateId] = useState<string>('')
+  const [users, setUsers] = useState<User[]>([])
   const [formData, setFormData] = useState<CandidateFormData>({
     status: 'active',
     lastName: '',
@@ -49,8 +52,21 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
     teacherComment: '',
     personalityScore: '',
     skillScore: '',
-    interviewMemo: ''
+    interviewMemo: '',
+    assignedUserId: ''
   })
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersData = await getUsers()
+        setUsers(usersData)
+      } catch (error) {
+        console.error('ユーザー取得エラー:', error)
+      }
+    }
+    loadUsers()
+  }, [])
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -129,7 +145,8 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
             teacherComment: candidateData.teacherComment || '',
             personalityScore: candidateData.personalityScore || '',
             skillScore: candidateData.skillScore || '',
-            interviewMemo: candidateData.interviewMemo || ''
+            interviewMemo: candidateData.interviewMemo || '',
+            assignedUserId: candidateData.assignedUserId || ''
           })
         } else {
           toast.error('求職者が見つかりません')
@@ -240,6 +257,12 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
       if (formData.interviewMemo && formData.interviewMemo.trim()) {
         updateData.interviewMemo = formData.interviewMemo
       }
+      if (formData.assignedUserId && formData.assignedUserId.trim()) {
+        updateData.assignedUserId = formData.assignedUserId
+      } else {
+        // 空の場合は明示的に削除
+        updateData.assignedUserId = ''
+      }
 
       await updateDoc(doc(db, 'candidates', candidateId), updateData)
       toast.success('求職者情報を更新しました')
@@ -283,6 +306,7 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
             submitLabel="求職者情報を更新"
             title="求職者情報編集"
             description="求職者の情報を更新してください"
+            users={users}
           />
         </div>
       </div>
