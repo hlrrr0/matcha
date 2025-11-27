@@ -368,14 +368,14 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 px-4 md:px-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {job.salaryInexperienced && (
                     <div>
                       <h3 className="font-medium text-gray-700 flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
                         給与：未経験者
                       </h3>
-                      <p className="text-lg">{job.salaryInexperienced}</p>
+                      <p className="text-lg whitespace-pre-line">{job.salaryInexperienced}</p>
                     </div>
                   )}
                   {job.salaryExperienced && (
@@ -384,7 +384,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                         <DollarSign className="h-4 w-4" />
                         給与：経験者（おおよそ3年経過時）
                       </h3>
-                      <p className="text-lg">{job.salaryExperienced}</p>
+                      <p className="text-lg whitespace-pre-line">{job.salaryExperienced}</p>
                     </div>
                   )}
                 </div>

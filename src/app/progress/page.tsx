@@ -49,6 +49,7 @@ import { getMatches, createMatch, updateMatchStatus, deleteMatch } from '@/lib/f
 import { getCandidates } from '@/lib/firestore/candidates'
 import { getJobs } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
+import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 
@@ -411,12 +412,44 @@ function ProgressPageContent() {
       
       await loadData() // Reload data
       
+      // 面接ステータスで日時が設定されている場合、自動的にGoogleカレンダーを開く
+      if (newStatus === 'interview' && combinedDateTime) {
+        const candidate = candidates.find(c => c.id === selectedMatch.candidateId)
+        const job = jobs.find(j => j.id === selectedMatch.jobId)
+        const company = companies.find(c => c.id === job?.companyId)
+        const store = stores.find(s => s.id === job?.storeId)
+        
+        if (candidate && company) {
+          const candidateName = `${candidate.lastName} ${candidate.firstName}`
+          const endTime = new Date(combinedDateTime.getTime() + 60 * 60000) // 1時間後
+          
+          // カレンダーIDは環境変数から取得（設定されていればそのカレンダーに追加）
+          const calendarId = process.env.NEXT_PUBLIC_DEFAULT_CALENDAR_ID
+          
+          const calendarUrl = generateGoogleCalendarUrl(
+            `面接: ${candidateName} - ${company.name}`,
+            combinedDateTime,
+            endTime,
+            `【求職者】${candidateName}\n【企業】${company.name}\n【職種】${job?.title || ''}\n\n${statusNotes || ''}`.trim(),
+            store?.address || company.address,
+            calendarId
+          )
+          
+          // 自動的にGoogleカレンダーを開く
+          window.open(calendarUrl, '_blank')
+          alert('ステータスを更新しました。\n\nGoogleカレンダーが別タブで開きます。')
+        }
+      }
+      
       setStatusUpdateOpen(false)
       setSelectedMatch(null)
       setEventDate('')
       setEventTime('')
       setStatusNotes('')
-      alert('ステータスを更新しました')
+      
+      if (newStatus !== 'interview' || !combinedDateTime) {
+        alert('ステータスを更新しました')
+      }
     } catch (error) {
       console.error('ステータス更新エラー:', error)
       alert('ステータスの更新に失敗しました')
@@ -453,12 +486,52 @@ function ProgressPageContent() {
       
       await loadData() // Reload data
       
+      const updateCount = selectedMatchIds.size
+      
+      // 面接ステータスで日時が設定されている場合、自動的にGoogleカレンダーを開く
+      if (newStatus === 'interview' && combinedDateTime) {
+        const selectedMatches = matches.filter(m => selectedMatchIds.has(m.id))
+        
+        if (selectedMatches.length === 1) {
+          // 1件の場合は自動的にカレンダーを開く
+          const match = selectedMatches[0]
+          const candidate = candidates.find(c => c.id === match.candidateId)
+          const job = jobs.find(j => j.id === match.jobId)
+          const company = companies.find(c => c.id === job?.companyId)
+          const store = stores.find(s => s.id === job?.storeId)
+          
+          if (candidate && company) {
+            const candidateName = `${candidate.lastName} ${candidate.firstName}`
+            const endTime = new Date(combinedDateTime.getTime() + 60 * 60000)
+            
+            // カレンダーIDは環境変数から取得
+            const calendarId = process.env.NEXT_PUBLIC_DEFAULT_CALENDAR_ID
+            
+            const calendarUrl = generateGoogleCalendarUrl(
+              `面接: ${candidateName} - ${company.name}`,
+              combinedDateTime,
+              endTime,
+              `【求職者】${candidateName}\n【企業】${company.name}\n【職種】${job?.title || ''}\n\n${statusNotes || ''}`.trim(),
+              store?.address || company.address,
+              calendarId
+            )
+            
+            window.open(calendarUrl, '_blank')
+            alert(`${updateCount}件の進捗を更新しました。\n\nGoogleカレンダーが別タブで開きます。`)
+          }
+        } else {
+          // 複数件の場合は通知のみ
+          alert(`${updateCount}件の進捗を更新しました。\n\n複数の面接予定は個別に登録してください。`)
+        }
+      } else {
+        alert(`${updateCount}件の進捗を更新しました`)
+      }
+      
       setBulkStatusUpdateOpen(false)
       setSelectedMatchIds(new Set())
       setEventDate('')
       setEventTime('')
       setStatusNotes('')
-      alert(`${selectedMatchIds.size}件の進捗を更新しました`)
     } catch (error) {
       console.error('一括ステータス更新エラー:', error)
       alert('ステータスの更新に失敗しました')
@@ -1098,6 +1171,7 @@ function ProgressPageContent() {
                                 size="sm"
                                 asChild
                                 className="h-8 w-8 p-0"
+                                title="詳細を見る"
                               >
                                 <Link href={`/progress/${match.id}`}>
                                   <Eye className="h-4 w-4" />
