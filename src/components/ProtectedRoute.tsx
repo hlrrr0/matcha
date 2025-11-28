@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Clock, UserX } from 'lucide-react'
@@ -76,11 +77,13 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
           </CardHeader>
           <CardContent className="text-center">
             <Button 
-              onClick={() => router.push('/')}
+              asChild
               variant="outline"
               className="w-full"
             >
-              ホームに戻る
+              <Link href="/">
+                ホームに戻る
+              </Link>
             </Button>
           </CardContent>
         </Card>

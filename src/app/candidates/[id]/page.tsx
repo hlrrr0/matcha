@@ -11,7 +11,28 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ArrowLeft, Users, Edit, TrendingUp, Briefcase, Building, Eye, RefreshCw, Plus, Search, CheckCircle, Trash2, Clock } from 'lucide-react'
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Users, 
+  Edit, 
+  TrendingUp, 
+  Briefcase, 
+  Building, 
+  Eye, 
+  RefreshCw, 
+  Plus, 
+  Search, 
+  CheckCircle, 
+  Trash2, 
+  Clock,
+  Target,
+  Send,
+  MessageSquare,
+  Star,
+  XCircle,
+  AlertCircle
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -28,17 +49,18 @@ import { Company } from '@/types/company'
 import { Store } from '@/types/store'
 import { useAuth } from '@/contexts/AuthContext'
 import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/utils/prefecture'
+import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
   applied: '応募済み',
   document_screening: '書類選考中',
-  document_passed: '書類選考通過（面接設定中）',
+  document_passed: '書類選考通過',
   interview: '面接',
-  interview_passed: '面接合格（次回面接設定中）',
+  interview_passed: '面接通過',
   offer: '内定',
   offer_accepted: '内定承諾',
-  rejected: '不採用',
+  rejected: '不合格',
   withdrawn: '辞退'
 }
 
@@ -53,6 +75,34 @@ const statusColors: Record<Match['status'], string> = {
   offer_accepted: 'bg-green-600 text-white',
   rejected: 'bg-red-100 text-red-800',
   withdrawn: 'bg-gray-100 text-gray-800'
+}
+
+// ステータスアイコン定義
+const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
+  suggested: Target,
+  applied: Send,
+  document_screening: Eye,
+  document_passed: CheckCircle,
+  interview: MessageSquare,
+  interview_passed: CheckCircle,
+  offer: Star,
+  offer_accepted: CheckCircle,
+  rejected: XCircle,
+  withdrawn: AlertCircle
+}
+
+// ステータスフロー定義
+const statusFlow: Record<Match['status'], Match['status'][]> = {
+  suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
+  applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
+  document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
+  document_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  interview: ['interview_passed', 'offer', 'rejected', 'withdrawn'],
+  interview_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  offer: ['offer_accepted', 'rejected', 'withdrawn'],
+  offer_accepted: [],
+  rejected: [],
+  withdrawn: []
 }
 
 // ステータスに応じた表示ラベルを取得（面接回数を含む）
@@ -76,6 +126,8 @@ const campusColors = {
 interface MatchWithDetails extends Match {
   jobTitle?: string
   companyName?: string
+  candidateName?: string
+  storeNames?: string[]
 }
 
 interface CandidateDetailPageProps {
@@ -108,12 +160,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
   // ステータス更新用の状態
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
-  const [selectedMatchId, setSelectedMatchId] = useState<string>('')
-  const [currentStatus, setCurrentStatus] = useState<Match['status']>('suggested')
-  const [currentInterviewRound, setCurrentInterviewRound] = useState<number>(0)
+  const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
-  const [newInterviewRound, setNewInterviewRound] = useState<number>(1)
-  const [statusDescription, setStatusDescription] = useState('')
   const [statusNotes, setStatusNotes] = useState('')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
@@ -232,6 +280,24 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         })
       )
       
+      // ステータス降順でソート（優先度: offer_accepted > offer > interview_passed > interview > document_passed > document_screening > applied > suggested > withdrawn/rejected）
+      const statusPriority: Record<Match['status'], number> = {
+        offer_accepted: 9,
+        offer: 8,
+        interview_passed: 7,
+        interview: 6,
+        document_passed: 5,
+        document_screening: 4,
+        applied: 3,
+        suggested: 2,
+        withdrawn: 1,
+        rejected: 1
+      }
+      
+      matchesWithDetails.sort((a, b) => {
+        return statusPriority[b.status] - statusPriority[a.status]
+      })
+      
       setMatches(matchesWithDetails)
       console.log('✅ マッチング詳細読み込み完了')
     } catch (error) {
@@ -246,6 +312,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       {getStatusLabel(status, interviewRound)}
     </Badge>
   )
+
+  const getStatusColor = (status: Match['status']) => {
+    return statusColors[status]
+  }
+
+  const getStatusIcon = (status: Match['status']) => {
+    const Icon = statusIcons[status]
+    return <Icon className="h-4 w-4" />
+  }
 
   const getScoreBadge = (score: number) => {
     let colorClass = 'bg-gray-100 text-gray-800'
@@ -343,18 +418,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     setJobSearchTerm('')
   }
 
-  const handleOpenStatusUpdate = (match: Match & { jobTitle?: string; companyName?: string; storeNames?: string[] }) => {
-    setSelectedMatchId(match.id)
-    setCurrentStatus(match.status)
-    setCurrentInterviewRound(match.currentInterviewRound || 0)
+  const handleOpenStatusUpdate = (match: MatchWithDetails) => {
+    setSelectedMatch(match)
     setNewStatus(match.status)
-    // 面接合格からの遷移の場合、次の面接回数を設定
-    if (match.status === 'interview_passed') {
-      setNewInterviewRound((match.currentInterviewRound || 0) + 1)
-    } else {
-      setNewInterviewRound(match.currentInterviewRound || 1)
-    }
-    setStatusDescription('')
     setStatusNotes('')
     setEventDate('')
     setEventTime('')
@@ -362,37 +428,65 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   }
 
   const handleStatusUpdate = async () => {
-    if (!selectedMatchId || !user?.uid) return
+    if (!selectedMatch || !user?.uid) return
 
     try {
-      // イベント日時を結合（指定されている場合のみ）
-      let eventDateTime: Date | undefined
+      // 日時を組み合わせる
+      let combinedDateTime: Date | undefined = undefined
       if (eventDate) {
         if (eventTime) {
-          eventDateTime = new Date(`${eventDate}T${eventTime}`)
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
         } else {
-          eventDateTime = new Date(eventDate)
+          combinedDateTime = new Date(eventDate)
         }
       }
 
-      // 面接ステータスの場合は面接回数も渡す
-      const interviewRound = (newStatus === 'interview' || newStatus === 'interview_passed') 
-        ? newInterviewRound 
-        : undefined
-
       await updateMatchStatus(
-        selectedMatchId,
+        selectedMatch.id,
         newStatus,
-        statusDescription,
+        '',
         user.uid,
-        statusNotes,
-        eventDateTime,
-        interviewRound
+        statusNotes || undefined,
+        combinedDateTime
       )
-
-      toast.success('ステータスを更新しました')
+      
+      await loadMatches() // Reload data
+      
+      // 面接ステータスで日時が設定されている場合、自動的にGoogleカレンダーを開く
+      if (newStatus === 'interview' && combinedDateTime && candidate) {
+        const job = jobs.find(j => j.id === selectedMatch.jobId)
+        const company = companies.find(c => c.id === job?.companyId)
+        const store = stores.find(s => s.id === job?.storeId)
+        
+        if (company) {
+          const candidateName = `${candidate.lastName} ${candidate.firstName}`
+          const endTime = new Date(combinedDateTime.getTime() + 60 * 60000) // 1時間後
+          
+          // カレンダーIDは環境変数から取得（設定されていればそのカレンダーに追加）
+          const calendarId = process.env.NEXT_PUBLIC_DEFAULT_CALENDAR_ID
+          
+          const calendarUrl = generateGoogleCalendarUrl(
+            `面接: ${candidateName} - ${company.name}`,
+            combinedDateTime,
+            endTime,
+            `【求職者】${candidateName}\n【企業】${company.name}\n【職種】${job?.title || ''}\n\n${statusNotes || ''}`.trim(),
+            store?.address || company.address,
+            calendarId
+          )
+          
+          // 自動的にGoogleカレンダーを開く
+          window.open(calendarUrl, '_blank')
+          toast.success('ステータスを更新しました。Googleカレンダーが別タブで開きます。')
+        }
+      } else {
+        toast.success('ステータスを更新しました')
+      }
+      
       setStatusUpdateOpen(false)
-      await loadMatches() // マッチング一覧を再読み込み
+      setSelectedMatch(null)
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
     } catch (error) {
       console.error('ステータス更新エラー:', error)
       toast.error('ステータスの更新に失敗しました')
@@ -519,6 +613,186 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       </div>
       
       <div className="space-y-6">
+        {/* マッチング進捗セクション */}
+        <Card className="border-purple-100">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-purple-800 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  マッチング進捗
+                </CardTitle>
+                <CardDescription>
+                  この候補者のマッチング状況と進捗
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-purple-600 border-purple-200">
+                  {matches.length}件
+                </Badge>
+                {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
+                <Button
+                  onClick={() => setCreateMatchOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  進捗を作成
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {matchesLoading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
+                <p className="text-gray-600">マッチング情報を読み込み中...</p>
+              </div>
+            ) : matches.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>求人</TableHead>
+                    <TableHead>企業/店舗</TableHead>
+                    <TableHead>スコア</TableHead>
+                    <TableHead>ステータス</TableHead>
+                    <TableHead>面接日時</TableHead>
+                    <TableHead>作成日</TableHead>
+                    <TableHead>アクション</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matches.map((match: any) => {
+                    // 背景色の設定
+                    let rowBgClass = "hover:bg-purple-50"
+                    if (match.status === 'offer_accepted') {
+                      rowBgClass = "bg-red-50 hover:bg-red-100"
+                    } else if (match.status === 'rejected' || match.status === 'withdrawn') {
+                      rowBgClass = "bg-gray-100 hover:bg-gray-200"
+                    }
+                    
+                    return (
+                    <TableRow key={match.id} className={rowBgClass}>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Briefcase className="h-4 w-4 text-purple-600" />
+                          <div>
+                            <Link href={`/jobs/${match.jobId}`}>
+                              <div className="font-medium">{match.jobTitle}</div>
+                            </Link>
+                            {match.matchReasons.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {match.matchReasons.slice(0, 2).map((reason: any, index: number) => (
+                                  <span key={index} className="mr-2">
+                                    {reason.description}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Link href={`/companies/${match.companyId}`}>
+                          <div className="flex items-center space-x-2">
+                            <Building className="h-4 w-4 text-gray-500" />
+                            <span className="font-medium">{match.companyName}</span>
+                          </div>
+                          {match.storeNames && match.storeNames.length > 0 ? (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {match.storeNames.length <= 3 
+                                ? match.storeNames.join(', ')
+                                : `${match.storeNames.slice(0, 3).join(', ')} +${match.storeNames.length - 3}店舗`
+                              }
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        {getScoreBadge(match.score)}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(match.status, match.currentInterviewRound)}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          // 面接日時を取得
+                          if (!match.interviewDate) {
+                            return <span className="text-gray-400">-</span>
+                          }
+                          
+                          const interviewDate = match.interviewDate instanceof Date 
+                            ? match.interviewDate 
+                            : new Date(match.interviewDate)
+                          
+                          // 有効な日付かチェック
+                          if (isNaN(interviewDate.getTime())) {
+                            return <span className="text-gray-400">-</span>
+                          }
+                          
+                          return (
+                            <div className="text-sm">
+                              <div>{interviewDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</div>
+                              <div className="text-xs text-gray-500">
+                                {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        {formatDate(match.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            asChild
+                            className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                          >
+                            <Link href={`/progress/${match.id}`}>
+                              <Eye className="h-3 w-3 mr-1" />
+                              詳細
+                            </Link>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenStatusUpdate(match)}
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            <ArrowRight className="h-3 w-3 mr-1" />
+                            次へ
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                  })}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-12">
+                <TrendingUp className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  マッチングがありません
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  この候補者にはまだマッチングが作成されていません
+                </p>
+                <Button asChild className="bg-purple-600 hover:bg-purple-700">
+                  <Link href="/progress">
+                    進捗管理でマッチングを作成
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         {/* 基本情報セクション */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="border-blue-100">
@@ -636,147 +910,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             </CardContent>
           </Card>       
         </div>
-        {/* マッチング進捗セクション */}
-        <Card className="border-purple-100">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-purple-800 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  マッチング進捗
-                </CardTitle>
-                <CardDescription>
-                  この候補者のマッチング状況と進捗
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-purple-600 border-purple-200">
-                  {matches.length}件
-                </Badge>
-                {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
-                <Button
-                  onClick={() => setCreateMatchOpen(true)}
-                  variant="outline"
-                  size="sm"
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  進捗を作成
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {matchesLoading ? (
-              <div className="text-center py-8">
-                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
-                <p className="text-gray-600">マッチング情報を読み込み中...</p>
-              </div>
-            ) : matches.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>求人</TableHead>
-                    <TableHead>企業/店舗</TableHead>
-                    <TableHead>スコア</TableHead>
-                    <TableHead>ステータス</TableHead>
-                    <TableHead>作成日</TableHead>
-                    <TableHead>アクション</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {matches.map((match: any) => (
-                    <TableRow key={match.id} className="hover:bg-purple-50">
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Briefcase className="h-4 w-4 text-purple-600" />
-                          <div>
-                            <Link href={`/jobs/${match.jobId}`}>
-                              <div className="font-medium">{match.jobTitle}</div>
-                            </Link>
-                            {match.matchReasons.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {match.matchReasons.slice(0, 2).map((reason: any, index: number) => (
-                                  <span key={index} className="mr-2">
-                                    {reason.description}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Link href={`/companies/${match.companyId}`}>
-                          <div className="flex items-center space-x-2">
-                            <Building className="h-4 w-4 text-gray-500" />
-                            <span className="font-medium">{match.companyName}</span>
-                          </div>
-                          {match.storeNames && match.storeNames.length > 0 ? (
-                            <div className="text-xs text-gray-500 mt-1">
-                              {match.storeNames.length <= 3 
-                                ? match.storeNames.join(', ')
-                                : `${match.storeNames.slice(0, 3).join(', ')} +${match.storeNames.length - 3}店舗`
-                              }
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {getScoreBadge(match.score)}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(match.status, match.currentInterviewRound)}
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        {formatDate(match.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                            className="text-purple-600 border-purple-200 hover:bg-purple-50"
-                          >
-                            <Link href={`/progress/${match.id}`}>
-                              <Eye className="h-3 w-3" />
-                            </Link>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenStatusUpdate(match)}
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                          >
-                            <Clock className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-12">
-                <TrendingUp className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  マッチングがありません
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  この候補者にはまだマッチングが作成されていません
-                </p>
-                <Button asChild className="bg-purple-600 hover:bg-purple-700">
-                  <Link href="/progress">
-                    進捗管理でマッチングを作成
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
         <Card className="border-green-100">
           <CardHeader>
             <CardTitle className="text-green-800">希望条件</CardTitle>
@@ -1054,91 +1188,144 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
       {/* ステータス更新モーダル */}
       <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>次の進捗へ</DialogTitle>
+            <DialogDescription>
+              {selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`} - {selectedMatch?.jobTitle}
+            </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
-            <div>
-              <Label>現在のステータス</Label>
-              <div className="mt-1">
-                {getStatusBadge(currentStatus)}
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="newStatus">新しいステータス *</Label>
-              <Select value={newStatus} onValueChange={(value: Match['status']) => setNewStatus(value)}>
-                <SelectTrigger id="newStatus" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="suggested">提案済み</SelectItem>
-                  <SelectItem value="applied">応募済み</SelectItem>
-                  <SelectItem value="document_screening">書類選考中</SelectItem>
-                  <SelectItem value="document_passed">書類選考通過（面接設定中）</SelectItem>
-                  <SelectItem value="interview">面接</SelectItem>
-                  <SelectItem value="interview_passed">面接合格（次回面接設定中）</SelectItem>
-                  <SelectItem value="offer">内定</SelectItem>
-                  <SelectItem value="offer_accepted">内定承諾</SelectItem>
-                  <SelectItem value="rejected">不採用</SelectItem>
-                  <SelectItem value="withdrawn">辞退</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 面接ステータスの場合は面接回数を入力 */}
-            {(newStatus === 'interview' || newStatus === 'interview_passed') && (
-              <div>
-                <Label htmlFor="interviewRound">面接回数 *</Label>
-                <Input
-                  id="interviewRound"
-                  type="number"
-                  min="1"
-                  value={newInterviewRound}
-                  onChange={(e) => setNewInterviewRound(parseInt(e.target.value) || 1)}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  {newStatus === 'interview' && `${newInterviewRound}次面接`}
-                  {newStatus === 'interview_passed' && `${newInterviewRound}次面接合格（${newInterviewRound + 1}次面接設定中）`}
-                </p>
+            {/* 現在のステータス表示 */}
+            {selectedMatch && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm text-gray-600 mb-2">現在のステータス</div>
+                <Badge className={`${getStatusColor(selectedMatch.status)} border-0`}>
+                  <div className="flex items-center gap-1">
+                    {getStatusIcon(selectedMatch.status)}
+                    {getStatusLabel(selectedMatch.status)}
+                  </div>
+                </Badge>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* 次のステータス選択 */}
+            {selectedMatch && (
               <div>
-                <Label htmlFor="eventDate">イベント日付</Label>
-                <Input
-                  id="eventDate"
-                  type="date"
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className="mt-1"
-                />
+                <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
+                <div className="space-y-2">
+                  {/* 通常のステータス（縦並び） */}
+                  <div className="grid grid-cols-1 gap-2">
+                    {statusFlow[selectedMatch.status]
+                      .filter(s => !['offer', 'rejected', 'withdrawn'].includes(s))
+                      .map((nextStatus) => {
+                        const Icon = statusIcons[nextStatus]
+                        return (
+                          <Button
+                            key={nextStatus}
+                            type="button"
+                            variant={newStatus === nextStatus ? "default" : "outline"}
+                            className={`justify-start h-auto py-3 ${
+                              newStatus === nextStatus 
+                                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => {
+                              setNewStatus(nextStatus)
+                            }}
+                          >
+                            <Icon className="h-5 w-5 mr-2" />
+                            <span className="text-base">{statusLabels[nextStatus]}</span>
+                          </Button>
+                        )
+                      })}
+                  </div>
+                  
+                  {/* 終了ステータス（横並び・小さめ） */}
+                  {statusFlow[selectedMatch.status].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {statusFlow[selectedMatch.status]
+                        .filter(s => ['offer', 'rejected', 'withdrawn'].includes(s))
+                        .map((nextStatus) => {
+                          const Icon = statusIcons[nextStatus]
+                          return (
+                            <Button
+                              key={nextStatus}
+                              type="button"
+                              variant={newStatus === nextStatus ? "default" : "outline"}
+                              className={`justify-center h-auto py-2 text-sm ${
+                                newStatus === nextStatus 
+                                  ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                                  : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => {
+                                setNewStatus(nextStatus)
+                              }}
+                            >
+                              <Icon className="h-4 w-4 mr-1" />
+                              <span className="text-sm">{statusLabels[nextStatus]}</span>
+                            </Button>
+                          )
+                        })}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <Label htmlFor="eventTime">時刻</Label>
-                <Input
-                  id="eventTime"
-                  type="time"
-                  value={eventTime}
-                  onChange={(e) => setEventTime(e.target.value)}
-                  className="mt-1"
-                  disabled={!eventDate}
-                />
+            )}
+            
+            {/* イベント日時入力 */}
+            {['interview', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && 
+             selectedMatch && newStatus !== selectedMatch.status && (
+              <div className="space-y-2">
+                <Label>
+                  {newStatus === 'interview' && '面接日'}
+                  {newStatus === 'offer' && '内定日'}
+                  {newStatus === 'offer_accepted' && '内定承諾日'}
+                  {newStatus === 'rejected' && '不合格日'}
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Input
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      placeholder="日付"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="time"
+                      value={eventTime}
+                      onChange={(e) => setEventTime(e.target.value)}
+                      placeholder="時刻（任意）"
+                    />
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* 備考欄 */}
+            <div>
+              <Label htmlFor="statusNotes">備考</Label>
+              <Textarea
+                id="statusNotes"
+                value={statusNotes}
+                onChange={(e) => setStatusNotes(e.target.value)}
+                placeholder="詳細なメモがあれば記入してください"
+                rows={3}
+              />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusUpdateOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setStatusUpdateOpen(false)}
+            >
               キャンセル
             </Button>
             <Button
               onClick={handleStatusUpdate}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-orange-600 hover:bg-orange-700"
             >
               更新
             </Button>

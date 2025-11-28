@@ -630,16 +630,20 @@ export default function CandidatesPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push(`/candidates/${candidate.id}`)}
+                        asChild
                       >
-                        <Eye className="h-4 w-4" />
+                        <Link href={`/candidates/${candidate.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push(`/candidates/${candidate.id}/edit`)}
+                        asChild
                       >
-                        <Edit className="h-4 w-4" />
+                        <Link href={`/candidates/${candidate.id}/edit`}>
+                          <Edit className="h-4 w-4" />
+                        </Link>
                       </Button>
                       <Button
                         variant="ghost"

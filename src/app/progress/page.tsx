@@ -81,7 +81,7 @@ const statusLabels: Record<Match['status'], string> = {
   interview_passed: '面接通過',
   offer: '内定',
   offer_accepted: '内定承諾',
-  rejected: '不採用',
+  rejected: '不合格',
   withdrawn: '辞退'
 }
 
@@ -138,6 +138,10 @@ function ProgressPageContent() {
   ]))
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  
+  // Sort states
+  const [sortField, setSortField] = useState<'candidate' | 'job' | 'company' | 'status' | 'interviewDate' | 'updatedAt' | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   // Dialog states
   const [createMatchOpen, setCreateMatchOpen] = useState(false)
@@ -170,7 +174,7 @@ function ProgressPageContent() {
 
   useEffect(() => {
     filterMatches()
-  }, [matches, searchTerm, statusFilter, companyFilter])
+  }, [matches, searchTerm, statusFilter, companyFilter, sortField, sortDirection])
 
   // URLパラメータから候補者IDを取得して、新規作成ダイアログを開く
   useEffect(() => {
@@ -284,6 +288,52 @@ function ProgressPageContent() {
 
     if (companyFilter !== 'all') {
       filtered = filtered.filter(match => match.companyName === companyFilter)
+    }
+
+    // ソート処理
+    if (sortField) {
+      filtered.sort((a, b) => {
+        let compareValue = 0
+        
+        switch (sortField) {
+          case 'candidate':
+            compareValue = (a.candidateName || '').localeCompare(b.candidateName || '', 'ja')
+            break
+          case 'job':
+            compareValue = (a.jobTitle || '').localeCompare(b.jobTitle || '', 'ja')
+            break
+          case 'company':
+            compareValue = (a.companyName || '').localeCompare(b.companyName || '', 'ja')
+            break
+          case 'status':
+            const statusPriority: Record<Match['status'], number> = {
+              offer_accepted: 9,
+              offer: 8,
+              interview_passed: 7,
+              interview: 6,
+              document_passed: 5,
+              document_screening: 4,
+              applied: 3,
+              suggested: 2,
+              withdrawn: 1,
+              rejected: 1
+            }
+            compareValue = statusPriority[a.status] - statusPriority[b.status]
+            break
+          case 'interviewDate':
+            const dateA = a.interviewDate ? (a.interviewDate instanceof Date ? a.interviewDate : new Date(a.interviewDate)).getTime() : 0
+            const dateB = b.interviewDate ? (b.interviewDate instanceof Date ? b.interviewDate : new Date(b.interviewDate)).getTime() : 0
+            compareValue = dateA - dateB
+            break
+          case 'updatedAt':
+            const updatedA = a.updatedAt ? (a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt)).getTime() : 0
+            const updatedB = b.updatedAt ? (b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt)).getTime() : 0
+            compareValue = updatedA - updatedB
+            break
+        }
+        
+        return sortDirection === 'asc' ? compareValue : -compareValue
+      })
     }
 
     setFilteredMatches(filtered)
@@ -677,6 +727,22 @@ function ProgressPageContent() {
     return age
   }
 
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      // 同じフィールドをクリックした場合は昇順・降順を切り替え
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // 新しいフィールドの場合は昇順から開始
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const getSortIcon = (field: typeof sortField) => {
+    if (sortField !== field) return null
+    return sortDirection === 'asc' ? '↑' : '↓'
+  }
+
   const getStatusIcon = (status: Match['status']) => {
     switch (status) {
       case 'suggested': return <Clock className="h-4 w-4" />
@@ -1044,18 +1110,61 @@ function ProgressPageContent() {
                           onCheckedChange={toggleSelectAll}
                         />
                       </TableHead>
-                      <TableHead>求職者</TableHead>
-                      <TableHead>職種</TableHead>
-                      <TableHead>企業</TableHead>
-                      <TableHead>ステータス</TableHead>
-                      <TableHead>更新日</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('candidate')}
+                      >
+                        <div className="flex items-center gap-1">
+                          求職者 {getSortIcon('candidate')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('job')}
+                      >
+                        <div className="flex items-center gap-1">
+                          職種 {getSortIcon('job')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('company')}
+                      >
+                        <div className="flex items-center gap-1">
+                          企業 {getSortIcon('company')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center gap-1">
+                          ステータス {getSortIcon('status')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('interviewDate')}
+                      >
+                        <div className="flex items-center gap-1">
+                          面接日時 {getSortIcon('interviewDate')}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-gray-50"
+                        onClick={() => handleSort('updatedAt')}
+                      >
+                        <div className="flex items-center gap-1">
+                          更新日 {getSortIcon('updatedAt')}
+                        </div>
+                      </TableHead>
                       <TableHead>操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredMatches.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                           マッチングデータがありません
                         </TableCell>
                       </TableRow>
@@ -1064,8 +1173,16 @@ function ProgressPageContent() {
                         const candidate = candidates.find(c => c.id === match.candidateId)
                         const age = candidate?.dateOfBirth ? calculateAge(candidate.dateOfBirth) : null
                         
+                        // 背景色の設定
+                        let rowBgClass = ""
+                        if (match.status === 'offer_accepted') {
+                          rowBgClass = "bg-red-50 hover:bg-red-100"
+                        } else if (match.status === 'rejected' || match.status === 'withdrawn') {
+                          rowBgClass = "bg-gray-100 hover:bg-gray-200"
+                        }
+                        
                         return (
-                        <TableRow key={match.id}>
+                        <TableRow key={match.id} className={rowBgClass}>
                           <TableCell>
                             <Checkbox
                               checked={selectedMatchIds.has(match.id)}
@@ -1156,6 +1273,32 @@ function ProgressPageContent() {
                                 {getStatusLabel(match.status)}
                               </div>
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              // 面接日時を取得
+                              if (!match.interviewDate) {
+                                return <span className="text-gray-400">-</span>
+                              }
+                              
+                              const interviewDate = match.interviewDate instanceof Date 
+                                ? match.interviewDate 
+                                : new Date(match.interviewDate)
+                              
+                              // 有効な日付かチェック
+                              if (isNaN(interviewDate.getTime())) {
+                                return <span className="text-gray-400">-</span>
+                              }
+                              
+                              return (
+                                <div className="text-sm">
+                                  <div>{interviewDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              )
+                            })()}
                           </TableCell>
                           <TableCell>
                             {match.updatedAt && typeof match.updatedAt === 'object' && match.updatedAt instanceof Date
@@ -1295,15 +1438,15 @@ function ProgressPageContent() {
                   </div>
                 )}
                 
-                {/* イベント日時入力（応募は除外） */}
-                {['interview', 'interview_passed', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
+                {/* イベント日時入力 */}
+                {['interview', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && 
+                 selectedMatch && newStatus !== selectedMatch.status && (
                   <div className="space-y-2">
                     <Label>
                       {newStatus === 'interview' && '面接日'}
-                      {newStatus === 'interview_passed' && '面接実施日'}
                       {newStatus === 'offer' && '内定日'}
                       {newStatus === 'offer_accepted' && '内定承諾日'}
-                      {newStatus === 'rejected' && '不採用日'}
+                      {newStatus === 'rejected' && '不合格日'}
                     </Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>

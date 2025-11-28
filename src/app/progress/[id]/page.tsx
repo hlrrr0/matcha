@@ -56,7 +56,7 @@ const statusLabels: Record<Match['status'], string> = {
   interview_passed: '面接合格（次回面接設定中）',
   offer: '内定',
   offer_accepted: '内定承諾',
-  rejected: '不採用',
+  rejected: '不合格',
   withdrawn: '辞退'
 }
 
@@ -393,11 +393,13 @@ export default function MatchDetailPage() {
           <div className="mb-8">
             <Button
                 variant="outline"
-                onClick={() => router.push('/progress')}
+                asChild
                 className="text-orange-600 border-orange-200 hover:bg-orange-50"
               >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                進捗管理
+                <Link href="/progress">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  進捗管理
+                </Link>
               </Button>
           </div>
           <div className="flex items-center justify-between mb-8">

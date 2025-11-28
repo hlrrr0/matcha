@@ -187,34 +187,6 @@ export default function CompanyForm({
           </div>
 
           <div>
-            <Label htmlFor="consultantId">担当者</Label>
-            <Select 
-              value={formData.consultantId || 'none'} 
-              onValueChange={(value) => handleChange('consultantId', value === 'none' ? undefined : value)}
-              disabled={loadingUsers}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={loadingUsers ? "ユーザーを読み込み中..." : "担当者を選択してください"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">担当者を選択しない</SelectItem>
-                {users.map((user) => {
-                  const displayName = user.displayName || 
-                    (user.firstName && user.lastName ? `${user.lastName} ${user.firstName}` : '') ||
-                    user.email
-                  const roleLabel = user.role === 'admin' ? ' (管理者)' : ''
-                  
-                  return (
-                    <SelectItem key={user.id} value={user.id}>
-                      {displayName}{roleLabel}
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
             <Label htmlFor="consultantId">企業担当者</Label>
             <Select 
               value={formData.consultantId || 'unassigned'} 
