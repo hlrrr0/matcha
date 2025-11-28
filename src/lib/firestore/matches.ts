@@ -320,13 +320,27 @@ export const updateMatchStatus = async (
 
     // 既存のタイムラインを安全に処理
     const existingTimeline = Array.isArray(match.timeline) ? match.timeline : []
-    const updatedTimeline = [...existingTimeline, newTimelineItem]
 
-    console.log('🔄 タイムライン更新:', {
-      既存件数: existingTimeline.length,
-      新規追加: newTimelineItem,
-      更新後件数: updatedTimeline.length
-    })
+    // 重複追加を防止するためのチェック:
+    // - 直前のタイムラインが同じステータス、作成者、備考であれば追加をスキップする
+    // - タイムスタンプ差は許容範囲（例: 10秒）で判定
+    let updatedTimeline: MatchTimeline[]
+    const lastItem = existingTimeline.length > 0 ? existingTimeline[existingTimeline.length - 1] : null
+    const now = Date.now()
+    const isDuplicate = lastItem && lastItem.status === status && lastItem.createdBy === createdBy && (lastItem.notes || '') === (notes || '') && Math.abs(new Date(lastItem.timestamp).getTime() - now) < 10000
+
+    if (isDuplicate) {
+      // 重複とみなして追加せず、そのまま既存のタイムラインを使う
+      updatedTimeline = existingTimeline
+      console.log('⚠️ タイムライン追加スキップ（重複検出）:', { status, createdBy, notes })
+    } else {
+      updatedTimeline = [...existingTimeline, newTimelineItem]
+      console.log('🔄 タイムライン更新:', {
+        既存件数: existingTimeline.length,
+        新規追加: newTimelineItem,
+        更新後件数: updatedTimeline.length
+      })
+    }
 
     // 更新データを準備
     const updateData: any = {
@@ -480,6 +494,75 @@ export const updateTimelineItem = async (
     })
   } catch (error) {
     console.error('Error updating timeline item:', error)
+    throw error
+  }
+}
+
+// タイムラインアイテムの削除（最新のみ）
+export const deleteLatestTimelineItem = async (
+  matchId: string,
+  timelineId: string
+): Promise<void> => {
+  if (!matchId || matchId.trim() === '') {
+    throw new Error('Invalid match ID')
+  }
+  if (!timelineId || timelineId.trim() === '') {
+    throw new Error('Invalid timeline ID')
+  }
+
+  try {
+    const matchRef = doc(db, COLLECTION_NAME, matchId)
+    const matchDoc = await getDoc(matchRef)
+    
+    if (!matchDoc.exists()) {
+      throw new Error('Match not found')
+    }
+
+    const matchData = matchDoc.data() as Match
+    const timeline = matchData.timeline || []
+    
+    // タイムラインを時系列順にソート（最新が最後）
+    const sortedTimeline = [...timeline].sort((a, b) => {
+      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+      return timeA - timeB
+    })
+    
+    // 最新のタイムラインアイテムのIDを確認
+    const latestItem = sortedTimeline[sortedTimeline.length - 1]
+    if (!latestItem || latestItem.id !== timelineId) {
+      throw new Error('削除できるのは最新の進捗のみです')
+    }
+    
+    // 削除対象以外のタイムラインアイテムを残す
+    const updatedTimeline = timeline.filter(item => item.id !== timelineId)
+    
+    // 削除後のステータスを前の進捗のステータスに戻す
+    let previousStatus: Match['status'] = 'suggested'
+    if (updatedTimeline.length > 0) {
+      // 最新のタイムラインアイテムのステータスを取得
+      const sortedUpdated = [...updatedTimeline].sort((a, b) => {
+        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+        return timeA - timeB
+      })
+      previousStatus = sortedUpdated[sortedUpdated.length - 1].status
+    }
+
+    await updateDoc(matchRef, {
+      status: previousStatus,
+      timeline: updatedTimeline.map(item => ({
+        ...item,
+        timestamp: item.timestamp instanceof Date 
+          ? Timestamp.fromDate(item.timestamp)
+          : Timestamp.fromDate(safeCreateDate(item.timestamp))
+      })),
+      updatedAt: Timestamp.fromDate(new Date())
+    })
+    
+    console.log('✅ タイムライン削除完了 ステータスを戻しました:', previousStatus)
+  } catch (error) {
+    console.error('Error deleting timeline item:', error)
     throw error
   }
 }

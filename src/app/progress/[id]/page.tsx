@@ -30,7 +30,8 @@ import {
   XCircle,
   AlertCircle,
   Target,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react'
 import { Match, MatchTimeline } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
@@ -149,8 +150,6 @@ export default function MatchDetailPage() {
   // タイムライン編集モーダル
   const [timelineEditOpen, setTimelineEditOpen] = useState(false)
   const [editingTimeline, setEditingTimeline] = useState<MatchTimeline | null>(null)
-  const [editDescription, setEditDescription] = useState('')
-  const [editNotes, setEditNotes] = useState('')
 
   useEffect(() => {
     if (!matchId || matchId.trim() === '') {
@@ -244,34 +243,112 @@ export default function MatchDetailPage() {
 
   const handleOpenTimelineEdit = (timeline: MatchTimeline) => {
     setEditingTimeline(timeline)
-    setEditDescription(timeline.description)
-    setEditNotes(timeline.notes || '')
+    
+    // タイムラインのステータスから対応するイベント日時を取得
+    let initialDate = ''
+    let initialTime = ''
+    
+    if (timeline.status === 'applied' && match?.appliedDate) {
+      const date = new Date(match.appliedDate)
+      initialDate = date.toISOString().split('T')[0]
+      initialTime = date.toTimeString().slice(0, 5)
+    } else if ((timeline.status === 'interview' || timeline.status === 'interview_passed') && match?.interviewDate) {
+      const date = new Date(match.interviewDate)
+      initialDate = date.toISOString().split('T')[0]
+      initialTime = date.toTimeString().slice(0, 5)
+    } else if (timeline.status === 'offer' && match?.offerDate) {
+      const date = new Date(match.offerDate)
+      initialDate = date.toISOString().split('T')[0]
+      initialTime = date.toTimeString().slice(0, 5)
+    } else if (timeline.status === 'offer_accepted' && match?.acceptedDate) {
+      const date = new Date(match.acceptedDate)
+      initialDate = date.toISOString().split('T')[0]
+      initialTime = date.toTimeString().slice(0, 5)
+    } else if (timeline.status === 'rejected' && match?.rejectedDate) {
+      const date = new Date(match.rejectedDate)
+      initialDate = date.toISOString().split('T')[0]
+      initialTime = date.toTimeString().slice(0, 5)
+    }
+    
+    setEventDate(initialDate)
+    setEventTime(initialTime)
+    setStatusNotes(timeline.notes || '')
     setTimelineEditOpen(true)
   }
 
   const handleTimelineUpdate = async () => {
-    if (!editingTimeline || !match) return
+    if (!editingTimeline || !match || !user) return
 
     try {
-      const { updateTimelineItem } = await import('@/lib/firestore/matches')
-      
-      await updateTimelineItem(
+      // 日時を組み合わせる
+      let combinedDateTime: Date | undefined = undefined
+      if (eventDate) {
+        if (eventTime) {
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
+        } else {
+          combinedDateTime = new Date(eventDate)
+        }
+      }
+
+      // ステータスは変更せず、イベント日時と備考のみ更新
+      await updateMatchStatus(
         match.id,
-        editingTimeline.id,
-        editDescription,
-        editNotes || undefined
+        editingTimeline.status, // 既存のステータスを維持
+        '',
+        user.uid,
+        statusNotes || undefined,
+        combinedDateTime
       )
 
       toast.success('タイムラインを更新しました')
       setTimelineEditOpen(false)
       setEditingTimeline(null)
-      setEditDescription('')
-      setEditNotes('')
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
       loadMatchData() // データを再読み込み
     } catch (error) {
       console.error('Error updating timeline:', error)
       toast.error('タイムラインの更新に失敗しました')
     }
+  }
+
+  const handleTimelineDelete = async () => {
+    if (!editingTimeline || !match) return
+
+    if (!confirm('この進捗を削除しますか？\nステータスが前の状態に戻ります。')) {
+      return
+    }
+
+    try {
+      const { deleteLatestTimelineItem } = await import('@/lib/firestore/matches')
+      
+      await deleteLatestTimelineItem(match.id, editingTimeline.id)
+
+      toast.success('進捗を削除しました')
+      setTimelineEditOpen(false)
+      setEditingTimeline(null)
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
+      loadMatchData() // データを再読み込み
+    } catch (error: any) {
+      console.error('Error deleting timeline:', error)
+      toast.error(error.message || '進捗の削除に失敗しました')
+    }
+  }
+
+  // 最新のタイムラインアイテムかチェック
+  const isLatestTimeline = (timelineId: string): boolean => {
+    if (!match?.timeline || match.timeline.length === 0) return false
+    
+    const sortedTimeline = [...match.timeline].sort((a, b) => {
+      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+      return timeA - timeB
+    })
+    
+    return sortedTimeline[sortedTimeline.length - 1]?.id === timelineId
   }
 
   const getStatusBadge = (status: Match['status'], size: 'sm' | 'lg' = 'sm', interviewRound?: number) => {
@@ -518,12 +595,11 @@ export default function MatchDetailPage() {
                     </div>
                   </div>
                   
-                  {/* イベント日時入力（応募は除外） */}
-                  {['interview', 'interview_passed', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
+                  {/* イベント日時入力（応募、面接合格は除外） */}
+                  {['interview', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
                     <div className="space-y-2">
                       <Label>
                         {newStatus === 'interview' && '面接日'}
-                        {newStatus === 'interview_passed' && '面接実施日'}
                         {newStatus === 'offer' && '内定日'}
                         {newStatus === 'offer_accepted' && '内定承諾日'}
                         {newStatus === 'rejected' && '不採用日'}
@@ -849,17 +925,46 @@ export default function MatchDetailPage() {
                                   `}>
                                     {statusLabels[item.status] || item.status}
                                   </Badge>
-                                  <span className="text-xs text-gray-500">
-                                    {formatTimelineDate(item.displayDate)}
-                                  </span>
                                 </div>
+                                
+                                {/* 日時表示 */}
+                                <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {item.displayDate.toLocaleDateString('ja-JP', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </div>
+                                
+                                {/* 面接日時表示（面接ステータスの場合） */}
+                                {item.status === 'interview' && match.interviewDate && (
+                                  <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded mb-2 flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span className="font-medium">面接日時:</span>
+                                    {(() => {
+                                      const interviewDate = match.interviewDate instanceof Date 
+                                        ? match.interviewDate 
+                                        : new Date(match.interviewDate)
+                                      return interviewDate.toLocaleDateString('ja-JP', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })
+                                    })()}
+                                  </div>
+                                )}
                                 
                                 <div className="text-sm font-medium text-gray-900 mb-1">
                                   {item.description}
                                 </div>
                                 
                                 {item.notes && (
-                                  <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-1">
+                                  <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-2 whitespace-pre-wrap">
+                                    <div className="font-medium text-gray-700 mb-1">備考:</div>
                                     {item.notes}
                                   </div>
                                 )}
@@ -927,57 +1032,96 @@ export default function MatchDetailPage() {
 
         {/* タイムライン編集モーダル */}
         <Dialog open={timelineEditOpen} onOpenChange={setTimelineEditOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>タイムライン編集</DialogTitle>
+              <DialogTitle className="text-purple-800">タイムライン編集</DialogTitle>
               <DialogDescription>
-                進捗の説明と備考を編集できます
+                進捗の日時と備考を編集できます（ステータスは変更できません）
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* 現在のステータス表示 */}
               {editingTimeline && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-600 mb-1">ステータス</div>
-                  {getStatusBadge(editingTimeline.status)}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-600 mb-2">ステータス</div>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(editingTimeline.status, 'lg')}
+                  </div>
                 </div>
               )}
 
-              <div>
-                <Label htmlFor="editDescription">説明</Label>
-                <Textarea
-                  id="editDescription"
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  placeholder="進捗の説明を入力..."
-                  rows={3}
-                  className="mt-1"
-                />
-              </div>
+              {/* イベント日時入力 */}
+              {editingTimeline && ['applied', 'interview', 'offer', 'offer_accepted', 'rejected'].includes(editingTimeline.status) && (
+                <div className="space-y-2">
+                  <Label>
+                    {editingTimeline.status === 'applied' && '応募日'}
+                    {editingTimeline.status === 'interview' && '面接日'}
+                    {editingTimeline.status === 'offer' && '内定日'}
+                    {editingTimeline.status === 'offer_accepted' && '内定承諾日'}
+                    {editingTimeline.status === 'rejected' && '不採用日'}
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Input
+                        type="date"
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        placeholder="日付"
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        type="time"
+                        value={eventTime}
+                        onChange={(e) => setEventTime(e.target.value)}
+                        placeholder="時刻（任意）"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              {/* 備考欄 */}
               <div>
-                <Label htmlFor="editNotes">備考</Label>
+                <Label htmlFor="statusNotes">備考</Label>
                 <Textarea
-                  id="editNotes"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  placeholder="追加のメモがあれば入力..."
-                  rows={2}
-                  className="mt-1"
+                  id="statusNotes"
+                  value={statusNotes}
+                  onChange={(e) => setStatusNotes(e.target.value)}
+                  placeholder="詳細なメモがあれば記入してください"
+                  rows={3}
                 />
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setTimelineEditOpen(false)}>
-                キャンセル
-              </Button>
-              <Button
-                onClick={handleTimelineUpdate}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                更新
-              </Button>
+            <DialogFooter className="flex justify-between">
+              <div>
+                {editingTimeline && isLatestTimeline(editingTimeline.id) && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleTimelineDelete}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    この進捗を削除
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setTimelineEditOpen(false)}
+                >
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={handleTimelineUpdate}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  更新
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
