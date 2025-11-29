@@ -154,7 +154,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [jobSearchTerm, setJobSearchTerm] = useState('')
   const [newMatchData, setNewMatchData] = useState({
     jobIds: [] as string[],
-    score: 50,
     notes: ''
   })
 
@@ -322,21 +321,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     return <Icon className="h-4 w-4" />
   }
 
-  const getScoreBadge = (score: number) => {
-    let colorClass = 'bg-gray-100 text-gray-800'
-    if (score >= 90) colorClass = 'bg-green-100 text-green-800'
-    else if (score >= 80) colorClass = 'bg-blue-100 text-blue-800'
-    else if (score >= 70) colorClass = 'bg-yellow-100 text-yellow-800'
-    else if (score >= 60) colorClass = 'bg-orange-100 text-orange-800'
-    else colorClass = 'bg-red-100 text-red-800'
-
-    return (
-      <Badge className={`${colorClass} border-0 font-medium`}>
-        {score}%
-      </Badge>
-    )
-  }
-
   const handleCreateMatch = async () => {
     try {
       if (!candidateId || newMatchData.jobIds.length === 0) {
@@ -365,7 +349,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             jobId: jobId,
             companyId: selectedJob.companyId,
             status: 'suggested',
-            score: newMatchData.score,
             matchReasons: [{
               type: 'manual',
               description: '手動でマッチングを作成',
@@ -395,7 +378,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       await loadMatches() // マッチング一覧を再読み込み
       
       setCreateMatchOpen(false)
-      setNewMatchData({ jobIds: [], score: 50, notes: '' })
     } catch (error) {
       console.error('マッチング作成エラー:', error)
       alert('マッチングの作成に失敗しました')
@@ -420,10 +402,72 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
   const handleOpenStatusUpdate = (match: MatchWithDetails) => {
     setSelectedMatch(match)
-    setNewStatus(match.status)
-    setStatusNotes('')
-    setEventDate('')
-    setEventTime('')
+    
+    // 終了ステータス（内定承諾、辞退、不合格）の場合は編集モード
+    const isEndStatus = ['offer_accepted', 'withdrawn', 'rejected'].includes(match.status)
+    
+    if (isEndStatus) {
+      // 編集モード：既存のデータを読み込む
+      setNewStatus(match.status)
+      
+      // 既存のイベント日時を読み込む
+      let initialDate = ''
+      let initialTime = ''
+      
+      if (match.status === 'offer_accepted' && match.acceptedDate) {
+        const date = new Date(match.acceptedDate)
+        initialDate = date.toISOString().split('T')[0]
+        initialTime = date.toTimeString().slice(0, 5)
+      }
+      
+      setEventDate(initialDate)
+      setEventTime(initialTime)
+      
+      // 最新のタイムラインからノートを読み込む
+      if (match.timeline && match.timeline.length > 0) {
+        const sortedTimeline = [...match.timeline].sort((a, b) => {
+          const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+          const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+          return timeB - timeA
+        })
+        setStatusNotes(sortedTimeline[0].notes || '')
+      } else {
+        setStatusNotes('')
+      }
+    } else {
+      // 通常の「次へ」モード：次のステータスに進む準備
+      const nextStatuses = statusFlow[match.status]
+      if (nextStatuses.length > 0) {
+        setNewStatus(nextStatuses[0])
+        
+        // 次のステータスに対応する既存の日時を読み込む
+        let initialDate = ''
+        let initialTime = ''
+        
+        if (nextStatuses[0] === 'interview' && match.interviewDate) {
+          const date = new Date(match.interviewDate)
+          initialDate = date.toISOString().split('T')[0]
+          initialTime = date.toTimeString().slice(0, 5)
+        } else if (nextStatuses[0] === 'offer' && match.offerDate) {
+          const date = new Date(match.offerDate)
+          initialDate = date.toISOString().split('T')[0]
+          initialTime = date.toTimeString().slice(0, 5)
+        } else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
+          const date = new Date(match.acceptedDate)
+          initialDate = date.toISOString().split('T')[0]
+          initialTime = date.toTimeString().slice(0, 5)
+        }
+        
+        setEventDate(initialDate)
+        setEventTime(initialTime)
+      } else {
+        setNewStatus(match.status)
+        setEventDate('')
+        setEventTime('')
+      }
+      setStatusNotes('')
+    }
+    
     setStatusUpdateOpen(true)
   }
 
@@ -655,9 +699,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   <TableRow>
                     <TableHead>求人</TableHead>
                     <TableHead>企業/店舗</TableHead>
-                    <TableHead>スコア</TableHead>
                     <TableHead>ステータス</TableHead>
                     <TableHead>面接日時</TableHead>
+                    <TableHead>備考</TableHead>
                     <TableHead>作成日</TableHead>
                     <TableHead>アクション</TableHead>
                   </TableRow>
@@ -678,7 +722,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         <div className="flex items-center space-x-2">
                           <Briefcase className="h-4 w-4 text-purple-600" />
                           <div>
-                            <Link href={`/jobs/${match.jobId}`}>
+                            <Link href={`/jobs/${match.jobId}`} className="hover:underline">
                               <div className="font-medium">{match.jobTitle}</div>
                             </Link>
                             {match.matchReasons.length > 0 && (
@@ -712,9 +756,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         </Link>
                       </TableCell>
                       <TableCell>
-                        {getScoreBadge(match.score)}
-                      </TableCell>
-                      <TableCell>
                         {getStatusBadge(match.status, match.currentInterviewRound)}
                       </TableCell>
                       <TableCell>
@@ -743,31 +784,94 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                           )
                         })()}
                       </TableCell>
+                      <TableCell>
+                        {(() => {
+                          // 最新のタイムラインのnotesを取得
+                          if (!match.timeline || match.timeline.length === 0) {
+                            return <span className="text-gray-400 text-sm">-</span>
+                          }
+                          
+                          // タイムラインを日付順にソート（新しい順）
+                          const sortedTimeline = [...match.timeline].sort((a, b) => {
+                            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                            return timeB - timeA
+                          })
+                          
+                          const latestNotes = sortedTimeline[0]?.notes
+                          
+                          if (!latestNotes || latestNotes.trim() === '') {
+                            return <span className="text-gray-400 text-sm">-</span>
+                          }
+                          
+                          // 長い備考は省略して表示
+                          const maxLength = 50
+                          const displayNotes = latestNotes.length > maxLength 
+                            ? latestNotes.substring(0, maxLength) + '...' 
+                            : latestNotes
+                          
+                          return (
+                            <div className="text-sm text-gray-700 max-w-xs">
+                              <div className="whitespace-pre-wrap break-words" title={latestNotes}>
+                                {displayNotes}
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </TableCell>
                       <TableCell className="text-gray-600">
                         {formatDate(match.createdAt)}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            asChild
-                            className="text-purple-600 border-purple-200 hover:bg-purple-50"
-                          >
-                            <Link href={`/progress/${match.id}`}>
-                              <Eye className="h-3 w-3 mr-1" />
-                              詳細
-                            </Link>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenStatusUpdate(match)}
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                          >
-                            <ArrowRight className="h-3 w-3 mr-1" />
-                            次へ
-                          </Button>
+                          {/* 終了ステータス（内定承諾、辞退、不合格）の場合は編集ボタン */}
+                          {['offer_accepted', 'withdrawn', 'rejected'].includes(match.status) ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenStatusUpdate(match)}
+                                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                編集
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                              >
+                                <Link href={`/progress/${match.id}`}>
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  詳細
+                                </Link>
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenStatusUpdate(match)}
+                                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                              >
+                                <ArrowRight className="h-3 w-3 mr-1" />
+                                次へ
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                asChild
+                                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                              >
+                                <Link href={`/progress/${match.id}`}>
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  詳細
+                                </Link>
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -954,9 +1058,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       {/* マッチング作成モーダル */}
       <Dialog open={createMatchOpen} onOpenChange={(open) => {
         setCreateMatchOpen(open)
-        if (!open) {
-          setNewMatchData({ jobIds: [], score: 50, notes: '' })
-        }
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1018,18 +1119,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   })}
                 </div>
               )}
-            </div>
-            <div>
-              <Label htmlFor="score">マッチングスコア ({newMatchData.score})</Label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={newMatchData.score}
-                onChange={(e) => setNewMatchData(prev => ({ ...prev, score: parseInt(e.target.value) }))}
-                className="w-full"
-              />
             </div>
             <div>
               <Label htmlFor="notes">備考</Label>
@@ -1190,7 +1279,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>次の進捗へ</DialogTitle>
+            <DialogTitle>
+              {selectedMatch && ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) 
+                ? '進捗を編集' 
+                : '次の進捗へ'}
+            </DialogTitle>
             <DialogDescription>
               {selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`} - {selectedMatch?.jobTitle}
             </DialogDescription>
@@ -1209,8 +1302,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               </div>
             )}
 
-            {/* 次のステータス選択 */}
-            {selectedMatch && (
+            {/* 次のステータス選択（終了ステータスの場合は非表示） */}
+            {selectedMatch && !['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) && (
               <div>
                 <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
                 <div className="space-y-2">

@@ -26,23 +26,31 @@ import {
   UserX, 
   User,
   Filter,
-  Eye,
   Edit,
-  Trash2,
   RefreshCw,
   Download,
-  Upload
+  Upload,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
-import { getCandidates, getCandidateStats, deleteCandidate } from '@/lib/firestore/candidates'
+import { getCandidates, getCandidateStats } from '@/lib/firestore/candidates'
 import { getMatchesByCandidate } from '@/lib/firestore/matches'
 import { getUsers } from '@/lib/firestore/users'
 import { User as UserType } from '@/types/user'
+import { Match } from '@/types/matching'
+import { getJob } from '@/lib/firestore/jobs'
+import { getStoreById } from '@/lib/firestore/stores'
 import { importCandidatesFromCSV, generateCandidatesCSVTemplate } from '@/lib/csv/candidates'
 import { toast } from 'sonner'
 
+interface MatchWithDetails extends Match {
+  storeNames?: string[]
+}
+
 interface CandidateWithProgress extends Candidate {
-  activeProgressCount?: number
+  latestMatches?: MatchWithDetails[]
 }
 
 const campusColors = {
@@ -50,6 +58,45 @@ const campusColors = {
   osaka: 'bg-orange-100 text-orange-800 border-orange-200',
   awaji: 'bg-green-100 text-green-800 border-green-200',
   fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+}
+
+const statusLabels: Record<Match['status'], string> = {
+  suggested: '提案',
+  applied: '応募',
+  document_screening: '書類選考',
+  document_passed: '書類通過',
+  interview: '面接',
+  interview_passed: '面接通過',
+  offer: '内定',
+  offer_accepted: '内定承諾',
+  rejected: '不合格',
+  withdrawn: '辞退'
+}
+
+const statusColors: Record<Match['status'], string> = {
+  suggested: 'bg-blue-100 text-blue-800',
+  applied: 'bg-purple-100 text-purple-800',
+  document_screening: 'bg-yellow-100 text-yellow-800',
+  document_passed: 'bg-cyan-100 text-cyan-800',
+  interview: 'bg-orange-100 text-orange-800',
+  interview_passed: 'bg-teal-100 text-teal-800',
+  offer: 'bg-green-100 text-green-800',
+  offer_accepted: 'bg-green-600 text-white',
+  rejected: 'bg-red-100 text-red-800',
+  withdrawn: 'bg-gray-100 text-gray-800'
+}
+
+const statusPriority: Record<Match['status'], number> = {
+  offer_accepted: 9,
+  offer: 8,
+  interview_passed: 7,
+  interview: 6,
+  document_passed: 5,
+  document_screening: 4,
+  applied: 3,
+  suggested: 2,
+  withdrawn: 1,
+  rejected: 1
 }
 
 export default function CandidatesPage() {
@@ -68,6 +115,22 @@ export default function CandidatesPage() {
   const [campusFilter, setCampusFilter] = useState<string>('all')
   const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>('all')
   const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
+
+  // ソート状態
+  const [sortBy, setSortBy] = useState<'name' | 'campus' | 'enrollmentDate' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  // ソートハンドラー関数
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      // 同じカラムをクリックした場合は昇順・降順を切り替え
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // 異なるカラムをクリックした場合は、そのカラムで降順ソート
+      setSortBy(column)
+      setSortOrder('desc')
+    }
+  }
 
   // マウント時にURLの検索パラメータからフィルタを復元（クライアントサイドのみ）
   useEffect(() => {
@@ -91,7 +154,7 @@ export default function CandidatesPage() {
   useEffect(() => {
     applyFilters()
     updateURLParams()
-  }, [candidates, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter])
+  }, [candidates, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter, sortBy, sortOrder])
 
   // 入学年月のユニーク値を抽出
   useEffect(() => {
@@ -156,19 +219,60 @@ export default function CandidatesPage() {
         candidatesData.map(async (candidate) => {
           try {
             const matches = await getMatchesByCandidate(candidate.id)
-            // アクティブな進捗をカウント（suggested, interested, applied, interviewing, offered）
-            const activeMatches = matches.filter(match => 
-              ['suggested', 'interested', 'applied', 'interviewing', 'offered'].includes(match.status)
+            // ステータス降順でソート（優先度の高い順）
+            const sortedMatches = matches.sort((a, b) => {
+              return statusPriority[b.status] - statusPriority[a.status]
+            })
+            // 最新3件を取得
+            const topMatches = sortedMatches.slice(0, 3)
+            
+            // 各マッチに店舗情報を追加
+            const matchesWithDetails = await Promise.all(
+              topMatches.map(async (match) => {
+                try {
+                  const jobData = await getJob(match.jobId)
+                  let storeNames: string[] = []
+                  
+                  if (jobData) {
+                    if (jobData.storeIds && jobData.storeIds.length > 0) {
+                      const validStoreIds = jobData.storeIds.filter(id => id && id.trim() !== '')
+                      if (validStoreIds.length > 0) {
+                        const storesData = await Promise.all(
+                          validStoreIds.map(id => getStoreById(id).catch(() => null))
+                        )
+                        storeNames = storesData
+                          .filter((s): s is NonNullable<typeof s> => s !== null)
+                          .map(s => s.name)
+                      }
+                    } else if (jobData.storeId && jobData.storeId.trim() !== '') {
+                      const storeData = await getStoreById(jobData.storeId).catch(() => null)
+                      if (storeData) storeNames = [storeData.name]
+                    }
+                  }
+                  
+                  return {
+                    ...match,
+                    storeNames
+                  }
+                } catch (error) {
+                  console.error('店舗情報取得エラー:', error)
+                  return {
+                    ...match,
+                    storeNames: []
+                  }
+                }
+              })
             )
+            
             return {
               ...candidate,
-              activeProgressCount: activeMatches.length
+              latestMatches: matchesWithDetails
             }
           } catch (error) {
             console.error(`進捗取得エラー for ${candidate.id}:`, error)
             return {
               ...candidate,
-              activeProgressCount: 0
+              latestMatches: []
             }
           }
         })
@@ -224,6 +328,42 @@ export default function CandidatesPage() {
       console.log('🔍 検索フィルタ後:', filtered.length)
     }
 
+    // ソート処理
+    filtered = filtered.sort((a, b) => {
+      let compareResult = 0
+
+      switch (sortBy) {
+        case 'name':
+          compareResult = `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`, 'ja')
+          break
+        case 'campus':
+          const campusA = a.campus || ''
+          const campusB = b.campus || ''
+          compareResult = campusA.localeCompare(campusB)
+          break
+        case 'enrollmentDate':
+          const enrollA = a.enrollmentDate || ''
+          const enrollB = b.enrollmentDate || ''
+          compareResult = enrollA.localeCompare(enrollB)
+          break
+        case 'status':
+          compareResult = (a.status || '').localeCompare(b.status || '')
+          break
+        case 'updatedAt':
+          const timeA = new Date(a.updatedAt).getTime()
+          const timeB = new Date(b.updatedAt).getTime()
+          compareResult = timeA - timeB
+          break
+        case 'createdAt':
+          const createA = new Date(a.createdAt).getTime()
+          const createB = new Date(b.createdAt).getTime()
+          compareResult = createA - createB
+          break
+      }
+
+      return sortOrder === 'asc' ? compareResult : -compareResult
+    })
+
     console.log('✅ 最終的なフィルタ結果:', filtered)
     setFilteredCandidates(filtered)
   }
@@ -244,21 +384,6 @@ export default function CandidatesPage() {
     }
     
     return age
-  }
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`「${name}」を削除してもよろしいですか？`)) {
-      return
-    }
-
-    try {
-      await deleteCandidate(id)
-      await loadData()
-      toast.success('求職者を削除しました')
-    } catch (error) {
-      console.error('Error deleting candidate:', error)
-      toast.error('求職者の削除に失敗しました')
-    }
   }
 
   // CSVテンプレートをダウンロード
@@ -300,6 +425,24 @@ export default function CandidatesPage() {
       setCsvImporting(false)
       // ファイル入力をリセット
       event.target.value = ''
+    }
+  }
+
+  const handleToggleStatus = async (candidateId: string, currentStatus: Candidate['status'], name: string) => {
+    const newStatus: Candidate['status'] = currentStatus === 'active' ? 'inactive' : 'active'
+    
+    if (!confirm(`${name}さんのステータスを「${candidateStatusLabels[newStatus]}」に変更しますか？`)) {
+      return
+    }
+
+    try {
+      const { updateCandidate } = await import('@/lib/firestore/candidates')
+      await updateCandidate(candidateId, { status: newStatus })
+      toast.success(`ステータスを${candidateStatusLabels[newStatus]}に変更しました`)
+      await loadData()
+    } catch (error) {
+      console.error('ステータス変更エラー:', error)
+      toast.error('ステータスの変更に失敗しました')
     }
   }
 
@@ -553,12 +696,68 @@ export default function CandidatesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>名前</TableHead>
-                <TableHead>入学年月|校舎</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 hover:bg-gray-100"
+                    onClick={() => handleSort('name')}
+                  >
+                    名前
+                    {sortBy === 'name' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 hover:bg-gray-100"
+                    onClick={() => handleSort('enrollmentDate')}
+                  >
+                    入学年月|校舎
+                    {sortBy === 'enrollmentDate' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
+                    )}
+                  </Button>
+                </TableHead>
                 <TableHead>担当者</TableHead>
-                <TableHead>ステータス</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 hover:bg-gray-100"
+                    onClick={() => handleSort('status')}
+                  >
+                    ステータス
+                    {sortBy === 'status' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
+                    )}
+                  </Button>
+                </TableHead>
                 <TableHead>進捗</TableHead>
-                <TableHead>更新日</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 hover:bg-gray-100"
+                    onClick={() => handleSort('updatedAt')}
+                  >
+                    更新日
+                    {sortBy === 'updatedAt' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
+                    ) : (
+                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
+                    )}
+                  </Button>
+                </TableHead>
                 <TableHead className="w-24">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -566,7 +765,8 @@ export default function CandidatesPage() {
               {filteredCandidates.map((candidate) => (
                 <TableRow 
                   key={candidate.id}
-                  className={candidate.status === 'inactive' ? 'bg-gray-100' : ''}
+                  className={`cursor-pointer transition-colors ${candidate.status === 'inactive' ? 'bg-gray-100 hover:bg-gray-200' : 'hover:bg-blue-50'}`}
+                  onClick={() => router.push(`/candidates/${candidate.id}`)}
                 >
                   <TableCell>
                     <div>
@@ -612,30 +812,60 @@ export default function CandidatesPage() {
                     {getStatusBadge(candidate.status)}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2">
                       {progressLoading ? (
                         <span className="text-sm text-gray-500">...</span>
+                      ) : candidate.latestMatches && candidate.latestMatches.length > 0 ? (
+                        candidate.latestMatches.map((match, index) => (
+                          <div key={match.id} className="flex items-center gap-2">
+                            {/* 店舗名 */}
+                            <div className="text-xs text-gray-600 min-w-[80px]">
+                              {match.storeNames && match.storeNames.length > 0 ? (
+                                match.storeNames.length === 1 ? (
+                                  match.storeNames[0]
+                                ) : (
+                                  `${match.storeNames[0]} 他${match.storeNames.length - 1}店舗`
+                                )
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </div>
+                            {/* ステータスバッジ */}
+                            <Badge 
+                              className={`${statusColors[match.status]} text-xs border-0`}
+                            >
+                              {statusLabels[match.status]}
+                            </Badge>
+                            {/* 面接日時 */}
+                            {match.interviewDate && (() => {
+                              const interviewDate = match.interviewDate instanceof Date 
+                                ? match.interviewDate 
+                                : new Date(match.interviewDate)
+                              
+                              if (!isNaN(interviewDate.getTime())) {
+                                return (
+                                  <div className="text-xs text-gray-600 whitespace-nowrap">
+                                    {interviewDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}
+                                    <span className="ml-1">
+                                      {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
+                        ))
                       ) : (
-                        <Badge variant="outline" className="font-mono">
-                          {candidate.activeProgressCount || 0}
-                        </Badge>
+                        <span className="text-sm text-gray-400">-</span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     {new Date(candidate.updatedAt).toLocaleDateString('ja-JP')}
                   </TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        asChild
-                      >
-                        <Link href={`/candidates/${candidate.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -648,9 +878,14 @@ export default function CandidatesPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(candidate.id, `${candidate.firstName} ${candidate.lastName}`)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToggleStatus(candidate.id, candidate.status, `${candidate.lastName} ${candidate.firstName}`)
+                        }}
+                        className={candidate.status === 'active' ? 'text-orange-600 hover:text-orange-700 hover:bg-orange-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}
+                        title={candidate.status === 'active' ? '非アクティブにする' : 'アクティブにする'}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {candidate.status === 'active' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                       </Button>
                     </div>
                   </TableCell>

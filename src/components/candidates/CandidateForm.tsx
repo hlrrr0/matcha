@@ -83,6 +83,46 @@ export default function CandidateForm({
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="status">
+              ステータス <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.status}
+              onValueChange={(value) => handleInputChange('status', value)}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">アクティブ</SelectItem>
+                <SelectItem value="inactive">非アクティブ</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="assignedUserId">担当者</Label>
+            <Select
+              value={formData.assignedUserId || 'unassigned'}
+              onValueChange={(value) => handleInputChange('assignedUserId', value === 'unassigned' ? '' : value)}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="担当者を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">未設定</SelectItem>
+                {users
+                  .filter(user => user.status === 'active')
+                  .map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.displayName || user.email}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="lastName">
@@ -205,24 +245,6 @@ export default function CandidateForm({
                 onChange={(e) => handleInputChange('nearestStation', e.target.value)}
                 disabled={loading}
               />
-            </div>
-            <div>
-              <Label htmlFor="status">
-                ステータス <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) => handleInputChange('status', value)}
-                disabled={loading}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">アクティブ</SelectItem>
-                  <SelectItem value="inactive">非アクティブ</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -391,29 +413,6 @@ export default function CandidateForm({
               disabled={loading}
               rows={4}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="assignedUserId">担当者</Label>
-            <Select
-              value={formData.assignedUserId || 'unassigned'}
-              onValueChange={(value) => handleInputChange('assignedUserId', value === 'unassigned' ? '' : value)}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="担当者を選択" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">未設定</SelectItem>
-                {users
-                  .filter(user => user.status === 'active')
-                  .map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.displayName || user.email}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>

@@ -499,7 +499,31 @@ export default function MatchDetailPage() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 更新
               </Button>
-              {statusFlow[match.status].length > 0 && (
+              
+              {/* 終了ステータス（内定承諾、辞退、不合格）の場合は編集ボタンを表示 */}
+              {['offer_accepted', 'withdrawn', 'rejected'].includes(match.status) ? (
+                <Dialog open={timelineEditOpen} onOpenChange={setTimelineEditOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      onClick={() => {
+                        // 最新のタイムラインを取得
+                        if (match.timeline && match.timeline.length > 0) {
+                          const sortedTimeline = [...match.timeline].sort((a, b) => {
+                            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                            return timeB - timeA // 降順（最新が最初）
+                          })
+                          handleOpenTimelineEdit(sortedTimeline[0])
+                        }
+                      }}
+                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      編集
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+              ) : statusFlow[match.status].length > 0 && (
                 <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
                   <DialogTrigger asChild>
                     <Button
@@ -508,7 +532,33 @@ export default function MatchDetailPage() {
                         const nextStatuses = statusFlow[match.status]
                         if (nextStatuses.length > 0) {
                           setNewStatus(nextStatuses[0])
-                          setEventDate('')
+                          
+                          // 現在のステータスに応じた既存のイベント日時を読み込む
+                          let initialDate = ''
+                          let initialTime = ''
+                          
+                          // 次のステータスが'interview'の場合、既存の面接日を読み込む
+                          if (nextStatuses[0] === 'interview' && match.interviewDate) {
+                            const date = new Date(match.interviewDate)
+                            initialDate = date.toISOString().split('T')[0]
+                            initialTime = date.toTimeString().slice(0, 5)
+                          } 
+                          // 次のステータスが'offer'の場合、既存の内定日を読み込む
+                          else if (nextStatuses[0] === 'offer' && match.offerDate) {
+                            const date = new Date(match.offerDate)
+                            initialDate = date.toISOString().split('T')[0]
+                            initialTime = date.toTimeString().slice(0, 5)
+                          }
+                          // 次のステータスが'offer_accepted'の場合、既存の内定承諾日を読み込む
+                          else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
+                            const date = new Date(match.acceptedDate)
+                            initialDate = date.toISOString().split('T')[0]
+                            initialTime = date.toTimeString().slice(0, 5)
+                          }
+                          
+                          setEventDate(initialDate)
+                          setEventTime(initialTime)
+                          setStatusNotes('')
                         }
                       }}
                       className="bg-orange-600 hover:bg-orange-700 text-white"
@@ -555,6 +605,26 @@ export default function MatchDetailPage() {
                                 }`}
                                 onClick={() => {
                                   setNewStatus(nextStatus)
+                                  // ステータス変更時に適切なイベント日時を読み込む
+                                  let initialDate = ''
+                                  let initialTime = ''
+                                  
+                                  if (nextStatus === 'interview' && match.interviewDate) {
+                                    const date = new Date(match.interviewDate)
+                                    initialDate = date.toISOString().split('T')[0]
+                                    initialTime = date.toTimeString().slice(0, 5)
+                                  } else if (nextStatus === 'offer' && match.offerDate) {
+                                    const date = new Date(match.offerDate)
+                                    initialDate = date.toISOString().split('T')[0]
+                                    initialTime = date.toTimeString().slice(0, 5)
+                                  } else if (nextStatus === 'offer_accepted' && match.acceptedDate) {
+                                    const date = new Date(match.acceptedDate)
+                                    initialDate = date.toISOString().split('T')[0]
+                                    initialTime = date.toTimeString().slice(0, 5)
+                                  }
+                                  
+                                  setEventDate(initialDate)
+                                  setEventTime(initialTime)
                                 }}
                               >
                                 <Icon className="h-5 w-5 mr-2" />
@@ -583,6 +653,18 @@ export default function MatchDetailPage() {
                                   }`}
                                   onClick={() => {
                                     setNewStatus(nextStatus)
+                                    // ステータス変更時に適切なイベント日時を読み込む
+                                    let initialDate = ''
+                                    let initialTime = ''
+                                    
+                                    if (nextStatus === 'offer' && match.offerDate) {
+                                      const date = new Date(match.offerDate)
+                                      initialDate = date.toISOString().split('T')[0]
+                                      initialTime = date.toTimeString().slice(0, 5)
+                                    }
+                                    
+                                    setEventDate(initialDate)
+                                    setEventTime(initialTime)
                                   }}
                                 >
                                   <Icon className="h-4 w-4 mr-1" />
@@ -595,14 +677,13 @@ export default function MatchDetailPage() {
                     </div>
                   </div>
                   
-                  {/* イベント日時入力（応募、面接合格は除外） */}
-                  {['interview', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && (
+                  {/* イベント日時入力（応募、面接合格、不合格は除外） */}
+                  {['interview', 'offer', 'offer_accepted'].includes(newStatus) && (
                     <div className="space-y-2">
                       <Label>
                         {newStatus === 'interview' && '面接日'}
                         {newStatus === 'offer' && '内定日'}
                         {newStatus === 'offer_accepted' && '内定承諾日'}
-                        {newStatus === 'rejected' && '不採用日'}
                       </Label>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -654,8 +735,8 @@ export default function MatchDetailPage() {
               </DialogContent>
                 </Dialog>
               )}
+            </div>
           </div>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* メイン情報 */}
@@ -1052,14 +1133,13 @@ export default function MatchDetailPage() {
               )}
 
               {/* イベント日時入力 */}
-              {editingTimeline && ['applied', 'interview', 'offer', 'offer_accepted', 'rejected'].includes(editingTimeline.status) && (
+              {editingTimeline && ['applied', 'interview', 'offer', 'offer_accepted'].includes(editingTimeline.status) && (
                 <div className="space-y-2">
                   <Label>
                     {editingTimeline.status === 'applied' && '応募日'}
                     {editingTimeline.status === 'interview' && '面接日'}
                     {editingTimeline.status === 'offer' && '内定日'}
                     {editingTimeline.status === 'offer_accepted' && '内定承諾日'}
-                    {editingTimeline.status === 'rejected' && '不採用日'}
                   </Label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>

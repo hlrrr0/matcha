@@ -994,12 +994,17 @@ function CompaniesPageContent() {
                               <div className="flex items-center gap-1">
                                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                 <span className="text-xs text-green-700 font-medium">連携済み</span>
-                                <span className="text-xs text-gray-500 font-mono">
+                                <a
+                                  href={`https://sushi-domino.vercel.app/companies/${company.dominoId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline font-mono"
+                                >
                                   {company.dominoId.length > 10 
                                     ? `${company.dominoId.substring(0, 10)}...`
                                     : company.dominoId
                                   }
-                                </span>
+                                </a>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1">

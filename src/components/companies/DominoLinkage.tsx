@@ -147,7 +147,7 @@ export default function DominoLinkage({ company, onUpdate }: DominoLinkageProps)
               id="dominoId"
               value={dominoId}
               onChange={(e) => setDominoId(e.target.value)}
-              placeholder="例: domino_company_12345"
+              placeholder="例: company_12345"
               disabled={isLoading}
             />
             <p className="text-xs text-gray-500">

@@ -99,6 +99,18 @@ function StoresPageContent() {
   const [selectedStores, setSelectedStores] = useState<string[]>([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
 
+  // ソートハンドラー関数
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      // 同じカラムをクリックした場合は昇順・降順を切り替え
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // 異なるカラムをクリックした場合は、そのカラムで降順ソート
+      setSortBy(column)
+      setSortOrder('desc')
+    }
+  }
+
   // URLパラメータから初期値を設定
   useEffect(() => {
     const companyParam = searchParams.get('company')
@@ -630,12 +642,42 @@ function StoresPageContent() {
                       />
                     </TableHead>
                   )}
-                  <TableHead>店舗名</TableHead>
-                  <TableHead>企業名</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center gap-1">
+                      店舗名
+                      {sortBy === 'name' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('companyName')}
+                  >
+                    <div className="flex items-center gap-1">
+                      企業名
+                      {sortBy === 'companyName' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>所在地</TableHead>
                   <TableHead>入力率</TableHead>
                   <TableHead>担当者</TableHead>
-                  <TableHead>取引状況</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-1">
+                      取引状況
+                      {sortBy === 'status' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>外部リンク</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
                 </TableRow>

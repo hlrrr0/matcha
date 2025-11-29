@@ -101,6 +101,22 @@ function JobsPageContent() {
   const [housingSupportFilter, setHousingSupportFilter] = useState<string>('all')
   const [independenceSupportFilter, setIndependenceSupportFilter] = useState<string>('all')
 
+  // ソート状態
+  const [sortBy, setSortBy] = useState<'title' | 'companyName' | 'storeName' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  // ソートハンドラー関数
+  const handleSort = (column: typeof sortBy) => {
+    if (sortBy === column) {
+      // 同じカラムをクリックした場合は昇順・降順を切り替え
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // 異なるカラムをクリックした場合は、そのカラムで降順ソート
+      setSortBy(column)
+      setSortOrder('desc')
+    }
+  }
+
   // 求人データの入力率チェック対象フィールド
   const jobFieldKeys = [
     'title', 'businessType', 'employmentType', 'workingHours',
@@ -368,7 +384,7 @@ function JobsPageContent() {
     return company?.address || '-'
   }
 
-  // フィルタリングされた求人リストをuseMemoで計算
+  // フィルタリングとソートされた求人リストをuseMemoで計算
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
       // 複数店舗対応: 最初の店舗を使用
@@ -466,10 +482,49 @@ function JobsPageContent() {
       }
 
       return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions
+    }).sort((a, b) => {
+      let aValue: any
+      let bValue: any
+      
+      switch (sortBy) {
+        case 'title':
+          aValue = (a.title || '').toLowerCase()
+          bValue = (b.title || '').toLowerCase()
+          break
+        case 'companyName':
+          aValue = getCompanyName(a.companyId).toLowerCase()
+          bValue = getCompanyName(b.companyId).toLowerCase()
+          break
+        case 'storeName':
+          // 複数店舗対応: 最初の店舗名でソート
+          const aStoreIds = a.storeIds || (a.storeId ? [a.storeId] : [])
+          const bStoreIds = b.storeIds || (b.storeId ? [b.storeId] : [])
+          aValue = aStoreIds.length > 0 ? getStoreName(aStoreIds[0]).toLowerCase() : ''
+          bValue = bStoreIds.length > 0 ? getStoreName(bStoreIds[0]).toLowerCase() : ''
+          break
+        case 'status':
+          aValue = a.status
+          bValue = b.status
+          break
+        case 'createdAt':
+          aValue = new Date(a.createdAt).getTime()
+          bValue = new Date(b.createdAt).getTime()
+          break
+        case 'updatedAt':
+          aValue = new Date(a.updatedAt).getTime()
+          bValue = new Date(b.updatedAt).getTime()
+          break
+        default:
+          return 0
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
+      return 0
     })
   }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter, 
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
-      housingSupportFilter, independenceSupportFilter])
+      housingSupportFilter, independenceSupportFilter, sortBy, sortOrder])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -892,9 +947,39 @@ function JobsPageContent() {
                       />
                     </TableHead>
                   )}
-                  <TableHead>ステータス</TableHead>
-                  <TableHead>求人名</TableHead>
-                  <TableHead>店舗名/企業名</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-1">
+                      ステータス
+                      {sortBy === 'status' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center gap-1">
+                      求人名
+                      {sortBy === 'title' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('storeName')}
+                  >
+                    <div className="flex items-center gap-1">
+                      店舗名/企業名
+                      {sortBy === 'storeName' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                      )}
+                    </div>
+                  </TableHead>
                   <TableHead>住所</TableHead>
                   <TableHead>入力率</TableHead>
                   <TableHead>担当者</TableHead>
