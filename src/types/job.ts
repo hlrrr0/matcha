@@ -38,6 +38,7 @@ export interface Job {
   
   // 選考・その他
   selectionProcess?: string               // 選考プロセス（任意）
+  recommendedPoints?: string              // おすすめポイント（任意）
   consultantReview?: string               // キャリア担当からの"正直な"感想（任意）
   
   // ステータス

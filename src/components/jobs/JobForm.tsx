@@ -52,6 +52,7 @@ export default function JobForm({
     insurance: '',
     benefits: '',
     selectionProcess: '',
+    recommendedPoints: '',
     consultantReview: '',
     status: 'draft'
   })
@@ -82,6 +83,7 @@ export default function JobForm({
         insurance: initialData.insurance || '',
         benefits: initialData.benefits || '',
         selectionProcess: initialData.selectionProcess || '',
+        recommendedPoints: initialData.recommendedPoints || '',
         consultantReview: initialData.consultantReview || '',
         status: initialData.status || 'draft',
         ...initialData
@@ -239,6 +241,7 @@ export default function JobForm({
 
 【選考・その他】
 - 選考プロセス
+- おすすめポイント
 - キャリア担当からの"正直な"感想
 `.trim()
 
@@ -617,6 +620,17 @@ export default function JobForm({
               onChange={(e) => handleChange('selectionProcess', e.target.value)}
               rows={4}
               placeholder="例: 書類選考 → 面接 → 実技試験"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="recommendedPoints">おすすめポイント</Label>
+            <Textarea
+              id="recommendedPoints"
+              value={formData.recommendedPoints || ''}
+              onChange={(e) => handleChange('recommendedPoints', e.target.value)}
+              rows={4}
+              placeholder="この求人の魅力やおすすめポイントを記入してください"
             />
           </div>
 

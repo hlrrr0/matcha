@@ -236,8 +236,20 @@ function JobDetailContent({ params }: JobDetailPageProps) {
 
   const copyPublicUrl = async () => {
     try {
-      await navigator.clipboard.writeText(getPublicUrl())
-      alert('公開URLをクリップボードにコピーしました')
+      // 店舗名を取得
+      let storeNames = ''
+      if (stores.length > 0) {
+        storeNames = stores.map(s => s.name).join('、')
+      }
+      
+      // おすすめポイントを取得
+      const recommendedPoints = job?.recommendedPoints || ''
+      
+      // コピー用のテキストを作成
+      const copyText = `【店舗名】${storeNames}\n【おすすめポイント】\n${recommendedPoints}\n${getPublicUrl()}`
+      
+      await navigator.clipboard.writeText(copyText)
+      alert('店舗名、おすすめポイント、公開URLをクリップボードにコピーしました')
     } catch (error) {
       console.error('クリップボードへのコピーに失敗しました:', error)
       alert('クリップボードへのコピーに失敗しました')

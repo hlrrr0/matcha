@@ -530,6 +530,31 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
                     </div>
                   </>
                 )}
+
+                {/* おすすめポイント */}
+                {job.recommendedPoints && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
+                        <Star className="h-4 w-4 text-yellow-500" />
+                        おすすめポイント
+                      </h4>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{job.recommendedPoints}</p>
+                    </div>
+                  </>
+                )}
+
+                {/* キャリア担当からのコメント */}
+                {job.consultantReview && (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">キャリア担当からのコメント</h4>
+                      <p className="text-sm text-gray-600 whitespace-pre-wrap">{job.consultantReview}</p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
             {/* 勤務条件 */}
