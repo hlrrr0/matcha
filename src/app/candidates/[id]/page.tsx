@@ -348,6 +348,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             candidateId: candidateId,
             jobId: jobId,
             companyId: selectedJob.companyId,
+            score: 0,
             status: 'suggested',
             matchReasons: [{
               type: 'manual',
