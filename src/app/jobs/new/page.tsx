@@ -22,19 +22,19 @@ function NewJobPageContent() {
     
     console.log('URL Parameters:', { company: companyParam, store: storeParam })
     
-    const data: Partial<Job> = {}
+    const data: Partial<Job> = {
+      storeIds: [] // 空配列で初期化
+    }
     if (companyParam) {
       data.companyId = companyParam
     }
     if (storeParam && storeParam !== 'none') {
-      data.storeId = storeParam
+      data.storeIds = [storeParam]
     }
     
     console.log('Initial data being set:', data)
     
-    if (Object.keys(data).length > 0) {
-      setInitialData(data)
-    }
+    setInitialData(data)
   }, [searchParams])
 
   const handleSubmit = async (data: Partial<Job>) => {
@@ -48,6 +48,7 @@ function NewJobPageContent() {
     try {
       const newJob: Omit<Job, 'id'> = {
         companyId: data.companyId,
+        storeIds: data.storeIds,
         storeId: data.storeId,
         title: data.title,
         businessType: data.businessType,
@@ -60,10 +61,13 @@ function NewJobPageContent() {
         salaryExperienced: data.salaryExperienced,
         requiredSkills: data.requiredSkills,
         jobDescription: data.jobDescription,
+        ageLimit: data.ageLimit,
+        ageNote: data.ageNote,
         smokingPolicy: data.smokingPolicy,
         insurance: data.insurance,
         benefits: data.benefits,
         selectionProcess: data.selectionProcess,
+        recommendedPoints: data.recommendedPoints,
         consultantReview: data.consultantReview,
         status: data.status || 'draft',
         createdAt: new Date(),

@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Loader2, Copy, Check } from 'lucide-react'
+import { Save, Loader2, Copy, Check, Search } from 'lucide-react'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -29,6 +29,7 @@ export default function JobForm({
   const [companies, setCompanies] = useState<Company[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [filteredStores, setFilteredStores] = useState<Store[]>([])
+  const [storeSearchTerm, setStoreSearchTerm] = useState('')
   const [loadingData, setLoadingData] = useState(true)
   const [copied, setCopied] = useState(false)
   
@@ -147,15 +148,33 @@ export default function JobForm({
     loadData()
   }, [])
 
-  // 企業選択時に店舗をフィルタリング
+  // 企業選択時に店舗をフィルタリング、検索、ソート
   useEffect(() => {
     if (formData.companyId && formData.companyId !== '') {
-      const companyStores = stores.filter(store => store.companyId === formData.companyId)
+      let companyStores = stores.filter(store => store.companyId === formData.companyId)
+      
+      // 検索フィルタリング
+      if (storeSearchTerm.trim() !== '') {
+        const searchLower = storeSearchTerm.toLowerCase()
+        companyStores = companyStores.filter(store => 
+          store.name?.toLowerCase().includes(searchLower) ||
+          store.address?.toLowerCase().includes(searchLower) ||
+          store.prefecture?.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      // 住所による昇順ソート
+      companyStores.sort((a, b) => {
+        const addressA = a.address || ''
+        const addressB = b.address || ''
+        return addressA.localeCompare(addressB, 'ja')
+      })
+      
       setFilteredStores(companyStores)
     } else {
       setFilteredStores([])
     }
-  }, [formData.companyId, stores])
+  }, [formData.companyId, stores, storeSearchTerm])
 
   const handleChange = (field: keyof Job, value: any) => {
     setFormData(prev => ({
@@ -351,9 +370,28 @@ export default function JobForm({
 
             <div>
                 <Label htmlFor="storeIds">店舗（複数選択可）</Label>
+                
+                {/* 店舗検索 */}
+                {formData.companyId && formData.companyId !== '' && (
+                  <div className="relative mt-2">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="店舗名、住所で検索..."
+                      value={storeSearchTerm}
+                      onChange={(e) => setStoreSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                )}
+                
                 <div className="space-y-2 mt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
                   {filteredStores.length === 0 ? (
-                    <p className="text-sm text-gray-500">企業を選択すると店舗が表示されます</p>
+                    <p className="text-sm text-gray-500">
+                      {formData.companyId && formData.companyId !== '' 
+                        ? (storeSearchTerm ? '検索条件に一致する店舗がありません' : '企業を選択すると店舗が表示されます')
+                        : '企業を選択すると店舗が表示されます'}
+                    </p>
                   ) : (
                     filteredStores.map((store) => (
                       <div key={store.id} className="flex items-center space-x-2">
@@ -371,8 +409,8 @@ export default function JobForm({
                         />
                         <Label htmlFor={`store-${store.id}`} className="text-sm font-normal cursor-pointer">
                           {store.name}
-                          {store.prefecture && (
-                            <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                          {store.address && (
+                            <span className="ml-2 text-xs text-gray-500">({store.address})</span>
                           )}
                         </Label>
                       </div>

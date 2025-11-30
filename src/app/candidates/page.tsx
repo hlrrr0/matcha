@@ -99,6 +99,37 @@ const statusPriority: Record<Match['status'], number> = {
   rejected: 1
 }
 
+// 展開可能なテキストコンポーネント
+function ExpandableText({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  
+  if (!text || text.trim() === '') {
+    return <span className="text-gray-400 text-sm">-</span>
+  }
+  
+  // テキストが3行を超えるかチェック（おおよそ）
+  const needsExpansion = text.length > 150 || text.split('\n').length > 3
+  
+  return (
+    <div 
+      onClick={(e) => {
+        e.stopPropagation()
+        if (needsExpansion) setIsExpanded(!isExpanded)
+      }}
+      className={`text-sm ${needsExpansion ? 'cursor-pointer' : ''}`}
+    >
+      <p className={`text-gray-800 break-words whitespace-pre-wrap ${!isExpanded && needsExpansion ? 'line-clamp-3' : ''}`}>
+        {text}
+      </p>
+      {needsExpansion && (
+        <div className="text-xs text-blue-600 hover:text-blue-700 mt-1 font-medium">
+          {isExpanded ? '閉じる' : '続きを読む'}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CandidatesPage() {
   const router = useRouter()
   const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
@@ -743,21 +774,7 @@ export default function CandidatesPage() {
                   </Button>
                 </TableHead>
                 <TableHead>進捗</TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 hover:bg-gray-100"
-                    onClick={() => handleSort('updatedAt')}
-                  >
-                    更新日
-                    {sortBy === 'updatedAt' ? (
-                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
-                    ) : (
-                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
-                    )}
-                  </Button>
-                </TableHead>
+                <TableHead>メモ</TableHead>
                 <TableHead className="w-24">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -862,7 +879,7 @@ export default function CandidatesPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {new Date(candidate.updatedAt).toLocaleDateString('ja-JP')}
+                    <ExpandableText text={candidate.interviewMemo || ''} />
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">

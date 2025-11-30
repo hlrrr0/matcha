@@ -551,10 +551,22 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                       .map((storeId: string) => relatedStores.find(s => s.id === storeId))
                       .filter(Boolean)
                     
+                    // 店舗の都道府県を取得
+                    const prefecture = jobStores.length > 0 && jobStores[0]?.prefecture 
+                      ? jobStores[0].prefecture 
+                      : null
+                    
                     return (
                       <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex-1">
-                          <h4 className="font-medium">{job.title}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium">{job.title}</h4>
+                            {prefecture && (
+                              <Badge variant="outline" className="text-xs">
+                                {prefecture}
+                              </Badge>
+                            )}
+                          </div>
                           {jobStores.length > 0 && (
                             <div className="flex items-center gap-1 mt-1">
                               <Store className="h-3 w-3 text-gray-500" />

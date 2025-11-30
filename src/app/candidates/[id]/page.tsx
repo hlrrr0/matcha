@@ -324,25 +324,32 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const handleCreateMatch = async () => {
     try {
       if (!candidateId || newMatchData.jobIds.length === 0) {
-        alert('求人を選択してください')
+        toast.error('求人を選択してください')
         return
       }
 
       let successCount = 0
       let errorCount = 0
+      const duplicateJobs: string[] = []
 
       for (const jobId of newMatchData.jobIds) {
         try {
           // 既にマッチングが存在するかチェック
           const existingMatch = matches.find(m => m.jobId === jobId)
           if (existingMatch) {
-            console.log(`マッチングが既に存在します: Job ID ${jobId}`)
+            const job = jobs.find(j => j.id === jobId)
+            const jobTitle = job?.title || '不明な求人'
+            duplicateJobs.push(jobTitle)
+            console.log(`マッチングが既に存在します: ${jobTitle} (Job ID ${jobId})`)
             errorCount++
             continue
           }
 
           const selectedJob = jobs.find(j => j.id === jobId)
-          if (!selectedJob) continue
+          if (!selectedJob) {
+            errorCount++
+            continue
+          }
 
           const matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'> = {
             candidateId: candidateId,
@@ -375,7 +382,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         }
       }
 
-      alert(`${successCount}件のマッチングを作成しました${errorCount > 0 ? `（${errorCount}件失敗）` : ''}`)
+      // 結果メッセージ
+      if (successCount > 0) {
+        toast.success(`${successCount}件の進捗を作成しました`)
+      }
+      if (duplicateJobs.length > 0) {
+        toast.error(`${duplicateJobs.length}件の求人は既に進捗が存在します: ${duplicateJobs.slice(0, 2).join(', ')}${duplicateJobs.length > 2 ? ' 他' : ''}`)
+      }
+      if (errorCount > 0 && duplicateJobs.length === 0) {
+        toast.error(`${errorCount}件の進捗作成に失敗しました`)
+      }
+      
       await loadMatches() // マッチング一覧を再読み込み
       
       setCreateMatchOpen(false)
@@ -1163,6 +1180,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 </span>
               )}
             </DialogDescription>
+            <p className="mt-2 text-xs text-gray-500">
+              ※既に進捗が存在する求人は表示されません
+            </p>
           </DialogHeader>
           
           <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
@@ -1248,7 +1268,16 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 
                 {getFilteredJobs().length === 0 && (
                   <div className="text-center py-8 text-gray-500">
-                    {jobSearchTerm ? '検索条件に一致する求人が見つかりません' : '求人がありません'}
+                    {jobSearchTerm ? (
+                      '検索条件に一致する求人が見つかりません'
+                    ) : matches.length > 0 ? (
+                      <div>
+                        <p>選択可能な求人がありません</p>
+                        <p className="text-xs mt-2">すべての求人に対して既に進捗が作成されています</p>
+                      </div>
+                    ) : (
+                      '求人がありません'
+                    )}
                   </div>
                 )}
               </div>
