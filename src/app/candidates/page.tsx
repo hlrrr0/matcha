@@ -368,14 +368,28 @@ export default function CandidatesPage() {
           compareResult = `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`, 'ja')
           break
         case 'campus':
+          // 校舎でソート（校舎 → 入学年月の順）
           const campusA = a.campus || ''
           const campusB = b.campus || ''
           compareResult = campusA.localeCompare(campusB)
+          // 校舎が同じ場合は入学年月でソート
+          if (compareResult === 0) {
+            const enrollA = a.enrollmentDate || ''
+            const enrollB = b.enrollmentDate || ''
+            compareResult = enrollA.localeCompare(enrollB)
+          }
           break
         case 'enrollmentDate':
+          // 入学年月でソート（入学年月 → 校舎の順）
           const enrollA = a.enrollmentDate || ''
           const enrollB = b.enrollmentDate || ''
           compareResult = enrollA.localeCompare(enrollB)
+          // 入学年月が同じ場合は校舎でソート
+          if (compareResult === 0) {
+            const campusA2 = a.campus || ''
+            const campusB2 = b.campus || ''
+            compareResult = campusA2.localeCompare(campusB2)
+          }
           break
         case 'status':
           compareResult = (a.status || '').localeCompare(b.status || '')
@@ -743,19 +757,34 @@ export default function CandidatesPage() {
                   </Button>
                 </TableHead>
                 <TableHead>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 hover:bg-gray-100"
-                    onClick={() => handleSort('enrollmentDate')}
-                  >
-                    入学年月|校舎
-                    {sortBy === 'enrollmentDate' ? (
-                      sortOrder === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />
-                    ) : (
-                      <ArrowUpDown className="ml-1 h-4 w-4 opacity-50" />
-                    )}
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 hover:bg-gray-100 justify-start"
+                      onClick={() => handleSort('enrollmentDate')}
+                    >
+                      入学年月
+                      {sortBy === 'enrollmentDate' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />
+                      ) : (
+                        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 hover:bg-gray-100 justify-start"
+                      onClick={() => handleSort('campus')}
+                    >
+                      校舎
+                      {sortBy === 'campus' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />
+                      ) : (
+                        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+                      )}
+                    </Button>
+                  </div>
                 </TableHead>
                 <TableHead>担当者</TableHead>
                 <TableHead>
