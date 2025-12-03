@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Input } from '@/components/ui/input'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
 import { 
@@ -23,7 +24,8 @@ import {
   TrendingUp,
   DollarSign,
   Edit,
-  Copy
+  Copy,
+  Search
 } from 'lucide-react'
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -77,6 +79,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
   const [consultant, setConsultant] = useState<User | null>(null)
   const [relatedStores, setRelatedStores] = useState<any[]>([])
   const [relatedJobs, setRelatedJobs] = useState<any[]>([])
+  const [storeSearchTerm, setStoreSearchTerm] = useState('')
 
   useEffect(() => {
     const initializeComponent = async () => {
@@ -481,47 +484,90 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                 </Link>
               </CardHeader>
               <CardContent>
+                {/* 検索入力 */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="店舗名、住所、都道府県で検索..."
+                    value={storeSearchTerm}
+                    onChange={(e) => setStoreSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
                 <div className="space-y-3">
-                  {[...relatedStores]
-                    .sort((a, b) => {
+                  {(() => {
+                    // 検索フィルタリングとソート
+                    let filteredStores = [...relatedStores]
+                    
+                    // 検索フィルタ
+                    if (storeSearchTerm.trim() !== '') {
+                      const searchLower = storeSearchTerm.toLowerCase()
+                      filteredStores = filteredStores.filter(store =>
+                        store.name?.toLowerCase().includes(searchLower) ||
+                        store.address?.toLowerCase().includes(searchLower) ||
+                        store.prefecture?.toLowerCase().includes(searchLower)
+                      )
+                    }
+                    
+                    // 住所でソート
+                    filteredStores.sort((a, b) => {
                       const addressA = a.address || ''
                       const addressB = b.address || ''
                       return addressA.localeCompare(addressB, 'ja')
                     })
-                    .slice(0, 5)
-                    .map((store) => (
-                      <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <h4 className="font-medium">
-                            {store.name}
-                            {store.prefecture && (
-                              <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
-                            )}
-                          </h4>
-                          <p className="text-sm text-gray-600">{store.address}</p>
+                    
+                    // 表示
+                    if (filteredStores.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          {storeSearchTerm ? '検索条件に一致する店舗がありません' : '店舗がありません'}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Link href={`/stores/${store.id}`}>
-                            <Button variant="outline" size="sm">
-                              詳細
-                            </Button>
-                          </Link>
-                          <Link href={`/stores/new?duplicate=${store.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Copy className="h-4 w-4 mr-1" />
-                              複製
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  {relatedStores.length > 5 && (
-                    <div className="text-center">
-                      <Link href={`/stores?company=${companyId}`}>
-                        <Button variant="outline">すべての店舗を見る</Button>
-                      </Link>
-                    </div>
-                  )}
+                      )
+                    }
+                    
+                    const displayStores = filteredStores.slice(0, 5)
+                    const hasMore = filteredStores.length > 5
+                    
+                    return (
+                      <>
+                        {displayStores.map((store) => (
+                          <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <h4 className="font-medium">
+                                {store.name}
+                                {store.prefecture && (
+                                  <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                                )}
+                              </h4>
+                              <p className="text-sm text-gray-600">{store.address}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Link href={`/stores/${store.id}`}>
+                                <Button variant="outline" size="sm">
+                                  詳細
+                                </Button>
+                              </Link>
+                              <Link href={`/stores/new?duplicate=${store.id}`}>
+                                <Button variant="outline" size="sm">
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  複製
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                        {hasMore && (
+                          <div className="text-center">
+                            <Link href={`/stores?company=${companyId}`}>
+                              <Button variant="outline">すべての店舗を見る ({filteredStores.length}件)</Button>
+                            </Link>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -556,11 +602,27 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                       ? jobStores[0].prefecture 
                       : null
                     
+                    // 求人ステータス
+                    const jobStatus = job.status || 'draft'
+                    const statusColors = {
+                      draft: 'bg-gray-100 text-gray-800',
+                      active: 'bg-green-100 text-green-800',
+                      closed: 'bg-red-100 text-red-800'
+                    }
+                    const statusLabels = {
+                      draft: '下書き',
+                      active: '募集中',
+                      closed: '募集終了'
+                    }
+                    
                     return (
                       <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{job.title}</h4>
+                            <Badge className={statusColors[jobStatus as keyof typeof statusColors]}>
+                              {statusLabels[jobStatus as keyof typeof statusLabels]}
+                            </Badge>
                             {prefecture && (
                               <Badge variant="outline" className="text-xs">
                                 {prefecture}
@@ -650,7 +712,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">公開求人数</span>
                   <span className="font-medium">
-                    {relatedJobs.filter(job => job.status === 'published').length}
+                    {relatedJobs.filter(job => job.status === 'active').length}
                   </span>
                 </div>
               </div>

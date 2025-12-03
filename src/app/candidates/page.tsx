@@ -147,9 +147,9 @@ export default function CandidatesPage() {
   const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>('all')
   const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
 
-  // ソート状態
-  const [sortBy, setSortBy] = useState<'name' | 'campus' | 'enrollmentDate' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  // ソート状態（デフォルト: ステータス昇順 = アクティブが上）
+  const [sortBy, setSortBy] = useState<'name' | 'campus' | 'enrollmentDate' | 'status' | 'createdAt' | 'updatedAt'>('status')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // ソートハンドラー関数
   const handleSort = (column: typeof sortBy) => {

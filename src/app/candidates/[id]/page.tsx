@@ -31,7 +31,10 @@ import {
   MessageSquare,
   Star,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
@@ -144,6 +147,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidateId, setCandidateId] = useState<string>('')
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   
   // マッチング作成用の状態
   const [jobs, setJobs] = useState<Job[]>([])
@@ -207,6 +211,40 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     loadMatches()
     loadJobsData()
   }, [candidateId])
+
+  // ソート順が変わったら再ソート
+  useEffect(() => {
+    if (matches.length === 0) return
+    
+    const statusPriority: Record<Match['status'], number> = {
+      suggested: 1,
+      applied: 2,
+      document_screening: 3,
+      document_passed: 4,
+      interview: 5,
+      interview_passed: 6,
+      offer: 7,
+      offer_accepted: 8,
+      rejected: 9,
+      withdrawn: 9
+    }
+    
+    const sortedMatches = [...matches].sort((a, b) => {
+      const priorityA = statusPriority[a.status]
+      const priorityB = statusPriority[b.status]
+      
+      // ステータス優先度で比較
+      const statusCompare = sortOrder === 'desc' ? priorityB - priorityA : priorityA - priorityB
+      if (statusCompare !== 0) return statusCompare
+      
+      // ステータスが同じ場合は作成日で比較（昇順）
+      const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
+      const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
+      return dateA - dateB
+    })
+    
+    setMatches(sortedMatches)
+  }, [sortOrder])
 
   const loadJobsData = async () => {
     try {
@@ -279,22 +317,32 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         })
       )
       
-      // ステータス降順でソート（優先度: offer_accepted > offer > interview_passed > interview > document_passed > document_screening > applied > suggested > withdrawn/rejected）
+      // 複数条件でソート（①ステータス昇順 → ②作成日昇順）
       const statusPriority: Record<Match['status'], number> = {
-        offer_accepted: 9,
-        offer: 8,
-        interview_passed: 7,
-        interview: 6,
-        document_passed: 5,
-        document_screening: 4,
-        applied: 3,
-        suggested: 2,
-        withdrawn: 1,
-        rejected: 1
+        suggested: 1,
+        applied: 2,
+        document_screening: 3,
+        document_passed: 4,
+        interview: 5,
+        interview_passed: 6,
+        offer: 7,
+        offer_accepted: 8,
+        rejected: 9,
+        withdrawn: 9
       }
       
       matchesWithDetails.sort((a, b) => {
-        return statusPriority[b.status] - statusPriority[a.status]
+        const priorityA = statusPriority[a.status]
+        const priorityB = statusPriority[b.status]
+        
+        // ステータス優先度で比較
+        const statusCompare = sortOrder === 'desc' ? priorityB - priorityA : priorityA - priorityB
+        if (statusCompare !== 0) return statusCompare
+        
+        // ステータスが同じ場合は作成日で比較（昇順）
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
+        return dateA - dateB
       })
       
       setMatches(matchesWithDetails)
@@ -717,7 +765,21 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   <TableRow>
                     <TableHead>求人</TableHead>
                     <TableHead>企業/店舗</TableHead>
-                    <TableHead>ステータス</TableHead>
+                    <TableHead>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 hover:bg-gray-100"
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                      >
+                        ステータス
+                        {sortOrder === 'asc' ? (
+                          <ArrowUp className="ml-1 h-4 w-4" />
+                        ) : (
+                          <ArrowDown className="ml-1 h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableHead>
                     <TableHead>面接日時</TableHead>
                     <TableHead>備考</TableHead>
                     <TableHead>作成日</TableHead>
