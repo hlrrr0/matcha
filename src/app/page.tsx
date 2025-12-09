@@ -75,7 +75,7 @@ export default function HomePage() {
         // 求人統計
         const jobsSnapshot = await getDocs(collection(db, 'jobs'))
         const jobs = jobsSnapshot.docs.map(doc => doc.data())
-        const activeJobs = jobs.filter(j => j.status === 'published').length
+        const activeJobs = jobs.filter(j => j.status === 'active').length
 
         // 求職者統計（仮のデータ）
         const candidatesSnapshot = await getDocs(collection(db, 'candidates'))
