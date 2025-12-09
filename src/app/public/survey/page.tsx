@@ -322,9 +322,9 @@ export default function CandidateSurveyPage() {
                 </Select>
               </div>
 
-              {/* 10. 卒業"直後"の希望進路 */}
+              {/* 10. 卒業直後の希望進路 */}
               <div>
-                <Label>10. 卒業"直後"の希望進路（現時点で当てはまるもの全て選択してください）</Label>
+                <Label>10. 卒業直後の希望進路（現時点で当てはまるもの全て選択してください）</Label>
                 <div className="mt-2 space-y-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox
