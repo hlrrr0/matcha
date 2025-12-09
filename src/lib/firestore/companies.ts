@@ -301,6 +301,8 @@ export async function updateCompany(id: string, companyData: Partial<Omit<Compan
       throw new Error(error)
     }
     
+    const oldData = docSnap.data()
+    
     // undefinedフィールドを除去
     const cleanedData = removeUndefinedFields(companyData)
     console.log(`📝 更新データ（クリーンアップ後）:`, cleanedData)
@@ -311,9 +313,57 @@ export async function updateCompany(id: string, companyData: Partial<Omit<Compan
     })
     
     console.log(`✅ 企業ID「${id}」の更新が完了`)
+    
+    // ステータスが変更された場合、関連する求人も更新
+    if (companyData.status && oldData.status !== companyData.status) {
+      await updateCompanyJobsStatus(id, oldData.status, companyData.status)
+    }
   } catch (error) {
     console.error(`❌ 企業ID「${id}」の更新エラー:`, error)
     throw error
+  }
+}
+
+/**
+ * 企業のステータス変更時に関連する求人のステータスを更新
+ */
+async function updateCompanyJobsStatus(
+  companyId: string, 
+  oldStatus: string, 
+  newStatus: string
+): Promise<void> {
+  try {
+    // 企業が非アクティブになった場合、求人を募集終了にする
+    if (oldStatus === 'active' && newStatus === 'inactive') {
+      console.log(`🔄 企業ID「${companyId}」が非アクティブになったため、関連する求人を募集終了にします...`)
+      
+      const jobsCollection = collection(db, 'jobs')
+      const jobsQuery = query(jobsCollection, where('companyId', '==', companyId))
+      const jobsSnapshot = await getDocs(jobsQuery)
+      
+      let updatedCount = 0
+      const updatePromises = jobsSnapshot.docs.map(async (jobDoc) => {
+        const jobData = jobDoc.data()
+        // 募集中の求人のみ更新
+        if (jobData.status === 'active') {
+          await updateDoc(doc(jobsCollection, jobDoc.id), {
+            status: 'closed',
+            updatedAt: serverTimestamp(),
+          })
+          updatedCount++
+        }
+      })
+      
+      await Promise.all(updatePromises)
+      console.log(`✅ ${updatedCount}件の求人を募集終了に更新しました`)
+    }
+    // 企業がアクティブに戻った場合のロジックも追加可能
+    else if (oldStatus === 'inactive' && newStatus === 'active') {
+      console.log(`ℹ️ 企業ID「${companyId}」がアクティブになりました。求人は手動で再開してください。`)
+    }
+  } catch (error) {
+    console.error(`❌ 企業ID「${companyId}」の求人ステータス更新エラー:`, error)
+    // エラーをログに記録するが、メインの更新処理は成功として扱う
   }
 }
 
