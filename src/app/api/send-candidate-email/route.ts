@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// 環境変数がない場合はダミーキーを使用（ビルド時のエラー回避）
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build')
 
 export async function POST(request: NextRequest) {
+  // 実行時に環境変数がない場合はエラーを返す
+  if (!process.env.RESEND_API_KEY) {
+    return NextResponse.json(
+      { error: 'RESEND_API_KEYが設定されていません' },
+      { status: 500 }
+    )
+  }
   try {
     const { 
       companyEmail, 
