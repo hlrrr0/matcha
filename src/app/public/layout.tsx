@@ -1,8 +1,4 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import '../globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: '求人情報 - 人材紹介システム',
@@ -23,13 +19,9 @@ export default function PublicLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        {/* 公開ページ専用レイアウト - ヘッダーなし */}
-        <main className="min-h-screen">
-          {children}
-        </main>
-      </body>
-    </html>
+    <>
+      {/* 公開ページ専用レイアウト - ヘッダーなし */}
+      {children}
+    </>
   )
 }

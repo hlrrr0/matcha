@@ -4,6 +4,7 @@ import './globals.css'
 import Header from '@/components/header'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ConditionalMain } from '@/components/ConditionalMain'
+import { Toaster } from '@/components/ui/sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -34,6 +35,7 @@ export default function RootLayout({
             {children}
           </ConditionalMain>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   )
