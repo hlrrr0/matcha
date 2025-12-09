@@ -1290,6 +1290,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         candidateName={selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`}
         onUpdate={handleStatusUpdate}
         isEditMode={selectedMatch ? ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) : false}
+        candidate={candidate ? {
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          phone: candidate.phone,
+          email: candidate.email,
+          resume: candidate.teacherComment // 先生のコメントを履歴書として使用
+        } : undefined}
+        job={selectedMatch ? jobs.find(j => j.id === selectedMatch.jobId) : undefined}
+        company={selectedMatch ? companies.find(c => c.id === jobs.find(j => j.id === selectedMatch.jobId)?.companyId) : undefined}
       />
 
       </div>

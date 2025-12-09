@@ -1345,6 +1345,24 @@ function ProgressPageContent() {
             candidateName={selectedMatch?.candidateName || ''}
             onUpdate={handleStatusUpdate}
             isEditMode={false}
+            candidate={selectedMatch ? (() => {
+              const c = candidates.find(cand => cand.id === selectedMatch.candidateId)
+              return c ? {
+                firstName: c.firstName,
+                lastName: c.lastName,
+                phone: c.phone,
+                email: c.email,
+                resume: c.teacherComment,
+                dateOfBirth: c.dateOfBirth,
+                resumeUrl: c.resumeUrl
+              } : undefined
+            })() : undefined}
+            job={selectedMatch ? jobs.find(j => j.id === selectedMatch.jobId) : undefined}
+            company={selectedMatch ? (() => {
+              const job = jobs.find(j => j.id === selectedMatch.jobId)
+              return job ? companies.find(c => c.id === job.companyId) : undefined
+            })() : undefined}
+            userName={user?.displayName || user?.email || ''}
           />
 
           {/* 一括ステータス更新ダイアログ */}

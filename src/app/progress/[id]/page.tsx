@@ -525,6 +525,15 @@ export default function MatchDetailPage() {
                     candidateName={candidate ? `${candidate.lastName} ${candidate.firstName}` : ''}
                     onUpdate={handleStatusUpdate}
                     isEditMode={false}
+                    candidate={candidate ? {
+                      firstName: candidate.firstName,
+                      lastName: candidate.lastName,
+                      phone: candidate.phone,
+                      email: candidate.email,
+                      resume: candidate.teacherComment
+                    } : undefined}
+                    job={job || undefined}
+                    company={company || undefined}
                   />
                 </>
               )}

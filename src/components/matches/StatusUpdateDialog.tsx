@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Match } from '@/types/matching'
+import { sendCandidateApplicationEmail } from '@/lib/email'
+import { generateIntroductionText } from '@/lib/introduction-text'
+import { toast } from 'sonner'
 import { 
   Target,
   Send,
@@ -16,7 +19,9 @@ import {
   MessageSquare,
   Star,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Mail,
+  Copy
 } from 'lucide-react'
 
 const statusLabels: Record<Match['status'], string> = {
@@ -78,6 +83,24 @@ interface StatusUpdateDialogProps {
   candidateName?: string
   onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date) => Promise<void>
   isEditMode?: boolean
+  // メール送信用の情報
+  candidate?: {
+    firstName: string
+    lastName: string
+    phone?: string
+    email?: string
+    resume?: string
+    dateOfBirth?: string
+    resumeUrl?: string
+  }
+  job?: {
+    title: string
+  }
+  company?: {
+    name: string
+    email: string
+  }
+  userName?: string  // ログインユーザーの名前
 }
 
 export function StatusUpdateDialog({
@@ -86,13 +109,18 @@ export function StatusUpdateDialog({
   match,
   candidateName,
   onUpdate,
-  isEditMode = false
+  isEditMode = false,
+  candidate,
+  job,
+  company,
+  userName
 }: StatusUpdateDialogProps) {
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
   const [statusNotes, setStatusNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
     if (!match) return
@@ -174,16 +202,87 @@ export function StatusUpdateDialog({
         }
       }
 
+      // ステータス更新
       await onUpdate(newStatus, statusNotes, combinedDateTime)
       
+      toast.success('ステータスを更新しました')
       onOpenChange(false)
       setEventDate('')
       setEventTime('')
       setStatusNotes('')
     } catch (error) {
       console.error('Status update error:', error)
+      toast.error('ステータスの更新に失敗しました')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleCopyIntroduction = () => {
+    if (!candidate || !company) {
+      toast.error('候補者または企業情報が不足しています')
+      return
+    }
+
+    const introText = generateIntroductionText({
+      companyName: company.name,
+      candidateName: `${candidate.lastName} ${candidate.firstName}`,
+      candidateDateOfBirth: candidate.dateOfBirth,
+      resumeUrl: candidate.resumeUrl,
+      teacherComment: candidate.resume,
+      userName: userName
+    })
+
+    navigator.clipboard.writeText(introText).then(() => {
+      toast.success('紹介文をコピーしました')
+    }).catch(() => {
+      toast.error('コピーに失敗しました')
+    })
+  }
+
+  const handleSendEmail = async () => {
+    if (!candidate || !job) {
+      toast.error('候補者または求人情報が不足しています')
+      return
+    }
+
+    if (!company?.email) {
+      toast.error('企業のメールアドレスが設定されていません。企業マスタでメールアドレスを設定してください。')
+      return
+    }
+
+    setSendingEmail(true)
+    try {
+      const introText = generateIntroductionText({
+        companyName: company.name,
+        candidateName: `${candidate.lastName} ${candidate.firstName}`,
+        candidateDateOfBirth: candidate.dateOfBirth,
+        resumeUrl: candidate.resumeUrl,
+        teacherComment: candidate.resume,
+        userName: userName
+      })
+
+      const emailResult = await sendCandidateApplicationEmail({
+        companyEmail: company.email,
+        companyName: company.name,
+        candidateName: `${candidate.lastName} ${candidate.firstName}`,
+        candidatePhone: candidate.phone,
+        candidateEmail: candidate.email,
+        candidateResume: introText,
+        jobTitle: job.title,
+        notes: statusNotes
+      })
+
+      if (emailResult.success) {
+        toast.success('企業へ応募情報をメール送信しました')
+      } else {
+        toast.error(`メール送信に失敗しました: ${emailResult.error}`)
+      }
+    } catch (error) {
+      console.error('Email sending error:', error)
+      toast.error('メール送信に失敗しました')
+    } finally {
+      setSendingEmail(false)
     }
   }
 
@@ -194,7 +293,7 @@ export function StatusUpdateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-3xl max-w-[95vw]">
         <DialogHeader>
           <DialogTitle>
             {isEditMode ? '進捗を編集' : '次の進捗へ'}
@@ -282,18 +381,52 @@ export function StatusUpdateDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={submitting}
+            disabled={submitting || sendingEmail}
+            className="order-1 sm:order-none sm:mr-auto"
           >
             キャンセル
           </Button>
+          
+          {/* 「応募済み」→「書類選考中」の場合のみ、紹介文コピーとメール送信ボタンを表示 */}
+          {match?.status === 'applied' && 
+           newStatus === 'document_screening' && 
+           candidate && 
+           job && 
+           company && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleCopyIntroduction}
+                disabled={submitting || sendingEmail}
+                className="order-3 sm:order-none !border-green-600 !text-green-600 hover:!bg-green-50"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                紹介文をコピー
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSendEmail}
+                disabled={submitting || sendingEmail || !company.email}
+                className={`order-4 sm:order-none ${company.email 
+                  ? "!border-blue-600 !text-blue-600 hover:!bg-blue-50" 
+                  : "!border-gray-300 !text-gray-400 cursor-not-allowed"
+                }`}
+                title={!company.email ? '企業のメールアドレスが設定されていません' : ''}
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {sendingEmail ? 'メール送信中...' : '企業へメールを送る'}
+              </Button>
+            </>
+          )}
+          
           <Button
             onClick={handleSubmit}
-            disabled={submitting}
-            className="bg-orange-600 hover:bg-orange-700"
+            disabled={submitting || sendingEmail}
+            className="order-2 sm:order-none bg-orange-600 hover:bg-orange-700 text-white"
           >
             {submitting ? '更新中...' : '更新'}
           </Button>
