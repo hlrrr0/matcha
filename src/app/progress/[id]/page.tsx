@@ -47,6 +47,7 @@ import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
+import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -142,14 +143,13 @@ export default function MatchDetailPage() {
 
   // ステータス更新モーダル
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
-  const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
-  const [eventDate, setEventDate] = useState('')
-  const [eventTime, setEventTime] = useState('')
-  const [statusNotes, setStatusNotes] = useState('')
 
   // タイムライン編集モーダル
   const [timelineEditOpen, setTimelineEditOpen] = useState(false)
   const [editingTimeline, setEditingTimeline] = useState<MatchTimeline | null>(null)
+  const [eventDate, setEventDate] = useState('')
+  const [eventTime, setEventTime] = useState('')
+  const [statusNotes, setStatusNotes] = useState('')
 
   useEffect(() => {
     if (!matchId || matchId.trim() === '') {
@@ -206,34 +206,20 @@ export default function MatchDetailPage() {
     }
   }
 
-  const handleStatusUpdate = async () => {
+  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date) => {
     if (!match || !user) return
 
     try {
-      // 日時を組み合わせる
-      let combinedDateTime: Date | undefined = undefined
-      if (eventDate) {
-        if (eventTime) {
-          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
-        } else {
-          combinedDateTime = new Date(eventDate)
-        }
-      }
-
       await updateMatchStatus(
         match.id,
-        newStatus,
+        status,
         '', // 説明文は空
         user.uid,
-        statusNotes || undefined,
-        combinedDateTime
+        notes || undefined,
+        eventDateTime
       )
       
       toast.success('ステータスを更新しました')
-      setStatusUpdateOpen(false)
-      setEventDate('')
-      setEventTime('')
-      setStatusNotes('')
       loadMatchData() // データを再読み込み
     } catch (error) {
       console.error('Error updating status:', error)
@@ -524,216 +510,23 @@ export default function MatchDetailPage() {
                   </DialogTrigger>
                 </Dialog>
               ) : statusFlow[match.status].length > 0 && (
-                <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={() => {
-                        // 次のステータスの最初の選択肢をデフォルトにする
-                        const nextStatuses = statusFlow[match.status]
-                        if (nextStatuses.length > 0) {
-                          setNewStatus(nextStatuses[0])
-                          
-                          // 現在のステータスに応じた既存のイベント日時を読み込む
-                          let initialDate = ''
-                          let initialTime = ''
-                          
-                          // 次のステータスが'interview'の場合、既存の面接日を読み込む
-                          if (nextStatuses[0] === 'interview' && match.interviewDate) {
-                            const date = new Date(match.interviewDate)
-                            initialDate = date.toISOString().split('T')[0]
-                            initialTime = date.toTimeString().slice(0, 5)
-                          } 
-                          // 次のステータスが'offer'の場合、既存の内定日を読み込む
-                          else if (nextStatuses[0] === 'offer' && match.offerDate) {
-                            const date = new Date(match.offerDate)
-                            initialDate = date.toISOString().split('T')[0]
-                            initialTime = date.toTimeString().slice(0, 5)
-                          }
-                          // 次のステータスが'offer_accepted'の場合、既存の内定承諾日を読み込む
-                          else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
-                            const date = new Date(match.acceptedDate)
-                            initialDate = date.toISOString().split('T')[0]
-                            initialTime = date.toTimeString().slice(0, 5)
-                          }
-                          
-                          setEventDate(initialDate)
-                          setEventTime(initialTime)
-                          setStatusNotes('')
-                        }
-                      }}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      次の進捗へ
-                    </Button>
-                  </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>次の進捗へ</DialogTitle>
-                  <DialogDescription>
-                    次のステータスに進めます
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {/* 現在のステータス表示 */}
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-600 mb-2">現在のステータス</div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(match.status, 'lg')}
-                    </div>
-                  </div>
-
-                  {/* 次のステータス選択 */}
-                  <div>
-                    <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
-                    <div className="space-y-2">
-                      {/* 通常のステータス（縦並び） */}
-                      <div className="grid grid-cols-1 gap-2">
-                        {statusFlow[match.status]
-                          .filter(s => !['offer', 'rejected', 'withdrawn'].includes(s))
-                          .map((nextStatus) => {
-                            const Icon = statusIcons[nextStatus]
-                            return (
-                              <Button
-                                key={nextStatus}
-                                type="button"
-                                variant={newStatus === nextStatus ? "default" : "outline"}
-                                className={`justify-start h-auto py-3 ${
-                                  newStatus === nextStatus 
-                                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                                    : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => {
-                                  setNewStatus(nextStatus)
-                                  // ステータス変更時に適切なイベント日時を読み込む
-                                  let initialDate = ''
-                                  let initialTime = ''
-                                  
-                                  if (nextStatus === 'interview' && match.interviewDate) {
-                                    const date = new Date(match.interviewDate)
-                                    initialDate = date.toISOString().split('T')[0]
-                                    initialTime = date.toTimeString().slice(0, 5)
-                                  } else if (nextStatus === 'offer' && match.offerDate) {
-                                    const date = new Date(match.offerDate)
-                                    initialDate = date.toISOString().split('T')[0]
-                                    initialTime = date.toTimeString().slice(0, 5)
-                                  } else if (nextStatus === 'offer_accepted' && match.acceptedDate) {
-                                    const date = new Date(match.acceptedDate)
-                                    initialDate = date.toISOString().split('T')[0]
-                                    initialTime = date.toTimeString().slice(0, 5)
-                                  }
-                                  
-                                  setEventDate(initialDate)
-                                  setEventTime(initialTime)
-                                }}
-                              >
-                                <Icon className="h-5 w-5 mr-2" />
-                                <span className="text-base">{statusLabels[nextStatus]}</span>
-                              </Button>
-                            )
-                          })}
-                      </div>
-                      
-                      {/* 終了ステータス（横並び・小さめ） */}
-                      {statusFlow[match.status].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
-                        <div className="grid grid-cols-3 gap-2">
-                          {statusFlow[match.status]
-                            .filter(s => ['offer', 'rejected', 'withdrawn'].includes(s))
-                            .map((nextStatus) => {
-                              const Icon = statusIcons[nextStatus]
-                              return (
-                                <Button
-                                  key={nextStatus}
-                                  type="button"
-                                  variant={newStatus === nextStatus ? "default" : "outline"}
-                                  className={`justify-center h-auto py-2 text-sm ${
-                                    newStatus === nextStatus 
-                                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                                      : 'hover:bg-gray-50'
-                                  }`}
-                                  onClick={() => {
-                                    setNewStatus(nextStatus)
-                                    // ステータス変更時に適切なイベント日時を読み込む
-                                    let initialDate = ''
-                                    let initialTime = ''
-                                    
-                                    if (nextStatus === 'offer' && match.offerDate) {
-                                      const date = new Date(match.offerDate)
-                                      initialDate = date.toISOString().split('T')[0]
-                                      initialTime = date.toTimeString().slice(0, 5)
-                                    }
-                                    
-                                    setEventDate(initialDate)
-                                    setEventTime(initialTime)
-                                  }}
-                                >
-                                  <Icon className="h-4 w-4 mr-1" />
-                                  <span className="text-sm">{statusLabels[nextStatus]}</span>
-                                </Button>
-                              )
-                            })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* イベント日時入力（応募、面接合格、不合格は除外） */}
-                  {['interview', 'offer', 'offer_accepted'].includes(newStatus) && (
-                    <div className="space-y-2">
-                      <Label>
-                        {newStatus === 'interview' && '面接日'}
-                        {newStatus === 'offer' && '内定日'}
-                        {newStatus === 'offer_accepted' && '内定承諾日'}
-                      </Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Input
-                            type="date"
-                            value={eventDate}
-                            onChange={(e) => setEventDate(e.target.value)}
-                            placeholder="日付"
-                          />
-                        </div>
-                        <div>
-                          <Input
-                            type="time"
-                            value={eventTime}
-                            onChange={(e) => setEventTime(e.target.value)}
-                            placeholder="時刻（任意）"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 備考欄 */}
-                  <div>
-                    <Label htmlFor="statusNotes">備考</Label>
-                    <Textarea
-                      id="statusNotes"
-                      value={statusNotes}
-                      onChange={(e) => setStatusNotes(e.target.value)}
-                      placeholder="詳細なメモがあれば記入してください"
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
+                <>
                   <Button
-                    variant="outline"
-                    onClick={() => setStatusUpdateOpen(false)}
+                    onClick={() => setStatusUpdateOpen(true)}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
-                    キャンセル
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    次の進捗へ
                   </Button>
-                  <Button
-                    onClick={handleStatusUpdate}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    更新
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-                </Dialog>
+                  <StatusUpdateDialog
+                    open={statusUpdateOpen}
+                    onOpenChange={setStatusUpdateOpen}
+                    match={match}
+                    candidateName={candidate ? `${candidate.lastName} ${candidate.firstName}` : ''}
+                    onUpdate={handleStatusUpdate}
+                    isEditMode={false}
+                  />
+                </>
               )}
             </div>
           </div>

@@ -1,0 +1,304 @@
+"use client"
+
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Match } from '@/types/matching'
+import { 
+  Target,
+  Send,
+  Eye,
+  CheckCircle,
+  MessageSquare,
+  Star,
+  XCircle,
+  AlertCircle
+} from 'lucide-react'
+
+const statusLabels: Record<Match['status'], string> = {
+  suggested: '提案済み',
+  applied: '応募済み',
+  document_screening: '書類選考中',
+  document_passed: '書類選考通過',
+  interview: '面接',
+  interview_passed: '面接通過',
+  offer: '内定',
+  offer_accepted: '内定承諾',
+  rejected: '不合格',
+  withdrawn: '辞退'
+}
+
+const statusColors: Record<Match['status'], string> = {
+  suggested: 'bg-blue-100 text-blue-800',
+  applied: 'bg-purple-100 text-purple-800',
+  document_screening: 'bg-yellow-100 text-yellow-800',
+  document_passed: 'bg-cyan-100 text-cyan-800',
+  interview: 'bg-orange-100 text-orange-800',
+  interview_passed: 'bg-teal-100 text-teal-800',
+  offer: 'bg-green-100 text-green-800',
+  offer_accepted: 'bg-green-600 text-white',
+  rejected: 'bg-red-100 text-red-800',
+  withdrawn: 'bg-gray-100 text-gray-800'
+}
+
+const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
+  suggested: Target,
+  applied: Send,
+  document_screening: Eye,
+  document_passed: CheckCircle,
+  interview: MessageSquare,
+  interview_passed: CheckCircle,
+  offer: Star,
+  offer_accepted: CheckCircle,
+  rejected: XCircle,
+  withdrawn: AlertCircle
+}
+
+const statusFlow: Record<Match['status'], Match['status'][]> = {
+  suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
+  applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
+  document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
+  document_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  interview: ['interview_passed', 'offer', 'rejected', 'withdrawn'],
+  interview_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
+  offer: ['offer_accepted', 'rejected', 'withdrawn'],
+  offer_accepted: [],
+  rejected: [],
+  withdrawn: []
+}
+
+interface StatusUpdateDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  match: Match | null
+  candidateName?: string
+  onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date) => Promise<void>
+  isEditMode?: boolean
+}
+
+export function StatusUpdateDialog({
+  open,
+  onOpenChange,
+  match,
+  candidateName,
+  onUpdate,
+  isEditMode = false
+}: StatusUpdateDialogProps) {
+  const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
+  const [eventDate, setEventDate] = useState('')
+  const [eventTime, setEventTime] = useState('')
+  const [statusNotes, setStatusNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!match) return
+
+    const isEndStatus = ['offer_accepted', 'withdrawn', 'rejected'].includes(match.status)
+    
+    if (isEndStatus || isEditMode) {
+      // 編集モード：既存のデータを読み込む
+      setNewStatus(match.status)
+      
+      let initialDate = ''
+      let initialTime = ''
+      
+      if (match.status === 'interview' && match.interviewDate) {
+        const date = new Date(match.interviewDate)
+        initialDate = date.toISOString().split('T')[0]
+        initialTime = date.toTimeString().slice(0, 5)
+      } else if (match.status === 'offer_accepted' && match.acceptedDate) {
+        const date = new Date(match.acceptedDate)
+        initialDate = date.toISOString().split('T')[0]
+        initialTime = date.toTimeString().slice(0, 5)
+      }
+      
+      setEventDate(initialDate)
+      setEventTime(initialTime)
+      
+      // 最新のタイムラインからノートを読み込む
+      if (match.timeline && match.timeline.length > 0) {
+        const sortedTimeline = [...match.timeline].sort((a, b) => {
+          const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+          const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+          return timeB - timeA
+        })
+        setStatusNotes(sortedTimeline[0].notes || '')
+      } else {
+        setStatusNotes('')
+      }
+    } else {
+      // 通常の「次へ」モード
+      const nextStatuses = statusFlow[match.status]
+      if (nextStatuses.length > 0) {
+        setNewStatus(nextStatuses[0])
+        
+        let initialDate = ''
+        let initialTime = ''
+        
+        if (nextStatuses[0] === 'interview' && match.interviewDate) {
+          const date = new Date(match.interviewDate)
+          initialDate = date.toISOString().split('T')[0]
+          initialTime = date.toTimeString().slice(0, 5)
+        } else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
+          const date = new Date(match.acceptedDate)
+          initialDate = date.toISOString().split('T')[0]
+          initialTime = date.toTimeString().slice(0, 5)
+        }
+        
+        setEventDate(initialDate)
+        setEventTime(initialTime)
+      } else {
+        setNewStatus(match.status)
+        setEventDate('')
+        setEventTime('')
+      }
+      setStatusNotes('')
+    }
+  }, [match, isEditMode])
+
+  const handleSubmit = async () => {
+    if (!match) return
+
+    setSubmitting(true)
+    try {
+      let combinedDateTime: Date | undefined = undefined
+      if (eventDate) {
+        if (eventTime) {
+          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
+        } else {
+          combinedDateTime = new Date(eventDate)
+        }
+      }
+
+      await onUpdate(newStatus, statusNotes, combinedDateTime)
+      
+      onOpenChange(false)
+      setEventDate('')
+      setEventTime('')
+      setStatusNotes('')
+    } catch (error) {
+      console.error('Status update error:', error)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!match) return null
+
+  const availableStatuses = statusFlow[match.status]
+  const Icon = statusIcons[match.status]
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode ? '進捗を編集' : '次の進捗へ'}
+          </DialogTitle>
+          <DialogDescription>
+            {candidateName || '次のステータスに進めます'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* 現在のステータス */}
+          <div>
+            <Label className="text-sm text-gray-500">現在のステータス</Label>
+            <div className="mt-2">
+              <Badge className={`${statusColors[match.status]} text-sm px-3 py-1.5`}>
+                <Icon className="h-4 w-4 mr-2" />
+                {statusLabels[match.status]}
+              </Badge>
+            </div>
+          </div>
+
+          {/* 次のステータスを選択 */}
+          {availableStatuses.length > 0 && (
+            <div>
+              <Label>次のステータスを選択</Label>
+              <div className="mt-2 space-y-2">
+                {availableStatuses.map((status) => {
+                  const StatusIcon = statusIcons[status]
+                  return (
+                    <Button
+                      key={status}
+                      type="button"
+                      variant={newStatus === status ? "default" : "outline"}
+                      className={`w-full justify-start ${
+                        newStatus === status 
+                          ? 'bg-orange-600 hover:bg-orange-700' 
+                          : ''
+                      }`}
+                      onClick={() => setNewStatus(status)}
+                    >
+                      <StatusIcon className="h-4 w-4 mr-2" />
+                      {statusLabels[status]}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 日時入力（面接と内定承諾のみ） */}
+          {['interview', 'offer_accepted'].includes(newStatus) && 
+           (!isEditMode || newStatus !== match.status) && (
+            <div>
+              <Label>
+                {newStatus === 'interview' && '面接日時'}
+                {newStatus === 'offer_accepted' && '内定承諾日'}
+              </Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Input
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                  placeholder="年 /月/日"
+                />
+                <Input
+                  type="time"
+                  value={eventTime}
+                  onChange={(e) => setEventTime(e.target.value)}
+                  placeholder="--:--"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 備考 */}
+          <div>
+            <Label>備考</Label>
+            <Textarea
+              value={statusNotes}
+              onChange={(e) => setStatusNotes(e.target.value)}
+              placeholder="詳細なメモがあれば記入してください"
+              rows={4}
+              className="mt-2"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            キャンセル
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            {submitting ? '更新中...' : '更新'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

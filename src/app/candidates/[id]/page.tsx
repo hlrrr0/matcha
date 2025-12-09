@@ -53,6 +53,7 @@ import { Store } from '@/types/store'
 import { useAuth } from '@/contexts/AuthContext'
 import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/utils/prefecture'
 import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
+import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -164,10 +165,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   // ステータス更新用の状態
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
-  const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
-  const [statusNotes, setStatusNotes] = useState('')
-  const [eventDate, setEventDate] = useState('')
-  const [eventTime, setEventTime] = useState('')
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -468,118 +465,42 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
   const handleOpenStatusUpdate = (match: MatchWithDetails) => {
     setSelectedMatch(match)
-    
-    // 終了ステータス（内定承諾、辞退、不合格）の場合は編集モード
-    const isEndStatus = ['offer_accepted', 'withdrawn', 'rejected'].includes(match.status)
-    
-    if (isEndStatus) {
-      // 編集モード：既存のデータを読み込む
-      setNewStatus(match.status)
-      
-      // 既存のイベント日時を読み込む
-      let initialDate = ''
-      let initialTime = ''
-      
-      if (match.status === 'offer_accepted' && match.acceptedDate) {
-        const date = new Date(match.acceptedDate)
-        initialDate = date.toISOString().split('T')[0]
-        initialTime = date.toTimeString().slice(0, 5)
-      }
-      
-      setEventDate(initialDate)
-      setEventTime(initialTime)
-      
-      // 最新のタイムラインからノートを読み込む
-      if (match.timeline && match.timeline.length > 0) {
-        const sortedTimeline = [...match.timeline].sort((a, b) => {
-          const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
-          const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
-          return timeB - timeA
-        })
-        setStatusNotes(sortedTimeline[0].notes || '')
-      } else {
-        setStatusNotes('')
-      }
-    } else {
-      // 通常の「次へ」モード：次のステータスに進む準備
-      const nextStatuses = statusFlow[match.status]
-      if (nextStatuses.length > 0) {
-        setNewStatus(nextStatuses[0])
-        
-        // 次のステータスに対応する既存の日時を読み込む
-        let initialDate = ''
-        let initialTime = ''
-        
-        if (nextStatuses[0] === 'interview' && match.interviewDate) {
-          const date = new Date(match.interviewDate)
-          initialDate = date.toISOString().split('T')[0]
-          initialTime = date.toTimeString().slice(0, 5)
-        } else if (nextStatuses[0] === 'offer' && match.offerDate) {
-          const date = new Date(match.offerDate)
-          initialDate = date.toISOString().split('T')[0]
-          initialTime = date.toTimeString().slice(0, 5)
-        } else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
-          const date = new Date(match.acceptedDate)
-          initialDate = date.toISOString().split('T')[0]
-          initialTime = date.toTimeString().slice(0, 5)
-        }
-        
-        setEventDate(initialDate)
-        setEventTime(initialTime)
-      } else {
-        setNewStatus(match.status)
-        setEventDate('')
-        setEventTime('')
-      }
-      setStatusNotes('')
-    }
-    
     setStatusUpdateOpen(true)
   }
 
-  const handleStatusUpdate = async () => {
+  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date) => {
     if (!selectedMatch || !user?.uid) return
 
     try {
-      // 日時を組み合わせる
-      let combinedDateTime: Date | undefined = undefined
-      if (eventDate) {
-        if (eventTime) {
-          combinedDateTime = new Date(`${eventDate}T${eventTime}`)
-        } else {
-          combinedDateTime = new Date(eventDate)
-        }
-      }
-
       await updateMatchStatus(
         selectedMatch.id,
-        newStatus,
+        status,
         '',
         user.uid,
-        statusNotes || undefined,
-        combinedDateTime
+        notes || undefined,
+        eventDateTime
       )
       
       await loadMatches() // Reload data
       
       // 面接ステータスで日時が設定されている場合、自動的にGoogleカレンダーを開く
-      if (newStatus === 'interview' && combinedDateTime && candidate) {
+      if (status === 'interview' && eventDateTime && candidate) {
         const job = jobs.find(j => j.id === selectedMatch.jobId)
         const company = companies.find(c => c.id === job?.companyId)
         const store = stores.find(s => s.id === job?.storeId)
         
         if (company) {
           const candidateName = `${candidate.lastName} ${candidate.firstName}`
-          const endTime = new Date(combinedDateTime.getTime() + 60 * 60000) // 1時間後
+          const endTime = new Date(eventDateTime.getTime() + 60 * 60000) // 1時間後
           
           // カレンダーIDは環境変数から取得（設定されていればそのカレンダーに追加）
           const calendarId = process.env.NEXT_PUBLIC_DEFAULT_CALENDAR_ID
           
           const calendarUrl = generateGoogleCalendarUrl(
             `面接: ${candidateName} - ${company.name}`,
-            combinedDateTime,
+            eventDateTime,
             endTime,
-            `【求職者】${candidateName}\n【企業】${company.name}\n【職種】${job?.title || ''}\n\n${statusNotes || ''}`.trim(),
+            `【求職者】${candidateName}\n【企業】${company.name}\n【職種】${job?.title || ''}\n\n${notes || ''}`.trim(),
             store?.address || company.address,
             calendarId
           )
@@ -591,12 +512,6 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       } else {
         toast.success('ステータスを更新しました')
       }
-      
-      setStatusUpdateOpen(false)
-      setSelectedMatch(null)
-      setEventDate('')
-      setEventTime('')
-      setStatusNotes('')
     } catch (error) {
       console.error('ステータス更新エラー:', error)
       toast.error('ステータスの更新に失敗しました')
@@ -1368,155 +1283,14 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       </Dialog>
 
       {/* ステータス更新モーダル */}
-      <Dialog open={statusUpdateOpen} onOpenChange={setStatusUpdateOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedMatch && ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) 
-                ? '進捗を編集' 
-                : '次の進捗へ'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`} - {selectedMatch?.jobTitle}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {/* 現在のステータス表示 */}
-            {selectedMatch && (
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-600 mb-2">現在のステータス</div>
-                <Badge className={`${getStatusColor(selectedMatch.status)} border-0`}>
-                  <div className="flex items-center gap-1">
-                    {getStatusIcon(selectedMatch.status)}
-                    {getStatusLabel(selectedMatch.status)}
-                  </div>
-                </Badge>
-              </div>
-            )}
-
-            {/* 次のステータス選択（終了ステータスの場合は非表示） */}
-            {selectedMatch && !['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) && (
-              <div>
-                <Label className="text-base font-semibold mb-3 block">次のステータスを選択</Label>
-                <div className="space-y-2">
-                  {/* 通常のステータス（縦並び） */}
-                  <div className="grid grid-cols-1 gap-2">
-                    {statusFlow[selectedMatch.status]
-                      .filter(s => !['offer', 'rejected', 'withdrawn'].includes(s))
-                      .map((nextStatus) => {
-                        const Icon = statusIcons[nextStatus]
-                        return (
-                          <Button
-                            key={nextStatus}
-                            type="button"
-                            variant={newStatus === nextStatus ? "default" : "outline"}
-                            className={`justify-start h-auto py-3 ${
-                              newStatus === nextStatus 
-                                ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                                : 'hover:bg-gray-50'
-                            }`}
-                            onClick={() => {
-                              setNewStatus(nextStatus)
-                            }}
-                          >
-                            <Icon className="h-5 w-5 mr-2" />
-                            <span className="text-base">{statusLabels[nextStatus]}</span>
-                          </Button>
-                        )
-                      })}
-                  </div>
-                  
-                  {/* 終了ステータス（横並び・小さめ） */}
-                  {statusFlow[selectedMatch.status].some(s => ['offer', 'rejected', 'withdrawn'].includes(s)) && (
-                    <div className="grid grid-cols-3 gap-2">
-                      {statusFlow[selectedMatch.status]
-                        .filter(s => ['offer', 'rejected', 'withdrawn'].includes(s))
-                        .map((nextStatus) => {
-                          const Icon = statusIcons[nextStatus]
-                          return (
-                            <Button
-                              key={nextStatus}
-                              type="button"
-                              variant={newStatus === nextStatus ? "default" : "outline"}
-                              className={`justify-center h-auto py-2 text-sm ${
-                                newStatus === nextStatus 
-                                  ? 'bg-orange-600 hover:bg-orange-700 text-white' 
-                                  : 'hover:bg-gray-50'
-                              }`}
-                              onClick={() => {
-                                setNewStatus(nextStatus)
-                              }}
-                            >
-                              <Icon className="h-4 w-4 mr-1" />
-                              <span className="text-sm">{statusLabels[nextStatus]}</span>
-                            </Button>
-                          )
-                        })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* イベント日時入力 */}
-            {['interview', 'offer', 'offer_accepted', 'rejected'].includes(newStatus) && 
-             selectedMatch && newStatus !== selectedMatch.status && (
-              <div className="space-y-2">
-                <Label>
-                  {newStatus === 'interview' && '面接日'}
-                  {newStatus === 'offer' && '内定日'}
-                  {newStatus === 'offer_accepted' && '内定承諾日'}
-                  {newStatus === 'rejected' && '不合格日'}
-                </Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Input
-                      type="date"
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      placeholder="日付"
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      type="time"
-                      value={eventTime}
-                      onChange={(e) => setEventTime(e.target.value)}
-                      placeholder="時刻（任意）"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 備考欄 */}
-            <div>
-              <Label htmlFor="statusNotes">備考</Label>
-              <Textarea
-                id="statusNotes"
-                value={statusNotes}
-                onChange={(e) => setStatusNotes(e.target.value)}
-                placeholder="詳細なメモがあれば記入してください"
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setStatusUpdateOpen(false)}
-            >
-              キャンセル
-            </Button>
-            <Button
-              onClick={handleStatusUpdate}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              更新
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StatusUpdateDialog
+        open={statusUpdateOpen}
+        onOpenChange={setStatusUpdateOpen}
+        match={selectedMatch}
+        candidateName={selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`}
+        onUpdate={handleStatusUpdate}
+        isEditMode={selectedMatch ? ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) : false}
+      />
 
       </div>
     </ProtectedRoute>
