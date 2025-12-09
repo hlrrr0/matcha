@@ -147,7 +147,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidateId, setCandidateId] = useState<string>('')
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   
   // マッチング作成用の状態
   const [jobs, setJobs] = useState<Job[]>([])
@@ -237,10 +237,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       const statusCompare = sortOrder === 'desc' ? priorityB - priorityA : priorityA - priorityB
       if (statusCompare !== 0) return statusCompare
       
-      // ステータスが同じ場合は作成日で比較（昇順）
-      const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
-      const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
-      return dateA - dateB
+      // ステータスが同じ場合は更新日で比較（降順）
+      const dateA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : new Date(a.updatedAt).getTime()
+      const dateB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : new Date(b.updatedAt).getTime()
+      return dateB - dateA
     })
     
     setMatches(sortedMatches)
@@ -782,7 +782,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                     </TableHead>
                     <TableHead>面接日時</TableHead>
                     <TableHead>備考</TableHead>
-                    <TableHead>作成日</TableHead>
+                    <TableHead>更新日</TableHead>
                     <TableHead>アクション</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -900,7 +900,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         })()}
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        {formatDate(match.createdAt)}
+                        {formatDate(match.updatedAt)}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-1">
