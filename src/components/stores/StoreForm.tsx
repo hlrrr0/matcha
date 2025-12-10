@@ -68,7 +68,9 @@ export default function StoreForm({
   })
 
   useEffect(() => {
+    console.log('StoreForm useEffect - initialData:', initialData, 'keys length:', Object.keys(initialData).length)
     if (Object.keys(initialData).length > 0) {
+      console.log('StoreForm - Setting form data with companyId:', initialData.companyId)
       setFormData({
         companyId: initialData.companyId || '',
         name: initialData.name || '',
@@ -114,16 +116,15 @@ export default function StoreForm({
     const loadCompanies = async () => {
       setLoadingCompanies(true)
       try {
-        const companiesQuery = query(
-          collection(db, 'companies'),
-          where('status', '==', 'active')
-        )
-        const companiesSnapshot = await getDocs(companiesQuery)
+        // 全ての企業を取得（非アクティブも含む）
+        const companiesSnapshot = await getDocs(collection(db, 'companies'))
         const companiesData = companiesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         } as Company))
         
+        console.log('Companies loaded:', companiesData.length, 'companies')
+        console.log('Current formData.companyId:', formData.companyId)
         setCompanies(companiesData)
       } catch (error) {
         console.error('Error loading companies:', error)
@@ -238,6 +239,11 @@ export default function StoreForm({
     // undefined値を除去してFirestore用にクリーンアップ
     const cleanFormData = { ...formData }
     
+    // 住所から都道府県を自動抽出
+    if (cleanFormData.address) {
+      cleanFormData.prefecture = extractPrefecture(cleanFormData.address)
+    }
+    
     // undefined値を持つフィールドを除去
     Object.keys(cleanFormData).forEach(key => {
       const fieldKey = key as keyof Store
@@ -290,10 +296,14 @@ export default function StoreForm({
               所属企業 <span className="text-red-500">*</span>
             </Label>
             <Select 
+              key={formData.companyId || 'no-company'}
               value={formData.companyId || ''} 
-              onValueChange={(value) => handleChange('companyId', value)}
+              onValueChange={(value) => {
+                console.log('Select onValueChange called with:', value)
+                handleChange('companyId', value)
+              }}
             >
-              <SelectTrigger>
+              <SelectTrigger onClick={() => console.log('Select clicked - current value:', formData.companyId, 'companies:', companies.length)}>
                 <SelectValue placeholder="企業を選択してください" />
               </SelectTrigger>
               <SelectContent>

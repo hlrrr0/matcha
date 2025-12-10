@@ -21,6 +21,8 @@ function NewStorePageContent() {
       const companyParam = searchParams.get('company')
       const duplicateParam = searchParams.get('duplicate')
       
+      console.log('URL params - company:', companyParam, 'duplicate:', duplicateParam)
+      
       if (duplicateParam && duplicateParam.trim() !== '') {
         // 複製元の店舗データを読み込む
         try {
@@ -37,7 +39,11 @@ function NewStorePageContent() {
           console.error('複製元店舗の取得に失敗しました:', error)
         }
       } else if (companyParam) {
+        console.log('Setting initialData with companyId:', companyParam)
         setInitialData({ companyId: companyParam })
+      } else {
+        console.log('No company param found, setting empty initialData')
+        setInitialData({})
       }
     }
     
