@@ -5,6 +5,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -149,6 +150,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  
+  // 一括選択・辞退用の状態
+  const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
+  const [bulkWithdrawing, setBulkWithdrawing] = useState(false)
   
   // マッチング作成用の状態
   const [jobs, setJobs] = useState<Job[]>([])
@@ -518,6 +523,81 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 一括選択のハンドラー
+  const handleSelectMatch = (matchId: string, checked: boolean) => {
+    setSelectedMatchIds(prev => {
+      const newSet = new Set(prev)
+      if (checked) {
+        newSet.add(matchId)
+      } else {
+        newSet.delete(matchId)
+      }
+      return newSet
+    })
+  }
+
+  // 全選択/全解除のハンドラー
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // 辞退・不合格以外のマッチングのみ選択
+      const selectableIds = matches
+        .filter(m => m.status !== 'withdrawn' && m.status !== 'rejected')
+        .map(m => m.id)
+      setSelectedMatchIds(new Set(selectableIds))
+    } else {
+      setSelectedMatchIds(new Set())
+    }
+  }
+
+  // 一括辞退のハンドラー
+  const handleBulkWithdraw = async () => {
+    if (selectedMatchIds.size === 0) {
+      toast.error('辞退する進捗を選択してください')
+      return
+    }
+
+    if (!confirm(`選択した${selectedMatchIds.size}件の進捗を「辞退」にしますか？`)) {
+      return
+    }
+
+    setBulkWithdrawing(true)
+    try {
+      let successCount = 0
+      let errorCount = 0
+
+      for (const matchId of selectedMatchIds) {
+        try {
+          await updateMatchStatus(
+            matchId,
+            'withdrawn',
+            '',
+            user?.uid || '',
+            '一括辞退'
+          )
+          successCount++
+        } catch (error) {
+          console.error(`Match ${matchId} の更新に失敗:`, error)
+          errorCount++
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount}件の進捗を辞退にしました`)
+        await loadMatches()
+        setSelectedMatchIds(new Set())
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`${errorCount}件の更新に失敗しました`)
+      }
+    } catch (error) {
+      console.error('一括辞退エラー:', error)
+      toast.error('一括辞退に失敗しました')
+    } finally {
+      setBulkWithdrawing(false)
+    }
+  }
+
   const getFilteredJobs = () => {
     // 既にマッチングが存在する求人IDのセット
     const existingJobIds = new Set(matches.map(m => m.jobId))
@@ -656,6 +736,27 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   {matches.length}件
                 </Badge>
                 {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
+                {selectedMatchIds.size > 0 && (
+                  <Button
+                    onClick={handleBulkWithdraw}
+                    disabled={bulkWithdrawing}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    {bulkWithdrawing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        処理中...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="h-4 w-4 mr-2" />
+                        選択を辞退 ({selectedMatchIds.size})
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   onClick={() => setCreateMatchOpen(true)}
                   variant="outline"
@@ -678,6 +779,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedMatchIds.size > 0 && selectedMatchIds.size === matches.filter(m => m.status !== 'withdrawn' && m.status !== 'rejected').length}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>求人</TableHead>
                     <TableHead>企業/店舗</TableHead>
                     <TableHead>
@@ -713,6 +820,13 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                     
                     return (
                     <TableRow key={match.id} className={rowBgClass}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedMatchIds.has(match.id)}
+                          onCheckedChange={(checked) => handleSelectMatch(match.id, checked as boolean)}
+                          disabled={match.status === 'withdrawn' || match.status === 'rejected'}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Briefcase className="h-4 w-4 text-purple-600" />
