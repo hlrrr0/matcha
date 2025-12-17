@@ -530,10 +530,13 @@ export default function MatchDetailPage() {
                       lastName: candidate.lastName,
                       phone: candidate.phone,
                       email: candidate.email,
-                      resume: candidate.teacherComment
+                      resume: candidate.teacherComment,
+                      dateOfBirth: candidate.dateOfBirth,
+                      resumeUrl: candidate.resumeUrl
                     } : undefined}
                     job={job || undefined}
                     company={company || undefined}
+                    userName={user?.displayName || user?.email || ''}
                   />
                 </>
               )}

@@ -1409,10 +1409,13 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
           lastName: candidate.lastName,
           phone: candidate.phone,
           email: candidate.email,
-          resume: candidate.teacherComment // 先生のコメントを履歴書として使用
+          resume: candidate.teacherComment, // 先生のコメントを履歴書として使用
+          dateOfBirth: candidate.dateOfBirth,
+          resumeUrl: candidate.resumeUrl
         } : undefined}
         job={selectedMatch ? jobs.find(j => j.id === selectedMatch.jobId) : undefined}
         company={selectedMatch ? companies.find(c => c.id === jobs.find(j => j.id === selectedMatch.jobId)?.companyId) : undefined}
+        userName={user?.displayName || user?.email || ''}
       />
 
       </div>

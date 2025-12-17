@@ -28,12 +28,7 @@ export function generateIntroductionText(params: {
     }
   }
   
-  const staffName = userName || '担当者'
-  
-  return `${companyName}
-担当者様
-
-飲食人大学の${staffName}です。
+  return `
 下記ご紹介させていただきたい生徒の書類データになります。
 ご確認いただき、面接の設定などさせていただけますと幸いです。
 
