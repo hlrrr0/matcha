@@ -148,7 +148,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidateId, setCandidateId] = useState<string>('')
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   
   // マッチング作成用の状態
   const [jobs, setJobs] = useState<Job[]>([])
