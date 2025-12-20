@@ -48,6 +48,7 @@ import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
+import { Timestamp } from 'firebase/firestore'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -230,30 +231,51 @@ export default function MatchDetailPage() {
   const handleOpenTimelineEdit = (timeline: MatchTimeline) => {
     setEditingTimeline(timeline)
     
-    // タイムラインのステータスから対応するイベント日時を取得
+    // タイムラインのイベント日時を取得
     let initialDate = ''
     let initialTime = ''
     
-    if (timeline.status === 'applied' && match?.appliedDate) {
-      const date = new Date(match.appliedDate)
-      initialDate = date.toISOString().split('T')[0]
-      initialTime = date.toTimeString().slice(0, 5)
-    } else if ((timeline.status === 'interview' || timeline.status === 'interview_passed') && match?.interviewDate) {
-      const date = new Date(match.interviewDate)
-      initialDate = date.toISOString().split('T')[0]
-      initialTime = date.toTimeString().slice(0, 5)
+    // 日付を安全に変換するヘルパー関数
+    const safeConvertDate = (dateValue: any): { date: string; time: string } => {
+      try {
+        const d = new Date(dateValue)
+        // 無効な日付をチェック
+        if (isNaN(d.getTime())) {
+          return { date: '', time: '' }
+        }
+        return {
+          date: d.toISOString().split('T')[0],
+          time: d.toTimeString().slice(0, 5)
+        }
+      } catch (error) {
+        console.error('日付変換エラー:', error, dateValue)
+        return { date: '', time: '' }
+      }
+    }
+    
+    // まず timeline.eventDate をチェック（新しい実装）
+    if (timeline.eventDate) {
+      const converted = safeConvertDate(timeline.eventDate)
+      initialDate = converted.date
+      initialTime = converted.time
+    }
+    // timeline.eventDate がない場合、従来の match.*Date から取得（後方互換性）
+    else if (timeline.status === 'applied' && match?.appliedDate) {
+      const converted = safeConvertDate(match.appliedDate)
+      initialDate = converted.date
+      initialTime = converted.time
     } else if (timeline.status === 'offer' && match?.offerDate) {
-      const date = new Date(match.offerDate)
-      initialDate = date.toISOString().split('T')[0]
-      initialTime = date.toTimeString().slice(0, 5)
+      const converted = safeConvertDate(match.offerDate)
+      initialDate = converted.date
+      initialTime = converted.time
     } else if (timeline.status === 'offer_accepted' && match?.acceptedDate) {
-      const date = new Date(match.acceptedDate)
-      initialDate = date.toISOString().split('T')[0]
-      initialTime = date.toTimeString().slice(0, 5)
+      const converted = safeConvertDate(match.acceptedDate)
+      initialDate = converted.date
+      initialTime = converted.time
     } else if (timeline.status === 'rejected' && match?.rejectedDate) {
-      const date = new Date(match.rejectedDate)
-      initialDate = date.toISOString().split('T')[0]
-      initialTime = date.toTimeString().slice(0, 5)
+      const converted = safeConvertDate(match.rejectedDate)
+      initialDate = converted.date
+      initialTime = converted.time
     }
     
     setEventDate(initialDate)
@@ -276,12 +298,13 @@ export default function MatchDetailPage() {
         }
       }
 
-      // ステータスは変更せず、イベント日時と備考のみ更新
-      await updateMatchStatus(
+      // タイムラインアイテムを直接更新（新しいアイテムを作成せず）
+      const { updateTimelineItem } = await import('@/lib/firestore/matches')
+      
+      await updateTimelineItem(
         match.id,
-        editingTimeline.status, // 既存のステータスを維持
-        '',
-        user.uid,
+        editingTimeline.id,
+        editingTimeline.description, // 既存の説明を維持
         statusNotes || undefined,
         combinedDateTime
       )
@@ -685,52 +708,6 @@ export default function MatchDetailPage() {
 
           {/* サイドバー - タイムライン */}
           <div className="space-y-6">
-            {/* イベント日時 */}
-            {(match.appliedDate || match.interviewDate || match.offerDate || match.acceptedDate || match.rejectedDate) && (
-              <Card className="border-purple-100">
-                <CardHeader>
-                  <CardTitle className="text-lg text-purple-800">重要日程</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {match.appliedDate && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-purple-500" />
-                      <span className="text-gray-600">応募日:</span>
-                      <span className="font-medium">{formatDate(match.appliedDate)}</span>
-                    </div>
-                  )}
-                  {match.interviewDate && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-orange-500" />
-                      <span className="text-gray-600">面接日:</span>
-                      <span className="font-medium">{formatDate(match.interviewDate)}</span>
-                    </div>
-                  )}
-                  {match.offerDate && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-green-500" />
-                      <span className="text-gray-600">オファー日:</span>
-                      <span className="font-medium">{formatDate(match.offerDate)}</span>
-                    </div>
-                  )}
-                  {match.acceptedDate && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-green-600" />
-                      <span className="text-gray-600">承諾日:</span>
-                      <span className="font-medium">{formatDate(match.acceptedDate)}</span>
-                    </div>
-                  )}
-                  {match.rejectedDate && (
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-red-500" />
-                      <span className="text-gray-600">不採用日:</span>
-                      <span className="font-medium">{formatDate(match.rejectedDate)}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-            
             {/* タイムライン */}
             <Card className="border-purple-100">
               <CardHeader>
@@ -747,33 +724,60 @@ export default function MatchDetailPage() {
                   <div className="space-y-4">
                     {match.timeline
                       .map((item) => {
-                        // ステータスに対応するイベント日付を取得
+                        // 進捗登録日時: item.timestamp を使用
+                        const registeredDate = (() => {
+                          try {
+                            const d = new Date(item.timestamp)
+                            return isNaN(d.getTime()) ? new Date() : d
+                          } catch {
+                            return new Date()
+                          }
+                        })()
+                        
+                        // イベント日付(面接日時など)を別途取得
                         let eventDate: Date | null = null
-                        if (item.status === 'applied' && match.appliedDate) {
-                          eventDate = new Date(match.appliedDate)
-                        } else if ((item.status === 'interview' || item.status === 'interview_passed') && match.interviewDate) {
-                          eventDate = new Date(match.interviewDate)
-                        } else if (item.status === 'offer' && match.offerDate) {
-                          eventDate = new Date(match.offerDate)
-                        } else if (item.status === 'offer_accepted' && match.acceptedDate) {
-                          eventDate = new Date(match.acceptedDate)
-                        } else if (item.status === 'rejected' && match.rejectedDate) {
-                          eventDate = new Date(match.rejectedDate)
-                        } else {
-                          // イベント日付がない場合はtimestampを使用
-                          eventDate = new Date(item.timestamp)
+                        
+                        // 安全に日付を作成するヘルパー
+                        const safeCreateDate = (dateValue: any): Date | null => {
+                          try {
+                            // Firestore Timestamp の場合
+                            if (dateValue instanceof Timestamp) {
+                              const d = dateValue.toDate()
+                              return isNaN(d.getTime()) ? null : d
+                            }
+                            // Date オブジェクトの場合
+                            if (dateValue instanceof Date) {
+                              return isNaN(dateValue.getTime()) ? null : dateValue
+                            }
+                            // 文字列や数値の場合
+                            const d = new Date(dateValue)
+                            return isNaN(d.getTime()) ? null : d
+                          } catch {
+                            return null
+                          }
                         }
-                        return { ...item, displayDate: eventDate }
+                        
+                        // timeline.eventDate をチェック
+                        if (item.eventDate) {
+                          eventDate = safeCreateDate(item.eventDate)
+                        }
+                        // 後方互換性: timeline.eventDate がない場合のフォールバック
+                        // ただし、面接通過(interview_passed)は対象外
+                        else if (item.status === 'applied' && match.appliedDate) {
+                          eventDate = safeCreateDate(match.appliedDate)
+                        } else if (item.status === 'offer' && match.offerDate) {
+                          eventDate = safeCreateDate(match.offerDate)
+                        } else if (item.status === 'offer_accepted' && match.acceptedDate) {
+                          eventDate = safeCreateDate(match.acceptedDate)
+                        } else if (item.status === 'rejected' && match.rejectedDate) {
+                          eventDate = safeCreateDate(match.rejectedDate)
+                        }
+                        
+                        return { ...item, registeredDate, eventDate }
                       })
                       .sort((a, b) => {
-                        // ステータス順でソート（降順 = 進んだステータスが上）
-                        const orderA = statusOrder[a.status] || 0
-                        const orderB = statusOrder[b.status] || 0
-                        if (orderA !== orderB) {
-                          return orderB - orderA
-                        }
-                        // 同じステータスの場合は日付で降順ソート
-                        return b.displayDate.getTime() - a.displayDate.getTime()
+                        // 登録日時の降順でソート（新しい履歴が上、古い履歴が下）
+                        return b.registeredDate.getTime() - a.registeredDate.getTime()
                       })
                       .map((item, index) => {
                         // アイコンを取得、存在しない場合はデフォルトアイコンを使用
@@ -801,7 +805,8 @@ export default function MatchDetailPage() {
                               
                               {/* コンテンツ */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
+                                {/* ステータスバッジ */}
+                                <div className="flex items-center justify-between mb-2">
                                   <Badge className={`
                                     text-xs border
                                     ${isLatest 
@@ -813,10 +818,11 @@ export default function MatchDetailPage() {
                                   </Badge>
                                 </div>
                                 
-                                {/* 日時表示 */}
+                                {/* 進捗登録日時 */}
                                 <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
-                                  {item.displayDate.toLocaleDateString('ja-JP', { 
+                                  <span className="font-medium">登録日時:</span>
+                                  {item.registeredDate.toLocaleDateString('ja-JP', { 
                                     year: 'numeric', 
                                     month: 'short', 
                                     day: 'numeric',
@@ -825,28 +831,27 @@ export default function MatchDetailPage() {
                                   })}
                                 </div>
                                 
-                                {/* 面接日時表示（面接ステータスの場合） */}
-                                {item.status === 'interview' && match.interviewDate && (
+                                {/* 面接日時表示（面接ステータスの場合のみ、面接通過は表示しない） */}
+                                {item.status === 'interview' && item.eventDate && (
                                   <div className="text-xs text-orange-600 bg-orange-50 p-2 rounded mb-2 flex items-center gap-1">
                                     <Calendar className="h-3 w-3" />
                                     <span className="font-medium">面接日時:</span>
-                                    {(() => {
-                                      const interviewDate = match.interviewDate instanceof Date 
-                                        ? match.interviewDate 
-                                        : new Date(match.interviewDate)
-                                      return interviewDate.toLocaleDateString('ja-JP', { 
-                                        month: 'short', 
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                      })
-                                    })()}
+                                    {item.eventDate.toLocaleDateString('ja-JP', { 
+                                      year: 'numeric',
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
                                   </div>
                                 )}
                                 
-                                <div className="text-sm font-medium text-gray-900 mb-1">
-                                  {item.description}
-                                </div>
+                                {/* 説明文 */}
+                                {item.description && (
+                                  <div className="text-sm font-medium text-gray-900 mb-1">
+                                    {item.description}
+                                  </div>
+                                )}
                                 
                                 {item.notes && (
                                   <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded mt-2 whitespace-pre-wrap">
@@ -859,15 +864,66 @@ export default function MatchDetailPage() {
                                   <div className="text-xs text-gray-500">
                                     作成者: {getUserName(item.createdBy)}
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleOpenTimelineEdit(item)}
-                                    className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                  >
-                                    <Edit className="h-3 w-3 mr-1" />
-                                    編集
-                                  </Button>
+                                  <div className="flex gap-1">
+                                    {/* 面接ステータスの場合は詳細ボタンを表示 */}
+                                    {item.status === 'interview' && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          // 面接詳細情報を生成
+                                          const interviewDateTime = item.eventDate 
+                                            ? item.eventDate.toLocaleDateString('ja-JP', { 
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                weekday: 'short',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                              })
+                                            : '未設定'
+                                          
+                                          const storeName = store?.name || '未設定'
+                                          const storeAddress = store?.address || ''
+                                          const storeLocation = storeAddress ? `${storeName}\n${storeAddress}` : storeName
+                                          
+                                          const interviewDetails = `【面接日時】\n${interviewDateTime}\n\n【面接場所】\n${storeLocation}\n\n【面接対策用の資料】\nhttps://drive.google.com/file/d/1cbOoIKcZCxIAgYSUFqkZJsDWoTpVusuQ/view?usp=sharing`
+                                          
+                                          // クリップボードにコピー
+                                          navigator.clipboard.writeText(interviewDetails).then(() => {
+                                            toast.success('面接詳細をコピーしました')
+                                          }).catch(() => {
+                                            toast.error('コピーに失敗しました')
+                                          })
+                                        }}
+                                        className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                      >
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        詳細
+                                      </Button>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        // 元の MatchTimeline 型に戻す
+                                        const originalItem: MatchTimeline = {
+                                          id: item.id,
+                                          status: item.status,
+                                          timestamp: item.timestamp,
+                                          description: item.description,
+                                          createdBy: item.createdBy,
+                                          notes: item.notes,
+                                          eventDate: item.eventDate || undefined
+                                        }
+                                        handleOpenTimelineEdit(originalItem)
+                                      }}
+                                      className="h-6 px-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                    >
+                                      <Edit className="h-3 w-3 mr-1" />
+                                      編集
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </div>

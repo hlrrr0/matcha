@@ -47,6 +47,7 @@ export interface MatchTimeline {
   description: string
   createdBy: string
   notes?: string
+  eventDate?: string | Date // 面接日時など、イベント固有の日時
 }
 
 // インタビュー

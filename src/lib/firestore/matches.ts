@@ -35,6 +35,16 @@ function isValidDate(date: any): boolean {
 function safeCreateDate(dateValue: any): Date {
   if (!dateValue) return new Date()
   
+  // Firestore Timestamp の場合
+  if (dateValue && typeof dateValue === 'object' && 'toDate' in dateValue) {
+    try {
+      const d = dateValue.toDate()
+      return isValidDate(d) ? d : new Date()
+    } catch {
+      return new Date()
+    }
+  }
+  
   if (dateValue instanceof Date) {
     return isValidDate(dateValue) ? dateValue : new Date()
   }
@@ -259,10 +269,34 @@ export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id
     
     // 日付フィールドを安全に変換
     if (matchData.timeline) {
-      updateFields.timeline = matchData.timeline.map(item => ({
-        ...item,
-        timestamp: item.timestamp ? Timestamp.fromDate(safeCreateDate(item.timestamp)) : Timestamp.fromDate(new Date())
-      }))
+      updateFields.timeline = matchData.timeline.map(item => {
+        const firestoreItem: any = {
+          id: item.id,
+          status: item.status,
+          timestamp: item.timestamp ? Timestamp.fromDate(safeCreateDate(item.timestamp)) : Timestamp.fromDate(new Date()),
+          description: item.description,
+          createdBy: item.createdBy
+        }
+        
+        // notes があれば追加（undefined は除外）
+        if (item.notes !== undefined && item.notes !== null) {
+          firestoreItem.notes = item.notes
+        }
+        
+        // eventDate があれば Timestamp に変換して追加（undefined は除外）
+        if (item.eventDate !== undefined && item.eventDate !== null) {
+          // 既にFirestore Timestampの場合はそのまま使用
+          if (item.eventDate && typeof item.eventDate === 'object' && 'toDate' in item.eventDate) {
+            firestoreItem.eventDate = item.eventDate
+          } else if (item.eventDate instanceof Date) {
+            firestoreItem.eventDate = Timestamp.fromDate(item.eventDate)
+          } else {
+            firestoreItem.eventDate = Timestamp.fromDate(safeCreateDate(item.eventDate))
+          }
+        }
+        
+        return firestoreItem
+      })
     }
     
     const cleanedUpdateData = removeUndefinedFields(updateFields)
@@ -309,25 +343,94 @@ export const updateMatchStatus = async (
       throw new Error('マッチングが見つかりません')
     }
 
-    const newTimelineItem: MatchTimeline = {
-      id: `timeline_${Date.now()}`,
-      status,
-      timestamp: new Date(),
-      description,
-      createdBy,
-      notes
-    }
-
-    // 既存のタイムラインを安全に処理
+    // 一意のタイムスタンプを生成（既存のタイムラインとの重複を避ける）
+    const now = Date.now()
     const existingTimeline = Array.isArray(match.timeline) ? match.timeline : []
+    
+    console.log('🔍 既存タイムライン:', existingTimeline.map(item => {
+      let eventDateStr = 'なし'
+      let eventDateType = 'なし'
+      if (item.eventDate) {
+        eventDateType = typeof item.eventDate
+        // Firestore Timestampかチェック
+        if (item.eventDate && typeof item.eventDate === 'object' && 'toDate' in item.eventDate) {
+          eventDateType = 'Firestore Timestamp'
+          try {
+            const d = item.eventDate.toDate()
+            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+          } catch {
+            eventDateStr = 'Timestamp変換エラー'
+          }
+        } else {
+          try {
+            const d = item.eventDate instanceof Date 
+              ? item.eventDate 
+              : new Date(item.eventDate)
+            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+          } catch {
+            eventDateStr = 'エラー'
+          }
+        }
+      }
+      return {
+        id: item.id,
+        status: item.status,
+        eventDate: eventDateStr,
+        eventDateType: eventDateType,
+        eventDateRaw: item.eventDate,
+        timestamp: item.timestamp
+      }
+    }))
+    
+    // 既存のタイムラインの最新のタイムスタンプを取得
+    const latestTimestamp = existingTimeline.length > 0
+      ? Math.max(...existingTimeline.map(item => {
+          const ts = item.timestamp instanceof Date 
+            ? item.timestamp.getTime() 
+            : new Date(item.timestamp).getTime()
+          return isNaN(ts) ? 0 : ts
+        }))
+      : 0
+    
+    // 最新のタイムスタンプより1ミリ秒以上後の時刻を使用
+    const uniqueTimestamp = Math.max(now, latestTimestamp + 1)
+
+    const newTimelineItem: any = {
+      id: `timeline_${uniqueTimestamp}`,
+      status,
+      timestamp: new Date(uniqueTimestamp),
+      description,
+      createdBy
+    }
+    
+    // notes があれば追加（undefined は除外）
+    if (notes !== undefined && notes !== null) {
+      newTimelineItem.notes = notes
+    }
+    
+    // eventDate があれば追加(面接通過を除く)
+    // 面接通過ステータスは登録日時のみ表示するため、eventDate は保存しない
+    if (status !== 'interview_passed' && eventDate !== undefined && eventDate !== null) {
+      newTimelineItem.eventDate = typeof eventDate === 'string' ? new Date(eventDate) : eventDate
+    }
+    
+    console.log('🆕 新規タイムラインアイテム作成:', {
+      id: newTimelineItem.id,
+      status: newTimelineItem.status,
+      eventDate: newTimelineItem.eventDate 
+        ? (newTimelineItem.eventDate instanceof Date 
+            ? newTimelineItem.eventDate.toISOString() 
+            : new Date(newTimelineItem.eventDate).toISOString())
+        : 'なし',
+      hasEventDateParam: eventDate !== undefined && eventDate !== null ? 'あり' : 'なし'
+    })
 
     // 重複追加を防止するためのチェック:
     // - 直前のタイムラインが同じステータス、作成者、備考であれば追加をスキップする
     // - タイムスタンプ差は許容範囲（例: 10秒）で判定
     let updatedTimeline: MatchTimeline[]
     const lastItem = existingTimeline.length > 0 ? existingTimeline[existingTimeline.length - 1] : null
-    const now = Date.now()
-    const isDuplicate = lastItem && lastItem.status === status && lastItem.createdBy === createdBy && (lastItem.notes || '') === (notes || '') && Math.abs(new Date(lastItem.timestamp).getTime() - now) < 10000
+    const isDuplicate = lastItem && lastItem.status === status && lastItem.createdBy === createdBy && (lastItem.notes || '') === (notes || '') && Math.abs(new Date(lastItem.timestamp).getTime() - uniqueTimestamp) < 10000
 
     if (isDuplicate) {
       // 重複とみなして追加せず、そのまま既存のタイムラインを使う
@@ -338,8 +441,29 @@ export const updateMatchStatus = async (
       console.log('🔄 タイムライン更新:', {
         既存件数: existingTimeline.length,
         新規追加: newTimelineItem,
-        更新後件数: updatedTimeline.length
+        更新後件数: updatedTimeline.length,
+        タイムスタンプ: new Date(uniqueTimestamp).toISOString()
       })
+      
+      console.log('📋 更新後タイムライン:', updatedTimeline.map(item => {
+        let eventDateStr = 'なし'
+        if (item.eventDate) {
+          try {
+            const d = item.eventDate instanceof Date 
+              ? item.eventDate 
+              : new Date(item.eventDate)
+            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+          } catch {
+            eventDateStr = 'エラー'
+          }
+        }
+        return {
+          id: item.id,
+          status: item.status,
+          eventDate: eventDateStr,
+          timestamp: item.timestamp
+        }
+      }))
     }
 
     // 更新データを準備
@@ -353,7 +477,8 @@ export const updateMatchStatus = async (
       updateData.currentInterviewRound = interviewRound
     }
 
-    // ステータスに応じてイベント日時を保存
+    // ステータスに応じてイベント日時を保存（後方互換性のため）
+    // 面接日時は timeline.eventDate のみに保存し、match.interviewDate は使用しない
     if (eventDate) {
       const dateValue = typeof eventDate === 'string' ? new Date(eventDate) : eventDate
       
@@ -362,8 +487,13 @@ export const updateMatchStatus = async (
           updateData.appliedDate = dateValue
           break
         case 'interview':
+          // 面接日時は timeline.eventDate に保存済み
+          // match.interviewDate は後方互換性のため残すが、新規では更新しない
+          console.log('📅 面接日時を timeline に保存しました')
+          break
         case 'interview_passed':
-          updateData.interviewDate = dateValue
+          // 面接通過の場合は日時不要（登録日時のみ表示）
+          console.log('✅ 面接通過: 日時は保存しません（登録日時のみ表示）')
           break
         case 'offer':
           updateData.offerDate = dateValue
@@ -451,7 +581,8 @@ export const updateTimelineItem = async (
   matchId: string,
   timelineId: string,
   description: string,
-  notes?: string
+  notes?: string,
+  eventDate?: Date | string
 ): Promise<void> => {
   if (!matchId || matchId.trim() === '') {
     throw new Error('Invalid match ID')
@@ -474,22 +605,51 @@ export const updateTimelineItem = async (
     // 該当するタイムラインアイテムを更新
     const updatedTimeline = timeline.map(item => {
       if (item.id === timelineId) {
-        return {
+        const updatedItem: any = {
           ...item,
           description,
           notes: notes || item.notes
         }
+        
+        // eventDate が指定されている場合は更新
+        if (eventDate !== undefined) {
+          updatedItem.eventDate = typeof eventDate === 'string' ? new Date(eventDate) : eventDate
+        }
+        
+        return updatedItem
       }
       return item
     })
 
-    await updateDoc(matchRef, {
-      timeline: updatedTimeline.map(item => ({
-        ...item,
+    // Firestore に保存する際に Date を Timestamp に変換し、undefined を除外
+    const firestoreTimeline = updatedTimeline.map(item => {
+      const firestoreItem: any = {
+        id: item.id,
+        status: item.status,
         timestamp: item.timestamp instanceof Date 
           ? Timestamp.fromDate(item.timestamp)
-          : Timestamp.fromDate(safeCreateDate(item.timestamp))
-      })),
+          : Timestamp.fromDate(safeCreateDate(item.timestamp)),
+        description: item.description,
+        createdBy: item.createdBy
+      }
+      
+      // notes があれば追加（undefined は除外）
+      if (item.notes !== undefined && item.notes !== null) {
+        firestoreItem.notes = item.notes
+      }
+      
+      // eventDate があれば Timestamp に変換して追加（undefined は除外）
+      if (item.eventDate !== undefined && item.eventDate !== null) {
+        firestoreItem.eventDate = item.eventDate instanceof Date
+          ? Timestamp.fromDate(item.eventDate)
+          : Timestamp.fromDate(safeCreateDate(item.eventDate))
+      }
+      
+      return firestoreItem
+    })
+
+    await updateDoc(matchRef, {
+      timeline: firestoreTimeline,
       updatedAt: Timestamp.fromDate(new Date())
     })
   } catch (error) {

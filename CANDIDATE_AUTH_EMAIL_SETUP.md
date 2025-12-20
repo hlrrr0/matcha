@@ -65,7 +65,7 @@ Vercelのプロジェクトダッシュボードで以下の環境変数を設�
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # 必須: 送信元メールアドレス（検証済みドメイン）
-RESEND_FROM_EMAIL=noreply@yourdomain.com
+RESEND_FROM_EMAIL=noreply@super-shift.co.jp
 ```
 
 #### 設定手順

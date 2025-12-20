@@ -128,16 +128,35 @@ export function StatusUpdateDialog({
     const isEndStatus = ['offer_accepted', 'withdrawn', 'rejected'].includes(match.status)
     
     if (isEndStatus || isEditMode) {
-      // 編集モード：既存のデータを読み込む
+      // 編集モード:既存のデータを読み込む
       setNewStatus(match.status)
       
       let initialDate = ''
       let initialTime = ''
       
-      if (match.status === 'interview' && match.interviewDate) {
-        const date = new Date(match.interviewDate)
-        initialDate = date.toISOString().split('T')[0]
-        initialTime = date.toTimeString().slice(0, 5)
+      // 面接ステータスの場合、timeline から eventDate を取得
+      if (match.status === 'interview' && match.timeline) {
+        const interviewTimeline = match.timeline
+          .filter(item => item.status === 'interview')
+          .sort((a, b) => {
+            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+            return timeB - timeA
+          })[0]
+        
+        if (interviewTimeline?.eventDate) {
+          try {
+            // Firestore Timestamp の場合は toDate() を使用
+            const eventDateValue: any = interviewTimeline.eventDate
+            const date = eventDateValue?.toDate ? eventDateValue.toDate() : new Date(eventDateValue)
+            if (!isNaN(date.getTime())) {
+              initialDate = date.toISOString().split('T')[0]
+              initialTime = date.toTimeString().slice(0, 5)
+            }
+          } catch (error) {
+            console.error('面接日時の変換エラー:', error)
+          }
+        }
       } else if (match.status === 'offer_accepted' && match.acceptedDate) {
         const date = new Date(match.acceptedDate)
         initialDate = date.toISOString().split('T')[0]
@@ -167,15 +186,37 @@ export function StatusUpdateDialog({
         let initialDate = ''
         let initialTime = ''
         
-        if (nextStatuses[0] === 'interview' && match.interviewDate) {
-          const date = new Date(match.interviewDate)
-          initialDate = date.toISOString().split('T')[0]
-          initialTime = date.toTimeString().slice(0, 5)
-        } else if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
+        // 内定承諾の場合、既存の承諾日時を使う
+        if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
           const date = new Date(match.acceptedDate)
           initialDate = date.toISOString().split('T')[0]
           initialTime = date.toTimeString().slice(0, 5)
         }
+        // 面接の場合、timeline から最新の面接日時を取得（2回目以降の面接用）
+        else if (nextStatuses[0] === 'interview' && match.timeline) {
+          const interviewTimeline = match.timeline
+            .filter(item => item.status === 'interview' && item.eventDate)
+            .sort((a, b) => {
+              const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+              const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+              return timeB - timeA
+            })[0]
+          
+          if (interviewTimeline?.eventDate) {
+            try {
+              // Firestore Timestamp の場合は toDate() を使用
+              const eventDateValue: any = interviewTimeline.eventDate
+              const date = eventDateValue?.toDate ? eventDateValue.toDate() : new Date(eventDateValue)
+              if (!isNaN(date.getTime())) {
+                initialDate = date.toISOString().split('T')[0]
+                initialTime = date.toTimeString().slice(0, 5)
+              }
+            } catch (error) {
+              console.error('面接日時の変換エラー:', error)
+            }
+          }
+        }
+        // 面接通過の場合は日時入力不要
         
         setEventDate(initialDate)
         setEventTime(initialTime)
@@ -194,7 +235,11 @@ export function StatusUpdateDialog({
     setSubmitting(true)
     try {
       let combinedDateTime: Date | undefined = undefined
-      if (eventDate) {
+      
+      // 面接通過ステータスの場合は日時を渡さない
+      if (newStatus === 'interview_passed') {
+        combinedDateTime = undefined
+      } else if (eventDate) {
         if (eventTime) {
           combinedDateTime = new Date(`${eventDate}T${eventTime}`)
         } else {
@@ -356,7 +401,7 @@ export function StatusUpdateDialog({
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
-                  placeholder="年 /月/日"
+                  placeholder="年/月/日"
                 />
                 <Input
                   type="time"
