@@ -154,94 +154,52 @@ export default function HomePage() {
   // 未ログイン状態の表示
   if (!user) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <main className="flex-1 space-y-8 p-8">
-          {/* ヒーローセクション */}
-          <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-16 rounded-lg">
-            <div className="container mx-auto px-4 text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                人材紹介システム RecruitPro
-              </h1>
-              <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-                求職者と企業を最適にマッチング。Dominoシステムとの連携で、
-                より精度の高い人材紹介を実現します。
-              </p>
-              <div className="flex gap-4 justify-center">
+      <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+        <main className="flex-1 flex items-center justify-center p-8">
+          <Card className="max-w-2xl w-full shadow-xl">
+            <CardHeader className="text-center space-y-6 pb-8">
+              {/* 可愛い犬の画像 */}
+              <div className="flex justify-center">
+                <div className="relative">
+                  <img
+                    src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=400&fit=crop"
+                    alt="かわいい犬"
+                    className="rounded-full w-64 h-64 object-cover shadow-lg border-4 border-white"
+                  />
+                  <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white rounded-full p-3 shadow-lg">
+                    <LogIn className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-6 text-center">
+              <div className="bg-blue-50 p-6 rounded-lg space-y-3">
+                <p className="text-sm text-gray-600">
+                  🐕 ダッシュボードにアクセスするには、ログインが必要です
+                </p>
+                <p className="text-sm text-gray-600">
+                  企業管理・店舗管理・求人管理・求職者管理などの機能をご利用いただけます
+                </p>
+              </div>
+              
+              <div className="pt-4">
                 <Link href="/auth/login">
-                  <Button size="lg" className="flex items-center gap-2">
+                  <Button size="lg" className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-lg py-6">
                     <LogIn className="h-5 w-5" />
                     Googleでログイン
                   </Button>
                 </Link>
               </div>
-            </div>
-          </section>
 
-          {/* 機能紹介 */}
-          <section className="py-16">
-            <div className="container mx-auto px-4">
-              <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-                主な機能
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <Card>
-                  <CardHeader className="text-center">
-                    <Building2 className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-                    <CardTitle>企業管理</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 text-center">
-                      企業情報の登録・編集・管理機能
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="text-center">
-                    <Store className="h-12 w-12 text-green-600 mx-auto mb-4" />
-                    <CardTitle>店舗管理</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 text-center">
-                      店舗情報の登録・編集・管理機能
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="text-center">
-                    <Briefcase className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-                    <CardTitle>求人管理</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 text-center">
-                      求人情報の作成・公開・管理機能
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="text-center">
-                    <Users className="h-12 w-12 text-orange-600 mx-auto mb-4" />
-                    <CardTitle>求職者管理</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 text-center">
-                      求職者情報の管理・マッチング機能
-                    </p>
-                  </CardContent>
-                </Card>
+              <div className="pt-6 border-t">
+                <p className="text-xs text-gray-500">
+                  &copy; 2024 RecruitPro. All rights reserved.
+                </p>
               </div>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
         </main>
-
-        {/* フッター */}
-        <footer className="border-t bg-white py-8">
-          <div className="container mx-auto px-4 text-center text-gray-600">
-            <p>&copy; 2024 RecruitPro. All rights reserved.</p>
-          </div>
-        </footer>
       </div>
     )
   }
