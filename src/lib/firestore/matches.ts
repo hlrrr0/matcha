@@ -356,7 +356,7 @@ export const updateMatchStatus = async (
         if (item.eventDate && typeof item.eventDate === 'object' && 'toDate' in item.eventDate) {
           eventDateType = 'Firestore Timestamp'
           try {
-            const d = item.eventDate.toDate()
+            const d = (item.eventDate as any).toDate()
             eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
           } catch {
             eventDateStr = 'Timestamp変換エラー'
@@ -365,7 +365,7 @@ export const updateMatchStatus = async (
           try {
             const d = item.eventDate instanceof Date 
               ? item.eventDate 
-              : new Date(item.eventDate)
+              : new Date(item.eventDate as any)
             eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
           } catch {
             eventDateStr = 'エラー'
