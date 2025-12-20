@@ -12,7 +12,7 @@ import { User } from '@/types/user'
 
 interface CandidateFormData {
   // 基本情報（必須）
-  status: 'active' | 'inactive'
+  status: 'active' | 'inactive' | 'hired'
   lastName: string
   firstName: string
   
@@ -98,6 +98,7 @@ export default function CandidateForm({
               <SelectContent>
                 <SelectItem value="active">アクティブ</SelectItem>
                 <SelectItem value="inactive">非アクティブ</SelectItem>
+                <SelectItem value="hired">入社済み</SelectItem>
                 <SelectItem value="hired">就職決定</SelectItem>
               </SelectContent>
             </Select>

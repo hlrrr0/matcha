@@ -679,17 +679,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             </Button>
           </Link>
         </div>
-        <div className="flex items-center gap-4 mb-8">        
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">        
         <div className="flex-1">
-          <h1 className="text-3xl font-bold flex items-center gap-2 text-red-800">
-            <Users className="h-8 w-8" />
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 text-red-800">
+            <Users className="h-6 h-8 sm:h-8 sm:w-8" />
             求職者詳細
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-2">
             {candidate.lastName} {candidate.firstName}の詳細情報
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             onClick={loadMatches}
             variant="outline"
@@ -697,7 +697,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             className="text-blue-600 border-blue-200 hover:bg-blue-50"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            更新
+            <span className="hidden sm:inline">更新</span>
           </Button>
           <Button
             onClick={() => setCreateMatchOpen(true)}
@@ -706,12 +706,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             className="text-orange-600 border-orange-200 hover:bg-orange-50"
           >
             <Plus className="h-4 w-4 mr-2" />
-            進捗を作成
+            <span className="hidden sm:inline">進捗を作成</span>
           </Button>
           <Link href={`/candidates/${candidateId}/edit`}>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-blue-600 hover:bg-blue-700" size="sm">
               <Edit className="h-4 w-4 mr-2" />
-              編集
+              <span className="hidden sm:inline">編集</span>
             </Button>
           </Link>
         </div>

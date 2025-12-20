@@ -117,7 +117,6 @@ const matchToFirestore = (match: Omit<Match, 'id'>) => {
 const matchFromFirestore = (doc: any): Match => {
   try {
     const data = doc.data()
-    console.log('🔄 マッチング変換中 ID:', doc.id, 'データ:', data)
     
     const result = {
       id: doc.id,
@@ -145,7 +144,6 @@ const matchFromFirestore = (doc: any): Match => {
       createdBy: data.createdBy || ''
     } as Match
     
-    console.log('✅ マッチング変換完了:', result)
     return result
   } catch (error) {
     console.error('❌ マッチングデータ変換エラー ID:', doc.id, error)

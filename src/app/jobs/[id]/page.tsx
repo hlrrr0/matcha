@@ -288,53 +288,53 @@ function JobDetailContent({ params }: JobDetailPageProps) {
         </Button>
       </Link>
       </div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Briefcase className="h-8 w-8" />
-              {job.title}
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Briefcase className="h-6 w-6 sm:h-8 sm:w-8" />
+              <span className="line-clamp-2">{job.title}</span>
             </h1>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               {getStatusBadge(job.status)}
               {getEmploymentTypeBadge(job.employmentType)}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setShowPublicUrl(!showPublicUrl)}
-            className="border-green-300 text-green-700 hover:bg-green-50"
+            className="border-green-300 text-green-700 hover:bg-green-50 w-full sm:w-auto"
           >
             <Share className="h-4 w-4 mr-2" />
-            公開URL {job.status && `(${job.status})`}
+            <span className="truncate">公開URL {job.status && `(${job.status})`}</span>
           </Button>
           {showPublicUrl && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={copyPublicUrl}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-initial"
               >
-                <Copy className="h-4 w-4 mr-2" />
-                コピー
+                <Copy className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">コピー</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={openPublicUrl}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                className="border-blue-300 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-initial"
               >
-                <Eye className="h-4 w-4 mr-2" />
-                プレビュー
+                <Eye className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">プレビュー</span>
               </Button>
             </div>
           )}
-          <Link href={`/jobs/${jobId}/edit`}>
-            <Button variant="outline" size="sm" className="border-purple-300 text-purple-700 hover:bg-purple-50">
+          <Link href={`/jobs/${jobId}/edit`} className="w-full sm:w-auto">
+            <Button variant="outline" size="sm" className="border-purple-300 text-purple-700 hover:bg-purple-50 w-full">
               <Edit className="h-4 w-4 mr-2" />
               編集
             </Button>

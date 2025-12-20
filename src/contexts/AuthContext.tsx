@@ -85,20 +85,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const handleUserProfile = async (firebaseUser: FirebaseUser) => {
     try {
-      console.log('handleUserProfile called for:', firebaseUser.email)
       const userDocRef = doc(db, 'users', firebaseUser.uid)
       const userDoc = await getDoc(userDocRef)
       
       if (userDoc.exists()) {
         const userData = userDoc.data() as User
-        console.log('🔍 Existing user profile loaded:', userData)
-        console.log('🔍 User access control:', {
-          role: userData.role,
-          status: userData.status,
-          isApproved: userData.role === 'user' || userData.role === 'admin',
-          isActive: userData.status === 'active',
-          canAccess: (userData.role === 'user' || userData.role === 'admin') && userData.status === 'active'
-        })
         setUserProfile(userData)
         
         // ログイン時刻を更新
@@ -106,7 +97,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           lastLoginAt: new Date().toISOString()
         })
       } else {
-        console.log('Creating new user profile for:', firebaseUser.email)
         // 新規ユーザーの場合、プロファイルを作成（承認待ち状態）
         let role: User['role'] = 'pending'
         
@@ -114,7 +104,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (process.env.NODE_ENV === 'development' || 
             firebaseUser.email === 'hiroki.imai@super-shift.co.jp') {
           role = 'admin'
-          console.log('Auto-approving user in development:', firebaseUser.email)
         }
         
         const newUserProfile: User = {
@@ -130,7 +119,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
         
         await setDoc(userDocRef, newUserProfile)
-        console.log('New user profile created:', newUserProfile)
         setUserProfile(newUserProfile)
       }
     } catch (error) {
@@ -139,7 +127,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   const signInWithGoogle = async (): Promise<UserCredential | void> => {
-    console.log('🟡 signInWithGoogle called')
     try {
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
@@ -151,17 +138,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         hd: '' // ドメイン制限を解除
       })
       
-      console.log('🟡 Firebase Auth Domain:', auth.config.authDomain)
-      console.log('🟡 Current Domain:', typeof window !== 'undefined' ? window.location.origin : 'SSR')
-      
       // 一時的に本番でもポップアップを試す
       if (typeof window !== 'undefined') {
-        console.log('🟡 Attempting popup sign-in...')
         try {
           return await signInWithPopup(auth, provider)
         } catch (popupError: any) {
           console.warn('🟠 Popup failed, falling back to redirect:', popupError)
-          console.log('🟡 Using redirect sign-in fallback...')
           await signInWithRedirect(auth, provider)
           return
         }
@@ -180,20 +162,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isAdmin = userProfile?.role === 'admin'
   const isActive = userProfile?.status === 'active'
   const canAccess = isApproved && isActive
-
-  // デバッグ情報をログ出力
-  if (userProfile && user) {
-    console.log('🔍 AuthContext User Debug Info:', {
-      uid: user.uid,
-      email: user.email,
-      profileRole: userProfile.role,
-      profileStatus: userProfile.status,
-      isApproved,
-      isActive,
-      canAccess,
-      timestamp: new Date().toISOString()
-    })
-  }
 
   const value = {
     user,

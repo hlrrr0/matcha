@@ -255,20 +255,20 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
             </Button>
           </Link>
         </div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Building2 className="h-8 w-8" />
-              {company.name}
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Building2 className="h-6 w-6 sm:h-8 sm:w-8" />
+              <span className="line-clamp-2">{company.name}</span>
             </h1>
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               {getStatusBadge(company.status)}
               {company.isPublic && (
                 <Badge variant="outline">公開中</Badge>
               )}
               {consultant && (
-                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800 text-xs sm:text-sm">
                   担当: {consultant.displayName || consultant.email}
                 </Badge>
               )}
@@ -276,13 +276,13 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <DominoLinkage 
             company={company} 
             onUpdate={handleCompanyUpdate}
           />
-          <Link href={`/companies/${companyId}/edit`}>
-            <Button className="flex items-center gap-2">
+          <Link href={`/companies/${companyId}/edit`} className="w-full sm:w-auto">
+            <Button className="flex items-center gap-2 w-full sm:w-auto">
               <Edit className="h-4 w-4" />
               編集
             </Button>

@@ -70,7 +70,6 @@ const candidateToFirestore = (candidate: Omit<Candidate, 'id'>) => {
 const candidateFromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): Candidate => {
   try {
     const data = doc.data()
-    console.log('🔄 変換中のドキュメント ID:', doc.id, 'データ:', data)
     
     const result = {
       id: doc.id,
@@ -91,7 +90,6 @@ const candidateFromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): Candi
       preferences: data.preferences || {}
     } as Candidate
     
-    console.log('✅ 変換完了:', result)
     return result
   } catch (error) {
     console.error('❌ 求職者データ変換エラー ID:', doc.id, error)

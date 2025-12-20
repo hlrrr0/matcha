@@ -17,29 +17,6 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
   const { user, userProfile, loading, isApproved, isAdmin, canAccess, logout } = useAuth()
   const router = useRouter()
 
-  // デバッグ情報
-  if (user && userProfile) {
-    console.log('🛡️ ProtectedRoute Debug:', {
-      timestamp: new Date().toISOString(),
-      loading,
-      hasUser: !!user,
-      hasUserProfile: !!userProfile,
-      uid: user.uid,
-      email: user.email,
-      role: userProfile.role,
-      status: userProfile.status,
-      isApproved,
-      isAdmin,
-      canAccess,
-      adminOnly
-    })
-    
-    // ブラウザコンソールにも表示（開発環境のみ）
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(`🚨 User ${user.email} (${user.uid}) - canAccess: ${canAccess}, role: ${userProfile.role}, status: ${userProfile.status}`)
-    }
-  }
-
   useEffect(() => {
     if (!loading && !user) {
       router.push('/auth/login')

@@ -173,7 +173,6 @@ export default function MatchDetailPage() {
   const loadMatchData = async () => {
     try {
       setLoading(true)
-      console.log('🔍 マッチング詳細データ読み込み開始 ID:', matchId)
 
       // マッチングデータを取得
       const matchData = await getMatch(matchId)
@@ -204,8 +203,6 @@ export default function MatchDetailPage() {
         const storeData = storesData.find(s => s.id === jobData.storeId)
         setStore(storeData || null)
       }
-
-      console.log('✅ マッチング詳細データ読み込み完了')
     } catch (error) {
       console.error('Error loading match data:', error)
       toast.error('データの読み込みに失敗しました')
@@ -578,35 +575,37 @@ export default function MatchDetailPage() {
                 </Link>
               </Button>
           </div>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div className="flex items-center space-x-4">
               <div>
-                <h1 className="text-3xl font-bold text-orange-800">
+                <h1 className="text-2xl sm:text-3xl font-bold text-orange-800">
                   マッチング詳細
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-sm sm:text-base text-gray-600 mt-1">
                   ID: {match.id}
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 onClick={loadMatchData}
                 variant="outline"
+                size="sm"
                 className="text-orange-600 border-orange-200 hover:bg-orange-50"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                更新
+                <span className="hidden sm:inline">更新</span>
               </Button>
               
               {/* マッチング編集ボタン */}
               <Button
                 onClick={handleOpenMatchEdit}
                 variant="outline"
+                size="sm"
                 className="text-purple-600 border-purple-200 hover:bg-purple-50"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                編集
+                <span className="hidden sm:inline">編集</span>
               </Button>
               
               {/* 終了ステータスでない場合は次の進捗へボタンを表示 */}
@@ -614,10 +613,11 @@ export default function MatchDetailPage() {
                 <>
                   <Button
                     onClick={() => setStatusUpdateOpen(true)}
+                    size="sm"
                     className="bg-orange-600 hover:bg-orange-700 text-white"
                   >
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    次の進捗へ
+                    <span className="hidden sm:inline">次の進捗へ</span>
                   </Button>
                   <StatusUpdateDialog
                     open={statusUpdateOpen}
