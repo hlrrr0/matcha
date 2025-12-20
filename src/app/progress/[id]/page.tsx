@@ -145,11 +145,18 @@ export default function MatchDetailPage() {
   // ステータス更新モーダル
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
 
+  // マッチング編集モーダル
+  const [matchEditOpen, setMatchEditOpen] = useState(false)
+  const [editScore, setEditScore] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editStartDate, setEditStartDate] = useState('')
+
   // タイムライン編集モーダル
   const [timelineEditOpen, setTimelineEditOpen] = useState(false)
   const [editingTimeline, setEditingTimeline] = useState<MatchTimeline | null>(null)
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
+  const [startDate, setStartDate] = useState('') // 入社予定日
   const [statusNotes, setStatusNotes] = useState('')
 
   useEffect(() => {
@@ -207,7 +214,7 @@ export default function MatchDetailPage() {
     }
   }
 
-  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date) => {
+  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date) => {
     if (!match || !user) return
 
     try {
@@ -217,7 +224,9 @@ export default function MatchDetailPage() {
         '', // 説明文は空
         user.uid,
         notes || undefined,
-        eventDateTime
+        eventDateTime,
+        undefined, // interviewRound
+        startDate
       )
       
       toast.success('ステータスを更新しました')
@@ -225,6 +234,60 @@ export default function MatchDetailPage() {
     } catch (error) {
       console.error('Error updating status:', error)
       toast.error('ステータスの更新に失敗しました')
+    }
+  }
+
+  const handleOpenMatchEdit = () => {
+    if (!match) return
+    
+    setEditScore(match.score.toString())
+    setEditNotes(match.notes || '')
+    
+    // 入社予定日の初期化
+    if (match.startDate) {
+      const startDateObj = new Date(match.startDate)
+      if (!isNaN(startDateObj.getTime())) {
+        setEditStartDate(startDateObj.toISOString().split('T')[0])
+      } else {
+        setEditStartDate('')
+      }
+    } else {
+      setEditStartDate('')
+    }
+    
+    setMatchEditOpen(true)
+  }
+
+  const handleMatchUpdate = async () => {
+    if (!match) return
+
+    try {
+      const { updateMatch } = await import('@/lib/firestore/matches')
+      
+      const updateData: any = {
+        notes: editNotes || null
+      }
+
+      const scoreNum = parseInt(editScore)
+      if (!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= 100) {
+        updateData.score = scoreNum
+      }
+
+      // 入社予定日の更新
+      if (editStartDate) {
+        updateData.startDate = new Date(editStartDate)
+      } else {
+        updateData.startDate = null
+      }
+
+      await updateMatch(match.id, updateData)
+
+      toast.success('マッチング情報を更新しました')
+      setMatchEditOpen(false)
+      loadMatchData() // データを再読み込み
+    } catch (error) {
+      console.error('Error updating match:', error)
+      toast.error('マッチング情報の更新に失敗しました')
     }
   }
 
@@ -281,6 +344,20 @@ export default function MatchDetailPage() {
     setEventDate(initialDate)
     setEventTime(initialTime)
     setStatusNotes(timeline.notes || '')
+    
+    // 入社予定日の初期化（内定承諾の場合のみ）
+    if (timeline.status === 'offer_accepted' && match?.startDate) {
+      const startDateObj = new Date(match.startDate)
+      // 有効な日付かチェック
+      if (!isNaN(startDateObj.getTime())) {
+        setStartDate(startDateObj.toISOString().split('T')[0])
+      } else {
+        setStartDate('')
+      }
+    } else {
+      setStartDate('')
+    }
+    
     setTimelineEditOpen(true)
   }
 
@@ -299,7 +376,7 @@ export default function MatchDetailPage() {
       }
 
       // タイムラインアイテムを直接更新（新しいアイテムを作成せず）
-      const { updateTimelineItem } = await import('@/lib/firestore/matches')
+      const { updateTimelineItem, updateMatch } = await import('@/lib/firestore/matches')
       
       await updateTimelineItem(
         match.id,
@@ -309,11 +386,23 @@ export default function MatchDetailPage() {
         combinedDateTime
       )
 
+      // 内定承諾の場合、入社予定日も更新
+      if (editingTimeline.status === 'offer_accepted') {
+        const updateData: any = {}
+        if (startDate) {
+          updateData.startDate = new Date(startDate)
+        } else {
+          updateData.startDate = null // 入社日をクリア
+        }
+        await updateMatch(match.id, updateData)
+      }
+
       toast.success('タイムラインを更新しました')
       setTimelineEditOpen(false)
       setEditingTimeline(null)
       setEventDate('')
       setEventTime('')
+      setStartDate('')
       setStatusNotes('')
       loadMatchData() // データを再読み込み
     } catch (error) {
@@ -339,6 +428,7 @@ export default function MatchDetailPage() {
       setEditingTimeline(null)
       setEventDate('')
       setEventTime('')
+      setStartDate('')
       setStatusNotes('')
       loadMatchData() // データを再読み込み
     } catch (error: any) {
@@ -509,30 +599,18 @@ export default function MatchDetailPage() {
                 更新
               </Button>
               
-              {/* 終了ステータス（内定承諾、辞退、不合格）の場合は編集ボタンを表示 */}
-              {['offer_accepted', 'withdrawn', 'rejected'].includes(match.status) ? (
-                <Dialog open={timelineEditOpen} onOpenChange={setTimelineEditOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={() => {
-                        // 最新のタイムラインを取得
-                        if (match.timeline && match.timeline.length > 0) {
-                          const sortedTimeline = [...match.timeline].sort((a, b) => {
-                            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
-                            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
-                            return timeB - timeA // 降順（最新が最初）
-                          })
-                          handleOpenTimelineEdit(sortedTimeline[0])
-                        }
-                      }}
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      編集
-                    </Button>
-                  </DialogTrigger>
-                </Dialog>
-              ) : statusFlow[match.status].length > 0 && (
+              {/* マッチング編集ボタン */}
+              <Button
+                onClick={handleOpenMatchEdit}
+                variant="outline"
+                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                編集
+              </Button>
+              
+              {/* 終了ステータスでない場合は次の進捗へボタンを表示 */}
+              {!['offer_accepted', 'withdrawn', 'rejected'].includes(match.status) && statusFlow[match.status].length > 0 && (
                 <>
                   <Button
                     onClick={() => setStatusUpdateOpen(true)}
@@ -672,6 +750,52 @@ export default function MatchDetailPage() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* 詳細情報 */}
+            <Card className="border-purple-100">
+              <CardHeader>
+                <CardTitle className="text-lg text-purple-800">詳細情報</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2 text-sm">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">作成日:</span>
+                  <span className="font-medium">{formatDate(match.createdAt)}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">更新日:</span>
+                  <span className="font-medium">{formatDate(match.updatedAt)}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <UserIcon className="h-4 w-4 text-gray-500" />
+                  <span className="text-gray-600">作成者:</span>
+                  <span className="font-medium">{getUserName(match.createdBy)}</span>
+                </div>
+                {match.startDate && (() => {
+                  const startDateObj = new Date(match.startDate)
+                  return !isNaN(startDateObj.getTime()) && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-green-600" />
+                      <span className="text-gray-600">入社予定日:</span>
+                      <span className="font-medium text-green-700">
+                        {startDateObj.toLocaleDateString('ja-JP', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  )
+                })()}
+                {match.notes && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-1">備考</div>
+                    <div className="text-sm text-gray-600 whitespace-pre-wrap">{match.notes}</div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -939,38 +1063,83 @@ export default function MatchDetailPage() {
                 )}
               </CardContent>
             </Card>
-            {/* メタデータ */}
-            <Card className="border-purple-100">
-              <CardHeader>
-                <CardTitle className="text-lg text-purple-800">詳細情報</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">作成日:</span>
-                  <span className="font-medium">{formatDate(match.createdAt)}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <Clock className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">更新日:</span>
-                  <span className="font-medium">{formatDate(match.updatedAt)}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <UserIcon className="h-4 w-4 text-gray-500" />
-                  <span className="text-gray-600">作成者:</span>
-                  <span className="font-medium">{getUserName(match.createdBy)}</span>
-                </div>
-                {match.notes && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="text-sm font-medium text-gray-700 mb-1">備考</div>
-                    <div className="text-sm text-gray-600">{match.notes}</div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </div>
         </div>
+
+        {/* マッチング編集モーダル */}
+        <Dialog open={matchEditOpen} onOpenChange={setMatchEditOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-purple-800">マッチング編集</DialogTitle>
+              <DialogDescription>
+                マッチングスコアと備考を編集できます
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* スコア入力 */}
+              <div className="space-y-2">
+                <Label htmlFor="editScore">マッチングスコア</Label>
+                <Input
+                  id="editScore"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editScore}
+                  onChange={(e) => setEditScore(e.target.value)}
+                  placeholder="0-100"
+                />
+                <p className="text-xs text-gray-500">
+                  0から100の間で入力してください
+                </p>
+              </div>
+
+              {/* 入社予定日入力 */}
+              <div className="space-y-2">
+                <Label htmlFor="editStartDate">入社予定日</Label>
+                <Input
+                  id="editStartDate"
+                  type="date"
+                  value={editStartDate}
+                  onChange={(e) => setEditStartDate(e.target.value)}
+                  placeholder="年/月/日"
+                />
+                <p className="text-xs text-gray-500">
+                  ※入社予定日を設定する場合のみ入力してください
+                </p>
+              </div>
+
+              {/* 備考欄 */}
+              <div className="space-y-2">
+                <Label htmlFor="editNotes">備考</Label>
+                <Textarea
+                  id="editNotes"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="マッチングに関するメモを記入してください"
+                  rows={5}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setMatchEditOpen(false)}
+              >
+                キャンセル
+              </Button>
+              <Button
+                onClick={handleMatchUpdate}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                更新
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* タイムライン編集モーダル */}
         <Dialog open={timelineEditOpen} onOpenChange={setTimelineEditOpen}>
@@ -994,13 +1163,12 @@ export default function MatchDetailPage() {
               )}
 
               {/* イベント日時入力 */}
-              {editingTimeline && ['applied', 'interview', 'offer', 'offer_accepted'].includes(editingTimeline.status) && (
+              {editingTimeline && ['applied', 'interview', 'offer'].includes(editingTimeline.status) && (
                 <div className="space-y-2">
                   <Label>
                     {editingTimeline.status === 'applied' && '応募日'}
                     {editingTimeline.status === 'interview' && '面接日'}
                     {editingTimeline.status === 'offer' && '内定日'}
-                    {editingTimeline.status === 'offer_accepted' && '内定承諾日'}
                   </Label>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -1020,6 +1188,22 @@ export default function MatchDetailPage() {
                       />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* 入社予定日入力（内定承諾のみ） */}
+              {editingTimeline && editingTimeline.status === 'offer_accepted' && (
+                <div className="space-y-2">
+                  <Label>入社予定日</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder="年/月/日"
+                  />
+                  <p className="text-xs text-gray-500">
+                    ※入社予定日は後から変更できます
+                  </p>
                 </div>
               )}
 

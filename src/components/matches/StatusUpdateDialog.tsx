@@ -81,7 +81,7 @@ interface StatusUpdateDialogProps {
   onOpenChange: (open: boolean) => void
   match: Match | null
   candidateName?: string
-  onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date) => Promise<void>
+  onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date) => Promise<void>
   isEditMode?: boolean
   // メール送信用の情報
   candidate?: {
@@ -118,6 +118,7 @@ export function StatusUpdateDialog({
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
+  const [startDate, setStartDate] = useState('') // 入社日
   const [statusNotes, setStatusNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -157,14 +158,40 @@ export function StatusUpdateDialog({
             console.error('面接日時の変換エラー:', error)
           }
         }
-      } else if (match.status === 'offer_accepted' && match.acceptedDate) {
-        const date = new Date(match.acceptedDate)
-        initialDate = date.toISOString().split('T')[0]
-        initialTime = date.toTimeString().slice(0, 5)
+      } else if (match.status === 'offer_accepted') {
+        // 内定承諾の場合、timeline から eventDate を取得
+        const offerAcceptedTimeline = match.timeline
+          ?.filter(item => item.status === 'offer_accepted')
+          .sort((a, b) => {
+            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+            return timeB - timeA
+          })[0]
+        
+        if (offerAcceptedTimeline?.eventDate) {
+          try {
+            const eventDateValue: any = offerAcceptedTimeline.eventDate
+            const date = eventDateValue?.toDate ? eventDateValue.toDate() : new Date(eventDateValue)
+            if (!isNaN(date.getTime())) {
+              initialDate = date.toISOString().split('T')[0]
+              initialTime = date.toTimeString().slice(0, 5)
+            }
+          } catch (error) {
+            console.error('内定承諾日時の変換エラー:', error)
+          }
+        }
       }
       
       setEventDate(initialDate)
       setEventTime(initialTime)
+      
+      // 入社日の初期化
+      if (match.startDate) {
+        const startDateObj = new Date(match.startDate)
+        setStartDate(startDateObj.toISOString().split('T')[0])
+      } else {
+        setStartDate('')
+      }
       
       // 最新のタイムラインからノートを読み込む
       if (match.timeline && match.timeline.length > 0) {
@@ -186,14 +213,8 @@ export function StatusUpdateDialog({
         let initialDate = ''
         let initialTime = ''
         
-        // 内定承諾の場合、既存の承諾日時を使う
-        if (nextStatuses[0] === 'offer_accepted' && match.acceptedDate) {
-          const date = new Date(match.acceptedDate)
-          initialDate = date.toISOString().split('T')[0]
-          initialTime = date.toTimeString().slice(0, 5)
-        }
         // 面接の場合、timeline から最新の面接日時を取得（2回目以降の面接用）
-        else if (nextStatuses[0] === 'interview' && match.timeline) {
+        if (nextStatuses[0] === 'interview' && match.timeline) {
           const interviewTimeline = match.timeline
             .filter(item => item.status === 'interview' && item.eventDate)
             .sort((a, b) => {
@@ -226,6 +247,14 @@ export function StatusUpdateDialog({
         setEventTime('')
       }
       setStatusNotes('')
+      
+      // 入社日の初期化（新規モード）
+      if (match.startDate) {
+        const startDateObj = new Date(match.startDate)
+        setStartDate(startDateObj.toISOString().split('T')[0])
+      } else {
+        setStartDate('')
+      }
     }
   }, [match, isEditMode])
 
@@ -247,13 +276,20 @@ export function StatusUpdateDialog({
         }
       }
 
+      // 入社日の処理
+      let startDateObj: Date | undefined = undefined
+      if (startDate) {
+        startDateObj = new Date(startDate)
+      }
+
       // ステータス更新
-      await onUpdate(newStatus, statusNotes, combinedDateTime)
+      await onUpdate(newStatus, statusNotes, combinedDateTime, startDateObj)
       
       toast.success('ステータスを更新しました')
       onOpenChange(false)
       setEventDate('')
       setEventTime('')
+      setStartDate('')
       setStatusNotes('')
     } catch (error) {
       console.error('Status update error:', error)
@@ -388,14 +424,11 @@ export function StatusUpdateDialog({
             </div>
           )}
 
-          {/* 日時入力（面接と内定承諾のみ） */}
-          {['interview', 'offer_accepted'].includes(newStatus) && 
+          {/* 日時入力（面接のみ） */}
+          {newStatus === 'interview' && 
            (!isEditMode || newStatus !== match.status) && (
             <div>
-              <Label>
-                {newStatus === 'interview' && '面接日時'}
-                {newStatus === 'offer_accepted' && '内定承諾日'}
-              </Label>
+              <Label>面接日時</Label>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <Input
                   type="date"
@@ -410,6 +443,24 @@ export function StatusUpdateDialog({
                   placeholder="--:--"
                 />
               </div>
+            </div>
+          )}
+
+          {/* 入社日入力（内定承諾のみ） */}
+          {newStatus === 'offer_accepted' && (
+            <div>
+              <Label>入社予定日</Label>
+              <div className="mt-2">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  placeholder="年/月/日"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                ※入社予定日は後から変更できます
+              </p>
             </div>
           )}
 

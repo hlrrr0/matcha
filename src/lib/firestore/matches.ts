@@ -134,6 +134,7 @@ const matchFromFirestore = (doc: any): Match => {
       offerDate: data.offerDate?.toDate ? data.offerDate.toDate() : (data.offerDate ? safeCreateDate(data.offerDate) : undefined),
       acceptedDate: data.acceptedDate?.toDate ? data.acceptedDate.toDate() : (data.acceptedDate ? safeCreateDate(data.acceptedDate) : undefined),
       rejectedDate: data.rejectedDate?.toDate ? data.rejectedDate.toDate() : (data.rejectedDate ? safeCreateDate(data.rejectedDate) : undefined),
+      startDate: data.startDate?.toDate ? data.startDate.toDate() : (data.startDate ? safeCreateDate(data.startDate) : undefined),
       // 必須フィールドのデフォルト値
       candidateId: data.candidateId || '',
       jobId: data.jobId || '',
@@ -333,7 +334,8 @@ export const updateMatchStatus = async (
   createdBy: string,
   notes?: string,
   eventDate?: Date | string,
-  interviewRound?: number
+  interviewRound?: number,
+  startDate?: Date | string
 ): Promise<void> => {
   try {
     console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
@@ -499,7 +501,9 @@ export const updateMatchStatus = async (
           updateData.offerDate = dateValue
           break
         case 'offer_accepted':
-          updateData.acceptedDate = dateValue
+          // 内定承諾日は timeline.eventDate に保存済み
+          // match.acceptedDate は後方互換性のため残すが、新規では更新しない
+          console.log('📅 内定承諾日を timeline に保存しました')
           break
         case 'rejected':
           updateData.rejectedDate = dateValue
@@ -507,7 +511,27 @@ export const updateMatchStatus = async (
       }
     }
 
+    // 入社日の保存
+    if (startDate) {
+      const startDateValue = typeof startDate === 'string' ? new Date(startDate) : startDate
+      updateData.startDate = startDateValue
+      console.log('📅 入社予定日を保存しました:', startDateValue.toISOString())
+    }
+
     await updateMatch(id, updateData)
+    
+    // ステータスが「内定承諾」の場合、候補者ステータスを「hired」に自動更新
+    if (status === 'offer_accepted') {
+      try {
+        console.log('💼 内定承諾のため候補者ステータスを「hired」に更新します')
+        const { updateCandidate } = await import('./candidates')
+        await updateCandidate(match.candidateId, { status: 'hired' })
+        console.log('✅ 候補者ステータスを「hired」に更新しました')
+      } catch (candidateError) {
+        console.error('⚠️ 候補者ステータスの更新に失敗しました:', candidateError)
+        // 候補者ステータスの更新失敗はエラーにせず警告のみ
+      }
+    }
     
     console.log('✅ ステータス更新完了')
   } catch (error) {

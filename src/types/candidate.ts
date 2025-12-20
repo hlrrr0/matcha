@@ -4,7 +4,7 @@ export interface Candidate {
   id: string
   
   // 基本情報
-  status: 'active' | 'inactive'  // ステータス（必須）
+  status: 'active' | 'inactive' | 'hired'  // ステータス（必須）
   lastName: string                                            // 名前（姓）（必須）
   firstName: string                                           // 名前（名）（必須）
   lastNameKana?: string                                       // フリガナ（姓）（任意）
@@ -42,7 +42,8 @@ export interface Candidate {
 
 export const candidateStatusLabels = {
   active: 'アクティブ',
-  inactive: '非アクティブ'
+  inactive: '非アクティブ',
+  hired: '就職決定'
 }
 
 export const campusLabels = {

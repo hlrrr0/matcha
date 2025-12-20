@@ -474,6 +474,7 @@ export default function CandidatesPage() {
   }
 
   const handleToggleStatus = async (candidateId: string, currentStatus: Candidate['status'], name: string) => {
+    // ステータスの2段階トグル: active ↔ inactive
     const newStatus: Candidate['status'] = currentStatus === 'active' ? 'inactive' : 'active'
     
     if (!confirm(`${name}さんのステータスを「${candidateStatusLabels[newStatus]}」に変更しますか？`)) {
@@ -492,13 +493,16 @@ export default function CandidatesPage() {
   }
 
   const getStatusBadge = (status: Candidate['status']) => {
-    const variants = {
-      active: 'default',
-      inactive: 'secondary'
-    } as const
+    const config = {
+      active: { variant: 'default' as const, className: 'bg-green-100 text-green-800 border-green-200' },
+      inactive: { variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800 border-gray-200' },
+      hired: { variant: 'default' as const, className: 'bg-blue-100 text-blue-800 border-blue-200' }
+    }
+
+    const { variant, className } = config[status]
 
     return (
-      <Badge variant={variants[status]}>
+      <Badge variant={variant} className={className}>
         {candidateStatusLabels[status]}
       </Badge>
     )
@@ -687,6 +691,7 @@ export default function CandidatesPage() {
                   <SelectItem value="all">すべて</SelectItem>
                   <SelectItem value="active">アクティブ</SelectItem>
                   <SelectItem value="inactive">非アクティブ</SelectItem>
+                  <SelectItem value="hired">就職決定</SelectItem>
                 </SelectContent>
               </Select>
             </div>
