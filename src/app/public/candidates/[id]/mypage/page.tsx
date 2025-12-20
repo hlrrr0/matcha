@@ -542,6 +542,51 @@ export default function CandidateMypage({ params }: CandidateMypageProps) {
               </CardContent>
             </Card>
 
+            {/* キャリア価値観診断 */}
+            <Card className="mt-6 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+              <CardHeader>
+                <CardTitle className="text-purple-900 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  キャリア価値観診断
+                </CardTitle>
+                <CardDescription>
+                  あなたが大切にしている価値観を診断します（約5分）
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-lg border border-purple-200">
+                    <h3 className="font-semibold text-gray-900 mb-2">診断でわかること</h3>
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-600">✓</span>
+                        <span>給与・待遇面で重視していること</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-600">✓</span>
+                        <span>働き方・環境面で大切にしていること</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-purple-600">✓</span>
+                        <span>キャリア・成長面での優先順位</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <Button
+                    onClick={() => router.push(`/public/candidates/${candidateId}/diagnosis`)}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    size="lg"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    診断を始める
+                  </Button>
+                  <p className="text-xs text-gray-600 text-center">
+                    診断結果は担当者との面談時に共有できます
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* アンケート回答セクション */}
             <Card className="mt-6">
               <CardHeader>
