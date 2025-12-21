@@ -217,14 +217,11 @@ export default function CandidatesPage() {
   const loadData = async () => {
     try {
       setLoading(true)
-      console.log('🔍 求職者データを読み込み開始...')
       const [candidatesData, statsData, usersData] = await Promise.all([
         getCandidates(),
         getCandidateStats(),
         getUsers()
       ])
-      console.log('📋 取得した求職者データ:', candidatesData)
-      console.log('📊 統計データ:', statsData)
       
       // 進捗件数も含めて設定
       setCandidates(candidatesData)
@@ -244,7 +241,6 @@ export default function CandidatesPage() {
   const loadProgressCounts = async (candidatesData: Candidate[]) => {
     try {
       setProgressLoading(true)
-      console.log('🔍 進捗データを読み込み開始...')
       
       const candidatesWithProgress = await Promise.all(
         candidatesData.map(async (candidate) => {
@@ -310,7 +306,6 @@ export default function CandidatesPage() {
       )
       
       setCandidates(candidatesWithProgress)
-      console.log('✅ 進捗データ読み込み完了')
     } catch (error) {
       console.error('進捗データ読み込みエラー:', error)
     } finally {
@@ -319,24 +314,16 @@ export default function CandidatesPage() {
   }
 
   const applyFilters = () => {
-    console.log('🔍 フィルタリング開始', { 
-      candidatesCount: candidates.length, 
-      statusFilter, 
-      searchTerm 
-    })
-    
     let filtered = candidates
 
     // ステータスフィルタ
     if (statusFilter !== 'all') {
       filtered = filtered.filter(candidate => candidate.status === statusFilter)
-      console.log('📊 ステータスフィルタ後:', filtered.length)
     }
 
     // 校舎フィルタ
     if (campusFilter !== 'all') {
       filtered = filtered.filter(candidate => candidate.campus === campusFilter)
-      console.log('🏫 校舎フィルタ後:', filtered.length)
     }
 
     // 入学年月フィルタ
@@ -356,7 +343,6 @@ export default function CandidatesPage() {
         candidate.email?.toLowerCase().includes(searchLower) ||
         candidate.phone?.toLowerCase().includes(searchLower)
       )
-      console.log('🔍 検索フィルタ後:', filtered.length)
     }
 
     // ソート処理

@@ -135,30 +135,14 @@ export const getCandidates = async (options?: {
   orderDirection?: 'asc' | 'desc'
 }): Promise<Candidate[]> => {
   try {
-    console.log('🔍 getCandidates開始', options)
-    
-    // 一時的に最もシンプルなクエリでテスト
-    console.log('⚠️ 一時的にシンプルクエリでテスト中')
     const snapshot = await getDocs(collection(db, COLLECTION_NAME))
-    console.log('📋 Firestoreから取得したドキュメント数:', snapshot.docs.length)
     
     if (snapshot.docs.length === 0) {
-      console.log('❌ Firestoreにドキュメントが存在しません')
       return []
     }
     
-    // 生データを確認
-    const rawData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    console.log('📋 生データサンプル:', rawData[0])
-    
     let candidates = snapshot.docs.map(candidateFromFirestore)
-    console.log('🔄 変換後の求職者データ:', candidates)
     
-    if (candidates.length === 0) {
-      console.log('❌ 変換後にデータが0件になりました')
-    }
-    
-    console.log('✅ getCandidates完了 返却データ件数:', candidates.length)
     return candidates
   } catch (error) {
     console.error('❌ getCandidatesエラー:', error)

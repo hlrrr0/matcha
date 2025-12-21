@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   
+  // 本番環境でconsole.logを自動削除（errorとwarnは残す）
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
+  
   // トレイル設定
   trailingSlash: false,
   
