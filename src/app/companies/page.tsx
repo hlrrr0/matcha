@@ -936,7 +936,7 @@ function CompaniesPageContent() {
                   return (
                     <React.Fragment key={company.id}>
                       <TableRow 
-                        className={`${isInactive ? 'bg-gray-50' : ''} ${company.contractType === 'free_only' ? 'bg-gray-100' : ''}`}
+                        className={`${isInactive ? 'bg-gray-300 hover:bg-gray-400' : ''} ${company.contractType === 'free_only' ? 'bg-gray-100' : ''}`}
                       >
                         {isAdmin && (
                           <TableCell>

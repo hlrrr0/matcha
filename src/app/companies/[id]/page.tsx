@@ -11,6 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
+import RelatedMatches from '@/components/matches/RelatedMatches'
 import { 
   ArrowLeft, 
   Building2, 
@@ -665,6 +666,13 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* 進捗一覧 */}
+          <RelatedMatches 
+            type="company" 
+            entityId={companyId}
+            entityName={company?.name}
+          />
         </div>
 
         {/* サイドバー */}

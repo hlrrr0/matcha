@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import RelatedMatches from '@/components/matches/RelatedMatches'
 import { 
   ArrowLeft, 
   Briefcase, 
@@ -522,6 +523,13 @@ function JobDetailContent({ params }: JobDetailPageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* 進捗一覧 */}
+          <RelatedMatches 
+            type="job" 
+            entityId={jobId}
+            entityName={job?.title}
+          />
         </div>
 
         {/* サイドバー */}

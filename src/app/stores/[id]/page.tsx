@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import RelatedMatches from '@/components/matches/RelatedMatches'
 import { 
   ArrowLeft, 
   Store, 
@@ -494,6 +495,13 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               </CardContent>
             </Card>
           )}
+
+          {/* 進捗一覧 */}
+          <RelatedMatches 
+            type="store" 
+            entityId={storeId}
+            entityName={store?.name}
+          />
         </div>
 
         {/* サイドバー */}
