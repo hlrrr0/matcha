@@ -25,6 +25,14 @@ export interface Store {
   staffReview?: string           // スタッフが食べに行った"正直な"感想
   trainingPeriod?: string        // 握れるまでの期間
   
+  // タグ情報
+  tags?: {
+    michelinStars?: number              // ミシュラン星数（1-3）
+    hasBibGourmand?: boolean            // ビブグルマン獲得
+    tabelogAward?: string[]             // 食べログアワード・100名店（年度タグ）例: ['2023', '2024']
+    goetMiyoScore?: number              // ゴ・エ・ミヨ スコア
+  }
+  
   // 素材セクション（10枚まで）
   ownerPhoto?: string            // 大将の写真
   ownerVideo?: string            // 大将の動画

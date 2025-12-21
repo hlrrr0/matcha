@@ -930,6 +930,21 @@ function CompaniesPageContent() {
                         <TableCell className="font-medium">
                           <Link href={`/companies/${company.id}`} className="hover:text-blue-600 hover:underline">
                             <div className="font-semibold">{company.name}</div>
+                            {/* タグ表示 */}
+                            {(company.tags?.overseasExpansion || company.tags?.hasFisheryCompany) && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {company.tags.overseasExpansion?.map((country) => (
+                                  <Badge key={country} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    🌏 {country}
+                                  </Badge>
+                                ))}
+                                {company.tags.hasFisheryCompany && (
+                                  <Badge variant="outline" className="text-xs bg-cyan-50 text-cyan-700 border-cyan-200">
+                                    🐟 水産会社
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                           </Link>
                         </TableCell>
                         <TableCell>{getStatusBadge(company.status)}</TableCell>
@@ -1073,6 +1088,31 @@ function CompaniesPageContent() {
                                           <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
                                         )}
                                       </div>
+                                      {/* タグ表示 */}
+                                      {(store.tags?.michelinStars || store.tags?.hasBibGourmand || store.tags?.tabelogAward || store.tags?.goetMiyoScore) && (
+                                        <div className="flex flex-wrap gap-1 mt-1 mb-2">
+                                          {store.tags.michelinStars && (
+                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                                              {'⭐'.repeat(store.tags.michelinStars)} ミシュラン{store.tags.michelinStars}つ星
+                                            </Badge>
+                                          )}
+                                          {store.tags.hasBibGourmand && (
+                                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                                              🍽️ ビブグルマン
+                                            </Badge>
+                                          )}
+                                          {store.tags.tabelogAward && store.tags.tabelogAward.length > 0 && (
+                                            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                                              📖 食べログ {store.tags.tabelogAward.join(', ')}
+                                            </Badge>
+                                          )}
+                                          {store.tags.goetMiyoScore && (
+                                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                              🍷 ゴ・エ・ミヨ {store.tags.goetMiyoScore}点
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
                                       <div className="text-sm text-gray-600">
                                         {store.address && <div>📍 {store.address}</div>}
                                         {store.website && <div>🌐 <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{store.website}</a></div>}

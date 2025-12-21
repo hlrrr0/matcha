@@ -44,6 +44,40 @@ export interface Job {
   // ステータス
   status: 'draft' | 'active' | 'closed'  // 求人ステータス
   
+  // キャリア診断マッチング用データ（任意）
+  matchingData?: {
+    // ワークライフバランス関連
+    workLifeBalance?: {
+      monthlyScheduledHours?: number      // 月間拘束時間（時間）
+      monthlyActualWorkHours?: number     // 月間実働時間（時間）
+      averageOvertimeHours?: number       // 平均残業時間（月/時間）
+      weekendWorkFrequency?: 'none' | 'rare' | 'monthly' | 'weekly' // 休日出勤頻度
+      holidaysPerMonth?: number           // 月間休日数（日）
+    }
+    
+    // 収入関連
+    income?: {
+      firstYearMin?: number               // 初年度想定年収・最低（万円）
+      firstYearMax?: number               // 初年度想定年収・最高（万円）
+      firstYearAverage?: number           // 初年度想定年収・平均（万円）
+      thirdYearExpected?: number          // 3年目想定年収（万円）
+    }
+    
+    // 組織・チーム関連
+    organization?: {
+      teamSize?: number                   // チームサイズ（人数）
+      averageAge?: number                 // 平均年齢（歳）
+      storeScale?: 'small' | 'medium' | 'large' // 店舗規模
+    }
+    
+    // 飲食業界特有
+    industry?: {
+      trainingPeriodMonths?: number       // 一人前になるまでの期間（月）
+      hasIndependenceSupport?: boolean    // 独立支援制度
+      michelinStars?: number              // ミシュラン星数
+    }
+  }
+  
   // メタデータ
   createdAt: string | Date
   updatedAt: string | Date
@@ -63,4 +97,17 @@ export const employmentTypeLabels = {
   'temporary': '派遣社員',
   'intern': 'インターン',
   'freelance': 'フリーランス'
+}
+
+export const weekendWorkFrequencyLabels = {
+  'none': 'なし',
+  'rare': '稀に（年数回）',
+  'monthly': '月1-2回',
+  'weekly': '毎週'
+}
+
+export const storeScaleLabels = {
+  'small': '小規模（1-3店舗）',
+  'medium': '中規模（4-10店舗）',
+  'large': '大規模（11店舗以上）'
 }

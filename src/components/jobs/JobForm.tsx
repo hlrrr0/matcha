@@ -55,7 +55,8 @@ export default function JobForm({
     selectionProcess: '',
     recommendedPoints: '',
     consultantReview: '',
-    status: 'draft'
+    status: 'draft',
+    matchingData: {}
   })
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function JobForm({
         recommendedPoints: initialData.recommendedPoints || '',
         consultantReview: initialData.consultantReview || '',
         status: initialData.status || 'draft',
+        matchingData: initialData.matchingData || {},
         ...initialData
       })
     }
@@ -148,10 +150,26 @@ export default function JobForm({
     loadData()
   }, [])
 
-  // 企業選択時に店舗をフィルタリング、検索、ソート
+  // 企業選択時に店舗をフィルタリング、検索、ソート、店舗規模を自動設定
   useEffect(() => {
     if (formData.companyId && formData.companyId !== '') {
       let companyStores = stores.filter(store => store.companyId === formData.companyId)
+      
+      // 店舗数から店舗規模を自動判定
+      const storeCount = companyStores.length
+      let storeScale: 'small' | 'medium' | 'large'
+      if (storeCount <= 3) {
+        storeScale = 'small'
+      } else if (storeCount <= 10) {
+        storeScale = 'medium'
+      } else {
+        storeScale = 'large'
+      }
+      
+      // 店舗規模を自動設定（既存の値がない場合のみ）
+      if (!formData.matchingData?.organization?.storeScale) {
+        handleChange('matchingData.organization.storeScale', storeScale)
+      }
       
       // 検索フィルタリング
       if (storeSearchTerm.trim() !== '') {
@@ -176,11 +194,86 @@ export default function JobForm({
     }
   }, [formData.companyId, stores, storeSearchTerm])
 
-  const handleChange = (field: keyof Job, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
+  // 企業・店舗データから自動的にマッチングデータを設定
+  useEffect(() => {
+    if (!formData.companyId) return
+
+    // 企業データから独立支援制度を取得
+    const company = companies.find(c => c.id === formData.companyId)
+    if (company?.hasIndependenceSupport && !formData.matchingData?.industry?.hasIndependenceSupport) {
+      handleChange('matchingData.industry.hasIndependenceSupport', company.hasIndependenceSupport)
+    }
+
+    // 店舗データからミシュラン星数と修行期間を取得
+    if (formData.storeIds && formData.storeIds.length > 0) {
+      const selectedStores = stores.filter(store => formData.storeIds?.includes(store.id))
+      
+      // ミシュラン星数（最も高い星数を採用）
+      const maxMichelinStars = Math.max(
+        ...selectedStores.map(store => store.tags?.michelinStars || 0),
+        0
+      )
+      if (maxMichelinStars > 0 && !formData.matchingData?.industry?.michelinStars) {
+        handleChange('matchingData.industry.michelinStars', maxMichelinStars)
+      }
+
+      // 修行期間（握れるまでの期間を月数に変換）
+      const trainingPeriods = selectedStores
+        .map(store => store.trainingPeriod)
+        .filter((period): period is string => !!period && period.trim() !== '')
+      
+      if (trainingPeriods.length > 0 && !formData.matchingData?.industry?.trainingPeriodMonths) {
+        // "3ヶ月"、"半年"、"1年"などの文字列を月数に変換
+        const firstPeriod = trainingPeriods[0]
+        let months = 0
+        
+        if (firstPeriod && firstPeriod.includes('年')) {
+          const yearMatch = firstPeriod.match(/(\d+)年/)
+          if (yearMatch) months = parseInt(yearMatch[1]) * 12
+        } else if (firstPeriod && firstPeriod.includes('半年')) {
+          months = 6
+        } else if (firstPeriod && (firstPeriod.includes('ヶ月') || firstPeriod.includes('ヵ月') || firstPeriod.includes('か月'))) {
+          const monthMatch = firstPeriod.match(/(\d+)[ヶヵか]月/)
+          if (monthMatch) months = parseInt(monthMatch[1])
+        }
+        
+        if (months > 0) {
+          handleChange('matchingData.industry.trainingPeriodMonths', months)
+        }
+      }
+    }
+  }, [formData.companyId, formData.storeIds, companies, stores])
+
+  const handleChange = (field: keyof Job | string, value: any) => {
+    // ネストされたプロパティ（例: 'matchingData.income.firstYearMin'）に対応
+    if (field.includes('.')) {
+      const keys = field.split('.')
+      setFormData(prev => {
+        const updated = { ...prev }
+        let current: any = updated
+        
+        // ネストされた各レベルを作成
+        for (let i = 0; i < keys.length - 1; i++) {
+          const key = keys[i]
+          if (!current[key]) {
+            current[key] = {}
+          } else {
+            current[key] = { ...current[key] }
+          }
+          current = current[key]
+        }
+        
+        // 最後のキーに値を設定
+        current[keys[keys.length - 1]] = value
+        
+        return updated
+      })
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }))
+    }
   }
 
   // 雇用形態の複数選択を処理
@@ -681,6 +774,245 @@ export default function JobForm({
               rows={4}
               placeholder="この求人についてのキャリア担当者からの率直な意見や感想"
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* キャリア診断マッチング用データ */}
+      <Card className="border-purple-200 bg-purple-50/30">
+        <CardHeader>
+          <CardTitle className="text-purple-800">キャリア診断マッチング用データ（任意）</CardTitle>
+          <CardDescription>
+            求職者の診断結果とマッチングするためのデータを入力してください。すべて任意項目です。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* ワークライフバランス関連 */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-sm text-purple-900 border-b border-purple-200 pb-2">
+              ワークライフバランス関連
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="monthlyScheduledHours">月間拘束時間（時間）</Label>
+                <Input
+                  id="monthlyScheduledHours"
+                  type="number"
+                  value={formData.matchingData?.workLifeBalance?.monthlyScheduledHours || ''}
+                  onChange={(e) => handleChange('matchingData.workLifeBalance.monthlyScheduledHours', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 200"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="monthlyActualWorkHours">月間実働時間（時間）</Label>
+                <Input
+                  id="monthlyActualWorkHours"
+                  type="number"
+                  value={formData.matchingData?.workLifeBalance?.monthlyActualWorkHours || ''}
+                  onChange={(e) => handleChange('matchingData.workLifeBalance.monthlyActualWorkHours', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 180"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="averageOvertimeHours">平均残業時間（月/時間）</Label>
+                <Input
+                  id="averageOvertimeHours"
+                  type="number"
+                  value={formData.matchingData?.workLifeBalance?.averageOvertimeHours || ''}
+                  onChange={(e) => handleChange('matchingData.workLifeBalance.averageOvertimeHours', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 20"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="holidaysPerMonth">月間休日数（日）</Label>
+                <Input
+                  id="holidaysPerMonth"
+                  type="number"
+                  value={formData.matchingData?.workLifeBalance?.holidaysPerMonth || ''}
+                  onChange={(e) => handleChange('matchingData.workLifeBalance.holidaysPerMonth', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 8"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="weekendWorkFrequency">休日出勤頻度</Label>
+                <Select
+                  value={formData.matchingData?.workLifeBalance?.weekendWorkFrequency || ''}
+                  onValueChange={(value) => handleChange('matchingData.workLifeBalance.weekendWorkFrequency', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="休日出勤の頻度を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    <SelectItem value="rare">稀に（年数回）</SelectItem>
+                    <SelectItem value="monthly">月1-2回</SelectItem>
+                    <SelectItem value="weekly">毎週</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* 収入関連 */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-sm text-purple-900 border-b border-purple-200 pb-2">
+              収入関連
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="firstYearMin">初年度想定年収・最低（万円）</Label>
+                <Input
+                  id="firstYearMin"
+                  type="number"
+                  value={formData.matchingData?.income?.firstYearMin || ''}
+                  onChange={(e) => handleChange('matchingData.income.firstYearMin', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 300"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="firstYearMax">初年度想定年収・最高（万円）</Label>
+                <Input
+                  id="firstYearMax"
+                  type="number"
+                  value={formData.matchingData?.income?.firstYearMax || ''}
+                  onChange={(e) => handleChange('matchingData.income.firstYearMax', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 400"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="firstYearAverage">初年度想定年収・平均（万円）</Label>
+                <Input
+                  id="firstYearAverage"
+                  type="number"
+                  value={formData.matchingData?.income?.firstYearAverage || ''}
+                  onChange={(e) => handleChange('matchingData.income.firstYearAverage', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 350"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="thirdYearExpected">3年目想定年収（万円）</Label>
+                <Input
+                  id="thirdYearExpected"
+                  type="number"
+                  value={formData.matchingData?.income?.thirdYearExpected || ''}
+                  onChange={(e) => handleChange('matchingData.income.thirdYearExpected', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 450"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 組織・チーム関連 */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-sm text-purple-900 border-b border-purple-200 pb-2">
+              組織・チーム関連
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="teamSize">チームサイズ（人数）</Label>
+                <Input
+                  id="teamSize"
+                  type="number"
+                  value={formData.matchingData?.organization?.teamSize || ''}
+                  onChange={(e) => handleChange('matchingData.organization.teamSize', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 5"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="averageAge">平均年齢（歳）</Label>
+                <Input
+                  id="averageAge"
+                  type="number"
+                  value={formData.matchingData?.organization?.averageAge || ''}
+                  onChange={(e) => handleChange('matchingData.organization.averageAge', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 30"
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <Label htmlFor="storeScale">店舗規模（企業の店舗数に基づく）</Label>
+                <Select
+                  value={formData.matchingData?.organization?.storeScale || ''}
+                  onValueChange={(value) => handleChange('matchingData.organization.storeScale', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="店舗の規模を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">小規模（1-3店舗）</SelectItem>
+                    <SelectItem value="medium">中規模（4-10店舗）</SelectItem>
+                    <SelectItem value="large">大規模（11店舗以上）</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  ※企業選択時に自動設定されます
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 飲食業界特有 */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-sm text-purple-900 border-b border-purple-200 pb-2">
+              飲食業界特有
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="trainingPeriodMonths">一人前になるまでの期間（月）</Label>
+                <Input
+                  id="trainingPeriodMonths"
+                  type="number"
+                  value={formData.matchingData?.industry?.trainingPeriodMonths || ''}
+                  onChange={(e) => handleChange('matchingData.industry.trainingPeriodMonths', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 24"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ※店舗の「握れるまでの期間」から自動設定されます
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="michelinStars">ミシュラン星数</Label>
+                <Input
+                  id="michelinStars"
+                  type="number"
+                  min="0"
+                  max="3"
+                  value={formData.matchingData?.industry?.michelinStars || ''}
+                  onChange={(e) => handleChange('matchingData.industry.michelinStars', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="例: 1"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  ※店舗タグから自動設定されます
+                </p>
+              </div>
+              
+              <div className="md:col-span-2 flex items-center space-x-2">
+                <Checkbox
+                  id="hasIndependenceSupport"
+                  checked={formData.matchingData?.industry?.hasIndependenceSupport || false}
+                  onCheckedChange={(checked) => handleChange('matchingData.industry.hasIndependenceSupport', checked)}
+                />
+                <Label htmlFor="hasIndependenceSupport" className="cursor-pointer">
+                  独立支援制度あり
+                </Label>
+                <span className="text-xs text-gray-500 ml-2">
+                  ※企業の「独立支援の有無」から自動設定されます
+                </span>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

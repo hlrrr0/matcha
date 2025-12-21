@@ -597,6 +597,87 @@ export default function StoreForm({
         </CardContent>
       </Card>
 
+      {/* タグ情報 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>タグ情報</CardTitle>
+          <CardDescription>店舗の受賞歴や評価情報をタグで管理します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="michelinStars">ミシュラン星数</Label>
+            <Select
+              value={formData.tags?.michelinStars?.toString() || ''}
+              onValueChange={(value) => handleChange('tags', {
+                ...formData.tags,
+                michelinStars: value ? parseInt(value) : undefined
+              })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="星数を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">なし</SelectItem>
+                <SelectItem value="1">1つ星 ⭐</SelectItem>
+                <SelectItem value="2">2つ星 ⭐⭐</SelectItem>
+                <SelectItem value="3">3つ星 ⭐⭐⭐</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasBibGourmand"
+              checked={formData.tags?.hasBibGourmand || false}
+              onCheckedChange={(checked) => handleChange('tags', {
+                ...formData.tags,
+                hasBibGourmand: checked as boolean
+              })}
+            />
+            <Label htmlFor="hasBibGourmand">ビブグルマン獲得店</Label>
+          </div>
+
+          <div>
+            <Label htmlFor="tabelogAward">食べログ アワード・100名店（年度）</Label>
+            <Input
+              id="tabelogAward"
+              value={formData.tags?.tabelogAward?.join(', ') ?? ''}
+              onChange={(e) => {
+                const years = e.target.value.split(',').map(y => y.trim()).filter(y => y !== '')
+                handleChange('tags', {
+                  ...formData.tags,
+                  tabelogAward: years.length > 0 ? years : undefined
+                })
+              }}
+              placeholder="例: 2023, 2024（カンマ区切り）"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              複数の年度をカンマ区切りで入力してください
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="goetMiyoScore">ゴ・エ・ミヨ スコア</Label>
+            <Input
+              id="goetMiyoScore"
+              type="number"
+              step="0.5"
+              min="0"
+              max="20"
+              value={formData.tags?.goetMiyoScore ?? ''}
+              onChange={(e) => handleChange('tags', {
+                ...formData.tags,
+                goetMiyoScore: e.target.value ? parseFloat(e.target.value) : undefined
+              })}
+              placeholder="例: 15.5（最大20点）"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              0〜20点の範囲で入力してください
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 素材セクション */}
       <Card>
         <CardHeader>

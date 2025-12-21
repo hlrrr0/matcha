@@ -700,6 +700,31 @@ function StoresPageContent() {
                           <span className="ml-2 text-gray-500 font-normal">【{store.prefecture}】</span>
                         )}
                       </div>
+                      {/* タグ表示 */}
+                      {(store.tags?.michelinStars || store.tags?.hasBibGourmand || store.tags?.tabelogAward || store.tags?.goetMiyoScore) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {store.tags.michelinStars && (
+                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                              {'⭐'.repeat(store.tags.michelinStars)} ミシュラン{store.tags.michelinStars}つ星
+                            </Badge>
+                          )}
+                          {store.tags.hasBibGourmand && (
+                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                              🍽️ ビブグルマン
+                            </Badge>
+                          )}
+                          {store.tags.tabelogAward && store.tags.tabelogAward.length > 0 && (
+                            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                              📖 食べログ {store.tags.tabelogAward.join(', ')}
+                            </Badge>
+                          )}
+                          {store.tags.goetMiyoScore && (
+                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                              🍷 ゴ・エ・ミヨ {store.tags.goetMiyoScore}点
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>{getCompanyName(store.companyId) ? (
                       <Link 

@@ -33,6 +33,12 @@ export interface Company {
   independenceRecord?: string             // 独立実績
   hasIndependenceSupport?: boolean        // 独立支援の有無
   
+  // タグ情報
+  tags?: {
+    overseasExpansion?: string[]          // 海外展開（国名タグ）例: ['タイ', 'シンガポール']
+    hasFisheryCompany?: boolean           // グループに水産会社あり
+  }
+  
   // 取引情報
   contractStartDate?: string | Date       // 取引開始日
   contractType?: 'paid' | 'free_only'     // 契約状況（有料紹介可、無料のみ）

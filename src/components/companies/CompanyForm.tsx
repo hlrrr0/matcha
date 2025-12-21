@@ -412,6 +412,46 @@ export default function CompanyForm({
         </CardContent>
       </Card>
 
+      {/* タグ情報 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>タグ情報</CardTitle>
+          <CardDescription>企業の特徴的な情報をタグで管理します</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="overseasExpansion">海外展開（国名）</Label>
+            <Input
+              id="overseasExpansion"
+              value={formData.tags?.overseasExpansion?.join(', ') ?? ''}
+              onChange={(e) => {
+                const countries = e.target.value.split(',').map(c => c.trim()).filter(c => c !== '')
+                handleChange('tags', {
+                  ...formData.tags,
+                  overseasExpansion: countries.length > 0 ? countries : undefined
+                })
+              }}
+              placeholder="例: タイ, シンガポール, ベトナム（カンマ区切り）"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              複数の国名をカンマ区切りで入力してください
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasFisheryCompany"
+              checked={formData.tags?.hasFisheryCompany || false}
+              onCheckedChange={(checked) => handleChange('tags', {
+                ...formData.tags,
+                hasFisheryCompany: checked as boolean
+              })}
+            />
+            <Label htmlFor="hasFisheryCompany">グループに水産会社あり</Label>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 連絡先情報 */}
       <Card>
         <CardHeader>
