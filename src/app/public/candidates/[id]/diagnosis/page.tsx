@@ -36,7 +36,7 @@ export default function DiagnosisPage() {
 
       {/* コンテンツ */}
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <CareerValuesDiagnosis />
+        <CareerValuesDiagnosis candidateId={candidateId} />
       </div>
     </div>
   )

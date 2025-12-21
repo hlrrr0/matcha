@@ -48,9 +48,11 @@ import { getMatchesByCandidate, createMatch, updateMatchStatus } from '@/lib/fir
 import { getJob, getJobs } from '@/lib/firestore/jobs'
 import { getCompany, getCompanies } from '@/lib/firestore/companies'
 import { getStoreById, getStores } from '@/lib/firestore/stores'
+import { getLatestDiagnosis } from '@/lib/firestore/diagnosis'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
+import { Diagnosis } from '@/types/diagnosis'
 import { useAuth } from '@/contexts/AuthContext'
 import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/utils/prefecture'
 import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
@@ -150,6 +152,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null)
   
   // 一括選択・辞退用の状態
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
@@ -212,7 +215,18 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     if (!candidateId) return
     loadMatches()
     loadJobsData()
+    loadDiagnosis()
   }, [candidateId])
+
+  const loadDiagnosis = async () => {
+    if (!candidateId) return
+    try {
+      const diagnosisData = await getLatestDiagnosis(candidateId)
+      setDiagnosis(diagnosisData)
+    } catch (error) {
+      console.error('診断結果の取得に失敗しました:', error)
+    }
+  }
 
   // ソート順が変わったら再ソート
   useEffect(() => {
@@ -699,6 +713,18 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <RefreshCw className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">更新</span>
           </Button>
+          {diagnosis && (
+            <Link href={`/admin/diagnosis/${diagnosis.id}`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">診断結果</span>
+              </Button>
+            </Link>
+          )}
           <Button
             onClick={() => setCreateMatchOpen(true)}
             variant="outline"

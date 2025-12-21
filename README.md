@@ -289,6 +289,29 @@ interface Company {
 - Prettier でコードフォーマットを統一
 - TypeScript の型安全性を維持
 
+## 📚 ドキュメント
+
+詳細なドキュメントは [`/docs`](./docs) ディレクトリにあります。
+
+- **[API仕様](./docs/api)** - Domino連携APIなどの仕様書
+- **[デプロイメント](./docs/deployment)** - Vercelへのデプロイ手順
+- **[機能仕様](./docs/features)** - 各機能の詳細仕様
+- **[セットアップガイド](./docs/setup)** - 環境構築手順
+- **[アーキテクチャ](./docs/architecture)** - システム設計ドキュメント
+
+詳しくは [docs/README.md](./docs/README.md) をご覧ください。
+
+## 🔧 スクリプト
+
+開発・運用で使用するスクリプトは [`/scripts`](./scripts) ディレクトリにあります。
+
+- **[テスト](./scripts/testing)** - テスト用スクリプト
+- **[マイグレーション](./scripts/migration)** - データ移行スクリプト
+- **[デバッグ](./scripts/debug)** - 確認・デバッグ用スクリプト
+- **[ユーティリティ](./scripts/utility)** - 汎用スクリプト
+
+詳しくは [scripts/README.md](./scripts/README.md) をご覧ください。
+
 ---
 
 **RecruitPro** - 効率的な人材紹介業務をサポートする現代的なシステム

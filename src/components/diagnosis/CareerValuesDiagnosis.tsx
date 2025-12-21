@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, ArrowLeft, CheckCircle, TrendingUp } from 'lucide-react'
+import { ArrowRight, ArrowLeft, CheckCircle, TrendingUp, Loader2 } from 'lucide-react'
+import { saveDiagnosis, getLatestDiagnosis } from '@/lib/firestore/diagnosis'
+import { DiagnosisAnswer } from '@/types/diagnosis'
+import { toast } from 'sonner'
 
 // 価値観の項目
 const VALUES = [
@@ -21,129 +24,162 @@ const VALUES = [
   { id: 'snsPr', label: 'SNS・PRへの積極性' }
 ]
 
-// 診断質問（二択）- 質問数を増やして精度向上
+// 診断質問（二択）- トレードオフ型質問で精度向上
 const QUESTIONS = [
-  // 給与 vs その他の価値観
+  // === Phase 1: トレードオフ型質問（より深い価値観を測定）===
   {
     id: 1,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'salary', label: '今すぐ高い給与がもらえる' },
-    optionB: { value: 'salaryGrowth', label: '将来的に大きく給与が上がる' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'salary', label: '労働時間が長いが給与が高いお店' },
+    optionB: { value: 'workingHours', label: '労働時間が短いが給与が低いお店' }
   },
   {
     id: 2,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'workingHours', label: '労働時間が短い（早く帰れる）' },
-    optionB: { value: 'holidays', label: '休日が多い（年間休日が多い）' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'nigiriTiming', label: 'すぐに握りの経験ができるが客単価が低いお店' },
+    optionB: { value: 'priceRange', label: '握るまで時間がかかるが客単価が高いオマカセのお店' }
   },
   {
     id: 3,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'nigiriTiming', label: '早くにぎりを任せてもらえる' },
-    optionB: { value: 'seniorChefs', label: '先輩職人が多く学べる環境' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'holidays', label: '休日が多いが昇給が緩やかなお店' },
+    optionB: { value: 'salaryGrowth', label: '休日が少ないが昇給が早いお店' }
   },
   {
     id: 4,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'priceRange', label: '高級店で働きたい' },
-    optionB: { value: 'salary', label: '給与が高い店で働きたい' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'seniorChefs', label: '先輩職人が多く教育が充実しているが給与は普通のお店' },
+    optionB: { value: 'salary', label: '教育体制は普通だが給与が高いお店' }
   },
   {
     id: 5,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'foreignCustomers', label: '外国人客が多い国際的な環境' },
-    optionB: { value: 'workEnvironment', label: '風通しの良い職場環境' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'workEnvironment', label: '給与は普通だが風通しが良く働きやすいお店' },
+    optionB: { value: 'salary', label: '職場は厳しいが給与が高いお店' }
   },
   {
     id: 6,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'snsPr', label: 'SNSで発信できる華やかな店' },
-    optionB: { value: 'priceRange', label: '伝統的な高級オマカセ店' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'snsPr', label: '労働時間が長いがSNSで有名な華やかなお店' },
+    optionB: { value: 'workingHours', label: 'ブランド力は普通だが労働時間が短いお店' }
   },
   {
     id: 7,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'salary', label: '給与重視' },
-    optionB: { value: 'workEnvironment', label: '働きやすさ重視' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'foreignCustomers', label: '外国人客が多く国際的だが給与は普通のお店' },
+    optionB: { value: 'salary', label: '日本人客中心だが給与が高いお店' }
   },
   {
     id: 8,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'nigiriTiming', label: 'スキル習得のスピード' },
-    optionB: { value: 'holidays', label: 'ワークライフバランス' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'nigiriTiming', label: '早く握りを任されるが先輩が少ないお店' },
+    optionB: { value: 'seniorChefs', label: 'じっくり基礎から学べて先輩が多いお店' }
   },
   {
     id: 9,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'seniorChefs', label: '教育体制が充実' },
-    optionB: { value: 'salaryGrowth', label: '将来の昇給が見込める' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'priceRange', label: '休日が少ないが高級オマカセで働けるお店' },
+    optionB: { value: 'holidays', label: 'カジュアルな店だが休日が多いお店' }
   },
   {
     id: 10,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'workingHours', label: '残業が少ない' },
-    optionB: { value: 'snsPr', label: 'ブランド力のある店' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'salaryGrowth', label: '初任給は普通だが将来的に大きく昇給するお店' },
+    optionB: { value: 'salary', label: '初任給は高いが昇給は緩やかなお店' }
   },
-  // 追加の質問でさらに精度向上
+  
+  // === Phase 2: 標準的な二択質問（基本的な優先順位）===
   {
     id: 11,
     text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'salary', label: '固定給が高い' },
-    optionB: { value: 'holidays', label: '完全週休2日制' }
+    optionA: { value: 'salary', label: '今すぐ高い給与' },
+    optionB: { value: 'salaryGrowth', label: '将来的な昇給' }
   },
   {
     id: 12,
     text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'nigiriTiming', label: '早期に独立できる技術' },
-    optionB: { value: 'seniorChefs', label: 'じっくり基礎から学べる' }
+    optionA: { value: 'workingHours', label: '労働時間の短さ' },
+    optionB: { value: 'holidays', label: '休日の多さ' }
   },
   {
     id: 13,
     text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'workEnvironment', label: '厳しくても成長できる環境' },
-    optionB: { value: 'workingHours', label: 'プライベートの時間' }
+    optionA: { value: 'nigiriTiming', label: 'スキル習得のスピード' },
+    optionB: { value: 'seniorChefs', label: '教育体制の充実' }
   },
   {
     id: 14,
     text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'foreignCustomers', label: 'グローバルな経験' },
-    optionB: { value: 'priceRange', label: '一流店での経験' }
+    optionA: { value: 'priceRange', label: '高級店での経験' },
+    optionB: { value: 'workEnvironment', label: '働きやすい環境' }
   },
   {
     id: 15,
     text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'salaryGrowth', label: '昇進・昇格のチャンス' },
-    optionB: { value: 'snsPr', label: '知名度のある店で働く' }
+    optionA: { value: 'foreignCustomers', label: '国際的な経験' },
+    optionB: { value: 'snsPr', label: 'ブランド力のある店' }
   },
+  
+  // === Phase 3: より複雑なトレードオフ（3要素の組み合わせ）===
   {
     id: 16,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'workEnvironment', label: 'チームワークを重視' },
-    optionB: { value: 'salary', label: '実力主義で給与に反映' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'workEnvironment', label: '給与・休日は普通だが人間関係が良く風通しの良いお店' },
+    optionB: { value: 'salary', label: '人間関係は厳しいが給与が高く待遇の良いお店' }
   },
   {
     id: 17,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'holidays', label: '長期休暇が取れる' },
-    optionB: { value: 'salaryGrowth', label: '頑張った分だけ給与アップ' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'nigiriTiming', label: '給与は普通だが1年で握りを任されるお店' },
+    optionB: { value: 'salary', label: '握るまで3年かかるが給与が高いお店' }
   },
   {
     id: 18,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'nigiriTiming', label: '責任ある仕事を早く任される' },
-    optionB: { value: 'workingHours', label: '無理のない勤務時間' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'holidays', label: '完全週休2日だが給与の上がり幅は小さいお店' },
+    optionB: { value: 'salaryGrowth', label: '月6日休みだが3年後には給与が1.5倍になるお店' }
   },
   {
     id: 19,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'priceRange', label: '高級食材を扱う店' },
-    optionB: { value: 'seniorChefs', label: 'ベテランから学べる' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'snsPr', label: 'SNSで有名な華やかな店だが労働時間が長いお店' },
+    optionB: { value: 'workingHours', label: '知名度は普通だが定時で帰れるお店' }
   },
   {
     id: 20,
-    text: 'あなたはどちらを重視しますか？',
-    optionA: { value: 'snsPr', label: '注目される店で働く' },
-    optionB: { value: 'foreignCustomers', label: '多様な文化に触れる' }
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'priceRange', label: 'ミシュラン星付きの超高級店だが休日が少ないお店' },
+    optionB: { value: 'holidays', label: '普通の寿司店だが年間休日120日のお店' }
+  },
+  {
+    id: 21,
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'seniorChefs', label: 'ベテラン職人5人から学べるが給与は業界平均のお店' },
+    optionB: { value: 'nigiriTiming', label: '先輩は少ないが半年で握りを任されるお店' }
+  },
+  {
+    id: 22,
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'foreignCustomers', label: '外国人客が8割で英語が飛び交うグローバルな店' },
+    optionB: { value: 'workEnvironment', label: '日本人客中心で落ち着いた雰囲気の店' }
+  },
+  {
+    id: 23,
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'salaryGrowth', label: '初任給22万円だが5年後に40万円になるお店' },
+    optionB: { value: 'salary', label: '初任給30万円だが5年後も35万円のお店' }
+  },
+  {
+    id: 24,
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'workEnvironment', label: '給与は普通だが怒号のない建設的な指導をするお店' },
+    optionB: { value: 'priceRange', label: '厳しい指導だが超高級オマカセで一流の技術が学べるお店' }
+  },
+  {
+    id: 25,
+    text: 'どちらのお店で働きたいですか？',
+    optionA: { value: 'snsPr', label: 'インスタフォロワー10万人の有名店だが給与は普通' },
+    optionB: { value: 'holidays', label: '知名度は普通だが完全週休2日で年間休日125日のお店' }
   }
 ]
 
@@ -151,12 +187,48 @@ interface DiagnosisResult {
   [key: string]: number
 }
 
-export default function CareerValuesDiagnosis() {
+interface Props {
+  candidateId?: string
+}
+
+export default function CareerValuesDiagnosis({ candidateId }: Props) {
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<DiagnosisResult>({})
+  const [detailedAnswers, setDetailedAnswers] = useState<DiagnosisAnswer[]>([])
   const [isComplete, setIsComplete] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasPreviousResult, setHasPreviousResult] = useState(false)
+
+  // 既存の診断結果をチェック
+  useEffect(() => {
+    const checkPreviousResult = async () => {
+      if (!candidateId) return
+      
+      try {
+        const previousDiagnosis = await getLatestDiagnosis(candidateId)
+        if (previousDiagnosis) {
+          setHasPreviousResult(true)
+        }
+      } catch (error) {
+        console.error('Error checking previous result:', error)
+      }
+    }
+    
+    checkPreviousResult()
+  }, [candidateId])
 
   const handleAnswer = (valueId: string) => {
+    const question = QUESTIONS[currentQuestion]
+    
+    // 詳細な回答を記録
+    setDetailedAnswers(prev => [
+      ...prev,
+      {
+        questionId: question.id,
+        selectedValue: valueId
+      }
+    ])
+
     // スコアを加算
     setAnswers(prev => ({
       ...prev,
@@ -167,7 +239,46 @@ export default function CareerValuesDiagnosis() {
     if (currentQuestion < QUESTIONS.length - 1) {
       setCurrentQuestion(prev => prev + 1)
     } else {
-      setIsComplete(true)
+      // 診断完了
+      completeDiagnosis(valueId)
+    }
+  }
+
+  const completeDiagnosis = async (lastValueId: string) => {
+    setIsComplete(true)
+
+    // 最後の回答を含めた結果を計算
+    const finalAnswers = {
+      ...answers,
+      [lastValueId]: (answers[lastValueId] || 0) + 1
+    }
+
+    const finalDetailedAnswers = [
+      ...detailedAnswers,
+      {
+        questionId: QUESTIONS[currentQuestion].id,
+        selectedValue: lastValueId
+      }
+    ]
+
+    // 結果を保存（candidateIdがある場合のみ）
+    if (candidateId) {
+      setIsSaving(true)
+      try {
+        const results = VALUES.map(value => ({
+          valueId: value.id,
+          label: value.label,
+          score: finalAnswers[value.id] || 0
+        })).sort((a, b) => b.score - a.score)
+
+        await saveDiagnosis(candidateId, finalDetailedAnswers, results)
+        toast.success('診断結果を保存しました')
+      } catch (error) {
+        console.error('Error saving diagnosis:', error)
+        toast.error('診断結果の保存に失敗しました')
+      } finally {
+        setIsSaving(false)
+      }
     }
   }
 
@@ -180,7 +291,9 @@ export default function CareerValuesDiagnosis() {
   const handleRestart = () => {
     setCurrentQuestion(0)
     setAnswers({})
+    setDetailedAnswers([])
     setIsComplete(false)
+    setIsSaving(false)
   }
 
   // 結果を計算してソート
