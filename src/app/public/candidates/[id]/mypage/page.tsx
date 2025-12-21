@@ -26,7 +26,10 @@ import { Match } from '@/types/matching'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
+import { Diagnosis } from '@/types/diagnosis'
+import { getDiagnosisHistory } from '@/lib/firestore/diagnosis'
 import { toast } from 'sonner'
+import DiagnosisHistoryComparison from '@/components/diagnosis/DiagnosisHistoryComparison'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '確認中',
@@ -71,6 +74,7 @@ export default function CandidateMypage({ params }: CandidateMypageProps) {
   const [candidateId, setCandidateId] = useState<string>('')
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
+  const [diagnosisHistory, setDiagnosisHistory] = useState<Diagnosis[]>([])
   const [loading, setLoading] = useState(true)
   const [applyingMatchId, setApplyingMatchId] = useState<string | null>(null)
   const [hasSurvey, setHasSurvey] = useState(false)
@@ -269,6 +273,14 @@ export default function CandidateMypage({ params }: CandidateMypageProps) {
       })
 
       setMatches(matchesWithDetails)
+
+      // 診断履歴を取得
+      try {
+        const diagnosisData = await getDiagnosisHistory(candidateId)
+        setDiagnosisHistory(diagnosisData)
+      } catch (error) {
+        console.error('診断結果の取得エラー:', error)
+      }
 
       // アンケート回答済みかチェックとデータ取得
       const surveysQuery = query(
@@ -543,49 +555,61 @@ export default function CandidateMypage({ params }: CandidateMypageProps) {
             </Card>
 
             {/* キャリア価値観診断 */}
-            <Card className="mt-6 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
-              <CardHeader>
-                <CardTitle className="text-purple-900 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  キャリア価値観診断
-                </CardTitle>
-                <CardDescription>
-                  あなたが大切にしている価値観を診断します（約5分）
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="bg-white p-4 rounded-lg border border-purple-200">
-                    <h3 className="font-semibold text-gray-900 mb-2">診断でわかること</h3>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <span className="text-purple-600">✓</span>
-                        <span>給与・待遇面で重視していること</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-purple-600">✓</span>
-                        <span>働き方・環境面で大切にしていること</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-purple-600">✓</span>
-                        <span>キャリア・成長面での優先順位</span>
-                      </li>
-                    </ul>
+            {diagnosisHistory.length > 0 ? (
+              // 診断履歴がある場合は比較コンポーネントを表示
+              <div className="mt-6">
+                <DiagnosisHistoryComparison 
+                  diagnosisHistory={diagnosisHistory}
+                  showRetakeButton={true}
+                  candidateId={candidateId}
+                />
+              </div>
+            ) : (
+              // 診断履歴がない場合は診断開始カードを表示
+              <Card className="mt-6 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50">
+                <CardHeader>
+                  <CardTitle className="text-purple-900 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    キャリア価値観診断
+                  </CardTitle>
+                  <CardDescription>
+                    あなたが大切にしている価値観を診断します（約5分）
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="bg-white p-4 rounded-lg border border-purple-200">
+                      <h3 className="font-semibold text-gray-900 mb-2">診断でわかること</h3>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-600">✓</span>
+                          <span>給与・待遇面で重視していること</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-600">✓</span>
+                          <span>働き方・環境面で大切にしていること</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-purple-600">✓</span>
+                          <span>キャリア・成長面での優先順位</span>
+                        </li>
+                      </ul>
+                    </div>
+                    <Button
+                      onClick={() => router.push(`/public/candidates/${candidateId}/diagnosis`)}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      size="lg"
+                    >
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      診断を始める
+                    </Button>
+                    <p className="text-xs text-gray-600 text-center">
+                      診断結果は担当者との面談時に共有できます
+                    </p>
                   </div>
-                  <Button
-                    onClick={() => router.push(`/public/candidates/${candidateId}/diagnosis`)}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                    size="lg"
-                  >
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    診断を始める
-                  </Button>
-                  <p className="text-xs text-gray-600 text-center">
-                    診断結果は担当者との面談時に共有できます
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* アンケート回答セクション */}
             <Card className="mt-6">

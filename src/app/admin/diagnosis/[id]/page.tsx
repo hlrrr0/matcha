@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { TrendingUp, User, Calendar, ArrowLeft, CheckCircle } from 'lucide-react'
+import { TrendingUp, User, Calendar, ArrowLeft, CheckCircle, MessageSquare } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { getCandidateById } from '@/lib/firestore/candidates'
@@ -15,6 +15,7 @@ import { Diagnosis } from '@/types/diagnosis'
 import { Candidate } from '@/types/candidate'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
+import { getQuestionById, getValueLabel } from '@/lib/diagnosis-questions'
 
 export default function DiagnosisDetailPage() {
   const params = useParams()
@@ -245,6 +246,82 @@ export default function DiagnosisDetailPage() {
                 この診断結果を参考に、求職者に最適な求人を提案してください。
                 特にTOP3の価値観に合致する職場環境や条件を重視した提案が効果的です。
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 回答履歴 */}
+        <Card className="border-purple-100">
+          <CardHeader>
+            <CardTitle className="text-purple-800 flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              回答履歴
+            </CardTitle>
+            <CardDescription>
+              各質問に対する回答内容（全{diagnosis.answers.length}問）
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {diagnosis.answers.map((answer) => {
+                const question = getQuestionById(answer.questionId)
+                if (!question) return null
+
+                const isOptionA = question.optionA.value === answer.selectedValue
+                const selectedOption = isOptionA ? question.optionA : question.optionB
+                const valueLabel = getValueLabel(answer.selectedValue)
+
+                return (
+                  <div key={answer.questionId} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <Badge variant="outline" className="text-xs font-semibold">
+                        Q{answer.questionId}
+                      </Badge>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-700 mb-2">{question.text}</p>
+                        <div className="flex flex-col gap-2">
+                          {/* 選択された回答 */}
+                          <div className={`p-3 rounded-lg border-2 ${
+                            isOptionA 
+                              ? 'bg-purple-50 border-purple-300' 
+                              : 'bg-blue-50 border-blue-300'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${
+                                isOptionA 
+                                  ? 'bg-purple-600 text-white' 
+                                  : 'bg-blue-600 text-white'
+                              } text-xs`}>
+                                {isOptionA ? 'A' : 'B'}選択
+                              </Badge>
+                              <span className="text-sm font-medium text-gray-900">
+                                {selectedOption.label}
+                              </span>
+                            </div>
+                            <div className="mt-1 ml-7">
+                              <Badge variant="outline" className="text-xs">
+                                価値観: {valueLabel}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {/* 選択されなかった方の選択肢（参考表示） */}
+                          <div className="p-2 rounded bg-gray-100 border border-gray-200">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs text-gray-500">
+                                {isOptionA ? 'B' : 'A'}
+                              </Badge>
+                              <span className="text-xs text-gray-600">
+                                {isOptionA ? question.optionB.label : question.optionA.label}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>

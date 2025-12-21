@@ -813,12 +813,21 @@ export default function CandidatesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCandidates.map((candidate) => (
-                <TableRow 
-                  key={candidate.id}
-                  className={`cursor-pointer transition-colors ${candidate.status === 'inactive' ? 'bg-gray-100 hover:bg-gray-200' : 'hover:bg-blue-50'}`}
-                  onClick={() => router.push(`/candidates/${candidate.id}`)}
-                >
+              {filteredCandidates.map((candidate) => {
+                // ステータスに応じた背景色
+                let rowClassName = 'cursor-pointer transition-colors hover:bg-blue-50'
+                if (candidate.status === 'inactive') {
+                  rowClassName = 'cursor-pointer transition-colors bg-gray-300 hover:bg-gray-400'
+                } else if (candidate.status === 'hired') {
+                  rowClassName = 'cursor-pointer transition-colors bg-gray-100 hover:bg-gray-200'
+                }
+                
+                return (
+                  <TableRow 
+                    key={candidate.id}
+                    className={rowClassName}
+                    onClick={() => router.push(`/candidates/${candidate.id}`)}
+                  >
                   <TableCell>
                     <div>
                       <div className="font-medium">
@@ -941,7 +950,8 @@ export default function CandidatesPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                )
+              })}
             </TableBody>
           </Table>
 

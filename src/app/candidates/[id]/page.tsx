@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -48,7 +49,7 @@ import { getMatchesByCandidate, createMatch, updateMatchStatus } from '@/lib/fir
 import { getJob, getJobs } from '@/lib/firestore/jobs'
 import { getCompany, getCompanies } from '@/lib/firestore/companies'
 import { getStoreById, getStores } from '@/lib/firestore/stores'
-import { getLatestDiagnosis } from '@/lib/firestore/diagnosis'
+import { getDiagnosisHistory } from '@/lib/firestore/diagnosis'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -57,6 +58,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/utils/prefecture'
 import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
+import DiagnosisHistoryComparison from '@/components/diagnosis/DiagnosisHistoryComparison'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -152,7 +154,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [candidate, setCandidate] = useState<Candidate | null>(null)
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null)
+  const [diagnosisHistory, setDiagnosisHistory] = useState<Diagnosis[]>([])
+  const [selectedDiagnosisIds, setSelectedDiagnosisIds] = useState<string[]>([])
+  const [showComparison, setShowComparison] = useState(false)
   
   // 一括選択・辞退用の状態
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
@@ -221,8 +225,12 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const loadDiagnosis = async () => {
     if (!candidateId) return
     try {
-      const diagnosisData = await getLatestDiagnosis(candidateId)
-      setDiagnosis(diagnosisData)
+      const diagnosisData = await getDiagnosisHistory(candidateId)
+      setDiagnosisHistory(diagnosisData)
+      // デフォルトで最新の診断を選択
+      if (diagnosisData.length > 0 && diagnosisData[0].id) {
+        setSelectedDiagnosisIds([diagnosisData[0].id])
+      }
     } catch (error) {
       console.error('診断結果の取得に失敗しました:', error)
     }
@@ -713,8 +721,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <RefreshCw className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">更新</span>
           </Button>
-          {diagnosis && (
-            <Link href={`/admin/diagnosis/${diagnosis.id}`}>
+          {diagnosisHistory.length > 0 && (
+            <Link href={`/admin/diagnosis/${diagnosisHistory[0].id}`}>
               <Button
                 variant="outline"
                 size="sm"
@@ -1149,6 +1157,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             </CardContent>
           </Card>       
         </div>
+
+        {/* 診断結果セクション */}
+        {diagnosisHistory.length > 0 && (
+          <DiagnosisHistoryComparison diagnosisHistory={diagnosisHistory} />
+        )}
 
         <Card className="border-green-100">
           <CardHeader>

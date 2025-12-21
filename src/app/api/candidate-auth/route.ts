@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Resend } from 'resend'
 
@@ -10,9 +10,6 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key_for_build'
 function generateAuthCode(): string {
   return Math.floor(10000000 + Math.random() * 90000000).toString()
 }
-
-// 一時的な認証コードストレージ（実運用ではRedisなどを使用）
-const authCodes = new Map<string, { email: string; candidateId: string; expiresAt: number }>()
 
 // 認証コードをメール送信するAPI
 export async function POST(request: NextRequest) {
@@ -62,11 +59,13 @@ export async function POST(request: NextRequest) {
     const candidateId = candidateDoc.id
     const authCode = generateAuthCode()
 
-    // 認証コードを保存（5分間有効）
-    authCodes.set(authCode, {
+    // 認証コードをFirestoreに保存（5分間有効）
+    await addDoc(collection(db, 'authCodes'), {
+      code: authCode,
       email: email.toLowerCase().trim(),
       candidateId,
-      expiresAt: Date.now() + 5 * 60 * 1000, // 5分
+      expiresAt: Timestamp.fromMillis(Date.now() + 5 * 60 * 1000), // 5分
+      createdAt: Timestamp.now()
     })
 
     // 求職者の名前を取得
@@ -139,17 +138,26 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const authData = authCodes.get(code)
+    // Firestoreから認証コードを検索
+    const authCodesRef = collection(db, 'authCodes')
+    const q = query(authCodesRef, where('code', '==', code))
+    const snapshot = await getDocs(q)
 
-    if (!authData) {
+    if (snapshot.empty) {
       return NextResponse.json(
         { message: '無効な認証コードです' },
         { status: 401 }
       )
     }
 
-    if (Date.now() > authData.expiresAt) {
-      authCodes.delete(code)
+    const authDoc = snapshot.docs[0]
+    const authData = authDoc.data()
+    
+    // 有効期限チェック
+    const expiresAt = authData.expiresAt.toMillis()
+    if (Date.now() > expiresAt) {
+      // 期限切れのコードを削除
+      await deleteDoc(doc(db, 'authCodes', authDoc.id))
       return NextResponse.json(
         { message: '認証コードの有効期限が切れています' },
         { status: 401 }
@@ -157,7 +165,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 認証成功後、コードを削除（ワンタイムトークン）
-    authCodes.delete(code)
+    await deleteDoc(doc(db, 'authCodes', authDoc.id))
 
     return NextResponse.json({
       candidateId: authData.candidateId,

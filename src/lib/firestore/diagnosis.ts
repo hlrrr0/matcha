@@ -20,11 +20,10 @@ export async function saveDiagnosis(
   results: DiagnosisResult[]
 ): Promise<string> {
   try {
-    // TOP3の価値観を抽出
+    // TOP3の価値観を抽出（DiagnosisResult[]として保存）
     const topValues = results
       .slice(0, 3)
       .filter(r => r.score > 0)
-      .map(r => r.valueId)
 
     const diagnosis: Omit<Diagnosis, 'id'> = {
       candidateId,

@@ -16,7 +16,7 @@ export interface Diagnosis {
   candidateId: string
   answers: DiagnosisAnswer[]
   results: DiagnosisResult[]
-  topValues: string[] // TOP3の価値観ID
+  topValues: DiagnosisResult[] // TOP3の価値観（結果データ）
   completedAt: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
