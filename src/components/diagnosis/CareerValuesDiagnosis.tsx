@@ -36,8 +36,8 @@ const QUESTIONS = [
   {
     id: 2,
     text: 'どちらのお店で働きたいですか？',
-    optionA: { value: 'nigiriTiming', label: 'すぐに握りの経験ができるが客単価が低いお店' },
-    optionB: { value: 'priceRange', label: '握るまで時間がかかるが客単価が高いオマカセのお店' }
+    optionA: { value: 'nigiriTiming', label: '客単価が低く早く握れるが、給与は普通のお店' },
+    optionB: { value: 'priceRange', label: '高級店で一流の技術が学べるが、握るまで時間がかかり若手は給与が低いお店' }
   },
   {
     id: 3,
@@ -78,8 +78,8 @@ const QUESTIONS = [
   {
     id: 9,
     text: 'どちらのお店で働きたいですか？',
-    optionA: { value: 'priceRange', label: '休日が少ないが高級オマカセで働けるお店' },
-    optionB: { value: 'holidays', label: 'カジュアルな店だが休日が多いお店' }
+    optionA: { value: 'priceRange', label: '高級オマカセ店で一流の技術を学べるが、若手のうちは休日が少なく給与も低いお店' },
+    optionB: { value: 'holidays', label: '客単価は普通だが休日が多く、ワークライフバランスが取れるお店' }
   },
   {
     id: 10,
@@ -130,8 +130,8 @@ const QUESTIONS = [
   {
     id: 17,
     text: 'どちらのお店で働きたいですか？',
-    optionA: { value: 'nigiriTiming', label: '給与は普通だが1年で握りを任されるお店' },
-    optionB: { value: 'salary', label: '握るまで3年かかるが給与が高いお店' }
+    optionA: { value: 'nigiriTiming', label: '客数が多い店で1年で握りを任され、たくさん魚に触れられるお店' },
+    optionB: { value: 'priceRange', label: '高級店でじっくり基礎を学べるが、握るまで3年以上かかるお店' }
   },
   {
     id: 18,
@@ -148,8 +148,8 @@ const QUESTIONS = [
   {
     id: 20,
     text: 'どちらのお店で働きたいですか？',
-    optionA: { value: 'priceRange', label: 'ミシュラン星付きの超高級店だが休日が少ないお店' },
-    optionB: { value: 'holidays', label: '普通の寿司店だが年間休日120日のお店' }
+    optionA: { value: 'priceRange', label: 'ミシュラン星付きの超高級店だが、若手は休日が少なく給与も低いお店' },
+    optionB: { value: 'holidays', label: '客単価は普通だが年間休日120日で働きやすいお店' }
   },
   {
     id: 21,
@@ -172,8 +172,8 @@ const QUESTIONS = [
   {
     id: 24,
     text: 'どちらのお店で働きたいですか？',
-    optionA: { value: 'workEnvironment', label: '給与は普通だが怒号のない建設的な指導をするお店' },
-    optionB: { value: 'priceRange', label: '厳しい指導だが超高級オマカセで一流の技術が学べるお店' }
+    optionA: { value: 'workEnvironment', label: '客単価は普通だが怒号のない建設的な指導で働きやすいお店' },
+    optionB: { value: 'priceRange', label: '超高級オマカセで一流の技術が学べるが、厳しい修行が必要なお店' }
   },
   {
     id: 25,
