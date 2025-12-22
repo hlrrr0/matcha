@@ -9,7 +9,9 @@ import {
   GoogleAuthProvider,
   signOut, 
   onAuthStateChanged,
-  UserCredential
+  UserCredential,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
@@ -128,6 +130,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signInWithGoogle = async (): Promise<UserCredential | void> => {
     try {
+      // セッション永続性を設定（30日間ログイン状態を維持）
+      await setPersistence(auth, browserLocalPersistence)
+      
       const provider = new GoogleAuthProvider()
       provider.addScope('email')
       provider.addScope('profile')

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
@@ -116,7 +116,12 @@ const statusFlow: Record<Match['status'], Match['status'][]> = {
 
 function ProgressPageContent() {
   const { user, isAdmin } = useAuth()
+  const router = useRouter()
   const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<'progress' | 'accepted'>(
+    tabParam === 'accepted' ? 'accepted' : 'progress'
+  )
   const [matches, setMatches] = useState<MatchWithDetails[]>([])
   const [filteredMatches, setFilteredMatches] = useState<MatchWithDetails[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -441,7 +446,7 @@ function ProgressPageContent() {
     }
   }
 
-  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date) => {
+  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date, endDate?: Date) => {
     if (!selectedMatch) return
 
     try {
@@ -451,7 +456,10 @@ function ProgressPageContent() {
         '',
         user?.uid || '',
         notes || undefined,
-        eventDateTime
+        eventDateTime,
+        undefined,
+        startDate,
+        endDate
       )
       
       await loadData() // Reload data
@@ -918,18 +926,6 @@ function ProgressPageContent() {
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="score">マッチングスコア ({newMatchData.score})</Label>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={newMatchData.score}
-                          onChange={(e) => setNewMatchData(prev => ({ ...prev, score: parseInt(e.target.value) }))}
-                          className="w-full"
-                        />
-                      </div>
-                      <div>
                         <Label htmlFor="notes">備考</Label>
                         <Textarea
                           id="notes"
@@ -960,6 +956,40 @@ function ProgressPageContent() {
             </div>
           </div>
 
+          {/* タブナビゲーション */}
+          <div className="mb-6 flex gap-2 border-b border-gray-200">
+            <button
+              onClick={() => {
+                setActiveTab('progress')
+                router.push('/progress')
+              }}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'progress'
+                  ? 'border-b-2 border-orange-500 text-orange-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <TrendingUp className="h-4 w-4 inline mr-2" />
+              進捗一覧
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('accepted')
+                router.push('/progress?tab=accepted')
+              }}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'accepted'
+                  ? 'border-b-2 border-orange-500 text-orange-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <CheckCircle className="h-4 w-4 inline mr-2" />
+              内定承諾者一覧
+            </button>
+          </div>
+
+          {activeTab === 'progress' && (
+            <>
           {/* フィルター */}
           <Card className="mb-6">
             <CardHeader>
@@ -1344,7 +1374,7 @@ function ProgressPageContent() {
             match={selectedMatch}
             candidateName={selectedMatch?.candidateName || ''}
             onUpdate={handleStatusUpdate}
-            isEditMode={false}
+            isEditMode={true}
             candidate={selectedMatch ? (() => {
               const c = candidates.find(cand => cand.id === selectedMatch.candidateId)
               return c ? {
@@ -1537,6 +1567,154 @@ function ProgressPageContent() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </>
+          )}
+
+          {/* 内定承諾者一覧タブ */}
+          {activeTab === 'accepted' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-orange-800">内定承諾者一覧</CardTitle>
+                <CardDescription>
+                  内定を承諾した求職者の店舗名と入社日を管理します
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>求職者名</TableHead>
+                      <TableHead>店舗名</TableHead>
+                      <TableHead>企業名</TableHead>
+                      <TableHead>入社日</TableHead>
+                      <TableHead>退職日</TableHead>
+                      <TableHead>担当者</TableHead>
+                      <TableHead>メモ</TableHead>
+                      <TableHead>進捗詳細</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matches
+                      .filter(match => match.status === 'offer_accepted')
+                      .sort((a, b) => {
+                        // 入社日でソート（新しい順）
+                        const dateA = a.startDate ? new Date(a.startDate).getTime() : 0
+                        const dateB = b.startDate ? new Date(b.startDate).getTime() : 0
+                        return dateB - dateA
+                      })
+                      .map(match => {
+                        const candidate = candidates.find(c => c.id === match.candidateId)
+                        const assignedUser = users.find(u => u.id === match.candidateAssignedUserId)
+                        
+                        return (
+                          <TableRow key={match.id}>
+                            <TableCell className="font-medium">
+                              <Link 
+                                href={`/candidates/${match.candidateId}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                {match.candidateName}
+                              </Link>
+                              {candidate?.campus && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`ml-2 text-xs ${campusColors[candidate.campus]}`}
+                                >
+                                  {campusLabels[candidate.campus]}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {match.storeName ? (
+                                <Link 
+                                  href={`/stores/${match.storeId}`}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {match.storeName}
+                                </Link>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {match.companyName ? (
+                                <Link 
+                                  href={`/companies/${match.companyId}`}
+                                  className="text-blue-600 hover:underline"
+                                >
+                                  {match.companyName}
+                                </Link>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {match.startDate ? (
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-4 w-4 text-gray-400" />
+                                  {new Date(match.startDate).toLocaleDateString('ja-JP')}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">未設定</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {match.endDate ? (
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-4 w-4 text-gray-400" />
+                                  {new Date(match.endDate).toLocaleDateString('ja-JP')}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {assignedUser ? (
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={assignedUser.photoURL} />
+                                    <AvatarFallback className="text-xs">
+                                      {assignedUser.displayName?.charAt(0) || assignedUser.email?.charAt(0)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{assignedUser.displayName || assignedUser.email}</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">未割当</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-xs truncate">
+                              {match.notes || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Link 
+                                href={`/progress/${match.id}`}
+                                className="text-blue-600 hover:underline"
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-blue-600 hover:text-blue-700"
+                                >
+                                  詳細
+                                </Button>
+                              </Link>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    {matches.filter(match => match.status === 'offer_accepted').length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                          内定承諾者はまだいません
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           {/* 求人選択モーダル */}
           <Dialog open={jobSelectModalOpen} onOpenChange={setJobSelectModalOpen}>

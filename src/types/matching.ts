@@ -25,6 +25,7 @@ export interface Match {
   acceptedDate?: string | Date // 承諾日
   rejectedDate?: string | Date // 不採用日
   startDate?: string | Date // 入社日
+  endDate?: string | Date // 退職日
   
   // メタデータ
   createdAt: string | Date

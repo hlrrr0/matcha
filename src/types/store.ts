@@ -27,10 +27,11 @@ export interface Store {
   
   // タグ情報
   tags?: {
-    michelinStars?: number              // ミシュラン星数（1-3）
-    hasBibGourmand?: boolean            // ビブグルマン獲得
-    tabelogAward?: string[]             // 食べログアワード・100名店（年度タグ）例: ['2023', '2024']
-    goetMiyoScore?: number              // ゴ・エ・ミヨ スコア
+    michelinStars?: number              // ミシュラン星数（1-3）- チェックされている場合は1以上
+    hasBibGourmand?: boolean            // ミシュランビブグルマン獲得
+    tabelogAward?: string[]             // 食べログ100名店掲載（年度タグ）例: ['2023', '2024']
+    hasTabelogAward?: boolean           // 食べログアワード獲得店
+    goetMiyoScore?: number              // ゴ・エ・ミヨ スコア（12以上で掲載）
   }
   
   // 素材セクション（10枚まで）

@@ -81,7 +81,7 @@ interface StatusUpdateDialogProps {
   onOpenChange: (open: boolean) => void
   match: Match | null
   candidateName?: string
-  onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date) => Promise<void>
+  onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date, endDate?: Date) => Promise<void>
   isEditMode?: boolean
   // メール送信用の情報
   candidate?: {
@@ -119,6 +119,7 @@ export function StatusUpdateDialog({
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
   const [startDate, setStartDate] = useState('') // 入社日
+  const [endDate, setEndDate] = useState('') // 退職日
   const [statusNotes, setStatusNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -191,6 +192,14 @@ export function StatusUpdateDialog({
         setStartDate(startDateObj.toISOString().split('T')[0])
       } else {
         setStartDate('')
+      }
+      
+      // 退職日の初期化
+      if (match.endDate) {
+        const endDateObj = new Date(match.endDate)
+        setEndDate(endDateObj.toISOString().split('T')[0])
+      } else {
+        setEndDate('')
       }
       
       // 最新のタイムラインからノートを読み込む
@@ -282,8 +291,14 @@ export function StatusUpdateDialog({
         startDateObj = new Date(startDate)
       }
 
+      // 退職日の処理
+      let endDateObj: Date | undefined = undefined
+      if (endDate) {
+        endDateObj = new Date(endDate)
+      }
+
       // ステータス更新
-      await onUpdate(newStatus, statusNotes, combinedDateTime, startDateObj)
+      await onUpdate(newStatus, statusNotes, combinedDateTime, startDateObj, endDateObj)
       
       toast.success('ステータスを更新しました')
       onOpenChange(false)
@@ -460,6 +475,24 @@ export function StatusUpdateDialog({
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 ※入社予定日は後から変更できます
+              </p>
+            </div>
+          )}
+
+          {/* 退職日入力（内定承諾のみ） */}
+          {newStatus === 'offer_accepted' && (
+            <div>
+              <Label>退職予定日</Label>
+              <div className="mt-2">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  placeholder="年/月/日"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                ※退職予定日は後から変更できます（任意）
               </p>
             </div>
           )}

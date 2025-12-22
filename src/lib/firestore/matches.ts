@@ -333,7 +333,8 @@ export const updateMatchStatus = async (
   notes?: string,
   eventDate?: Date | string,
   interviewRound?: number,
-  startDate?: Date | string
+  startDate?: Date | string,
+  endDate?: Date | string
 ): Promise<void> => {
   try {
     console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
@@ -514,6 +515,13 @@ export const updateMatchStatus = async (
       const startDateValue = typeof startDate === 'string' ? new Date(startDate) : startDate
       updateData.startDate = startDateValue
       console.log('📅 入社予定日を保存しました:', startDateValue.toISOString())
+    }
+
+    // 退職日の保存
+    if (endDate) {
+      const endDateValue = typeof endDate === 'string' ? new Date(endDate) : endDate
+      updateData.endDate = endDateValue
+      console.log('📅 退職予定日を保存しました:', endDateValue.toISOString())
     }
 
     await updateMatch(id, updateData)
