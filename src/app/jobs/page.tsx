@@ -34,7 +34,9 @@ import {
   FileText,
   Copy,
   User as UserIcon,
-  ChevronDown
+  ChevronDown,
+  Map,
+  List
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob } from '@/lib/firestore/jobs'
@@ -46,6 +48,7 @@ import { Store as StoreType } from '@/types/store'
 import { User } from '@/types/user'
 import { importJobsFromCSV, generateJobsCSVTemplate } from '@/lib/csv/jobs'
 import { toast } from 'sonner'
+import { JobMapView } from '@/components/maps/JobMapView'
 
 const statusColors = {
   draft: 'bg-gray-100 text-gray-800',
@@ -79,6 +82,9 @@ function JobsPageContent() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
+  
+  // 表示モード切り替え
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   
   // 一括選択状態
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
@@ -666,6 +672,32 @@ function JobsPageContent() {
         </div>
       </div>
 
+      {/* 表示モード切り替えタブ */}
+      <div className="mb-6 flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setViewMode('list')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'border-b-2 border-purple-500 text-purple-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <List className="h-4 w-4 inline mr-2" />
+          リスト表示
+        </button>
+        <button
+          onClick={() => setViewMode('map')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            viewMode === 'map'
+              ? 'border-b-2 border-purple-500 text-purple-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Map className="h-4 w-4 inline mr-2" />
+          マップ表示
+        </button>
+      </div>
+
       {/* 検索・フィルター */}
       <Card className="mb-6">
         <CardHeader>
@@ -922,7 +954,23 @@ function JobsPageContent() {
         </CardContent>
       </Card>
 
+      {/* マップ表示 */}
+      {viewMode === 'map' && (
+        <div className="mb-6">
+          <JobMapView 
+            jobs={filteredJobs} 
+            stores={stores} 
+            companies={companies}
+            onJobClick={(jobId) => {
+              // マーカークリック時の処理（必要に応じて）
+              console.log('Job clicked:', jobId)
+            }}
+          />
+        </div>
+      )}
+
       {/* 求人リスト */}
+      {viewMode === 'list' && (
       <Card>
         <CardHeader>
           <CardTitle>求人リスト ({filteredJobs.length}件)</CardTitle>
@@ -1154,6 +1202,7 @@ function JobsPageContent() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

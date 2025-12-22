@@ -7,6 +7,8 @@ export interface Store {
   businessType?: string          // 業態
   address?: string               // 店舗住所
   prefecture?: string            // 都道府県（住所から自動抽出）
+  latitude?: number              // 緯度（Google Maps用）
+  longitude?: number             // 経度（Google Maps用）
   nearestStation?: string        // 最寄り駅
   website?: string               // 店舗URL
   unitPriceLunch?: number        // 単価（昼）
