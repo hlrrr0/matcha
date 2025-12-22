@@ -467,6 +467,55 @@ function StoresPageContent() {
           
           {/* ヘッダーアクション */}
           <div className="flex flex-col sm:flex-col gap-2">
+            {isAdmin && (
+              <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
+                <Checkbox
+                  checked={selectedStores.length === filteredAndSortedStores.length && filteredAndSortedStores.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedStores(filteredAndSortedStores.map((s: Store) => s.id))
+                    } else {
+                      setSelectedStores([])
+                    }
+                  }}
+                  id="select-all-header"
+                />
+                <label htmlFor="select-all-header" className="text-sm text-white cursor-pointer">
+                  全て選択 ({selectedStores.length}件)
+                </label>
+                {selectedStores.length > 0 && (
+                  <>
+                    <Button
+                      onClick={exportSelectedStoresCSV}
+                      variant="outline"
+                      size="sm"
+                      className="bg-green-600 text-white hover:bg-green-700 border-green-600 ml-2"
+                    >
+                      CSV出力 ({selectedStores.length}件)
+                    </Button>
+                    <Button
+                      onClick={handleBulkDelete}
+                      disabled={bulkDeleting}
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-600 text-white hover:bg-red-700 border-red-600"
+                    >
+                      {bulkDeleting ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          削除中...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          削除 ({selectedStores.length}件)
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
             <Button
               onClick={downloadCSVTemplate}
               variant="outline"
@@ -516,36 +565,6 @@ function StoresPageContent() {
                 新規店舗追加
               </Button>
             </Link>
-            {isAdmin && selectedStores.length > 0 && (
-              <>
-                <Button 
-                  variant="outline" 
-                  onClick={exportSelectedStoresCSV}
-                  className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  選択した{selectedStores.length}件をCSV出力
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleBulkDelete}
-                  disabled={bulkDeleting}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  {bulkDeleting ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                      削除中...
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      選択した{selectedStores.length}件を削除
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
           </div>
         </div>
       </div>

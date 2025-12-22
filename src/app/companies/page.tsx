@@ -635,89 +635,88 @@ function CompaniesPageContent() {
           
           {/* ヘッダーアクション */}
           <div className="flex flex-col sm:flex-col gap-2">
-            <Button 
-              onClick={loadCompanies}
-              disabled={loading}
+            {isAdmin && (
+              <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
+                <Checkbox
+                  checked={selectedCompanies.size === filteredAndSortedCompanies.length && filteredAndSortedCompanies.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedCompanies(new Set(filteredAndSortedCompanies.map((c: Company) => c.id)))
+                    } else {
+                      setSelectedCompanies(new Set())
+                    }
+                  }}
+                  id="select-all-header"
+                />
+                <label htmlFor="select-all-header" className="text-sm text-white cursor-pointer">
+                  全て選択 ({selectedCompanies.size}件)
+                </label>
+                {selectedCompanies.size > 0 && (
+                  <>
+                    <Button
+                      onClick={exportSelectedCompaniesCSV}
+                      variant="outline"
+                      size="sm"
+                      className="bg-green-600 text-white hover:bg-green-700 border-green-600 ml-2"
+                    >
+                      CSV出力 ({selectedCompanies.size}件)
+                    </Button>
+                    <Button
+                      onClick={() => setBulkDeleteDialogOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-600 text-white hover:bg-red-700 border-red-600"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      削除 ({selectedCompanies.size}件)
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+            <Button
+              onClick={downloadCSVTemplate}
               variant="outline"
               className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              更新
+              <FileText className="h-4 w-4" />
+              CSVテンプレート
             </Button>
-
-            {/* 管理者のみ表示 */}
-            {isAdmin && (
-              <>
-                <Button
-                  onClick={exportSelectedCompaniesCSV}
-                  disabled={selectedCompanies.size === 0}
-                  variant="outline"
-                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Download className="h-4 w-4" />
-                  選択した企業をCSV出力 ({selectedCompanies.size})
-                </Button>
-
-                <Button
-                  onClick={() => setBulkDeleteDialogOpen(true)}
-                  disabled={selectedCompanies.size === 0}
-                  variant="outline"
-                  className="bg-red-600 text-white hover:bg-red-700 border-red-600 flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  選択した企業を削除 ({selectedCompanies.size})
-                </Button>
-
-                <Button
-                  onClick={downloadCSVTemplate}
-                  variant="outline"
-                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  CSVテンプレート
-                </Button>
-              </>
-            )}
-            
-            {!isAdmin && (
-              <Button
-                onClick={downloadCSVTemplate}
-                variant="outline"
-                className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                CSVテンプレート
-              </Button>
-            )}
-            <div className="relative">
-              <input
-                type="file"
-                id="csv-upload"
-                accept=".csv"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    handleCSVImport(file)
-                    // ファイル選択をリセット
-                    e.target.value = ''
-                  }
-                }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={csvImporting}
-              />
+            <label htmlFor="csv-upload" className="cursor-pointer">
               <Button
                 variant="outline"
                 className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
                 disabled={csvImporting}
+                asChild
               >
-                {csvImporting ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
-                )}
-                CSVインポート
+                <span>
+                  {csvImporting ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      インポート中...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      CSVインポート
+                    </>
+                  )}
+                </span>
               </Button>
-            </div>
+            </label>
+            <input
+              id="csv-upload"
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  handleCSVImport(file)
+                  e.target.value = '' // リセット
+                }
+              }}
+            />
             <Link href="/companies/new">
               <Button variant="outline" className="bg-white text-blue-600 hover:bg-blue-50 border-white">
                 <Plus className="h-4 w-4 mr-2" />
