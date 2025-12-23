@@ -6,19 +6,25 @@
  */
 
 const https = require('https');
+require('dotenv').config({ path: '.env.local' });
 
-// Geocoding APIキー（.env.localから）
-const GEOCODING_API_KEY = 'AIzaSyDz1FMjp1spkdPAj_asq4iXyQWnVaWe7Ac';
+// Geocoding APIキー（環境変数から取得）
+const GEOCODING_API_KEY = process.env.GOOGLE_MAPS_SERVER_API_KEY;
 
-// Firebase設定（.env.localから）
+// Firebase設定（環境変数から取得）
 const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyD6pa5Qi9vumPncVNhc3fr3IzC9TON_YsA',
-  authDomain: 'agent-system-23630.firebaseapp.com',
-  projectId: 'agent-system-23630',
-  storageBucket: 'agent-system-23630.appspot.com',
-  messagingSenderId: '543575360817',
-  appId: '1:543575360817:web:dea8b4496f3814b2061c10'
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
+
+if (!GEOCODING_API_KEY || !FIREBASE_CONFIG.apiKey) {
+  console.error('エラー: 環境変数が設定されていません。.env.localファイルを確認してください。');
+  process.exit(1);
+}
 
 // 住所から緯度経度を取得する関数
 async function geocodeAddress(address) {
