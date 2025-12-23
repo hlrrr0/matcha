@@ -32,8 +32,10 @@ import { Store, statusLabels } from '@/types/store'
 import { getStores, deleteStore } from '@/lib/firestore/stores'
 import { getCompanies } from '@/lib/firestore/companies'
 import { getUsers } from '@/lib/firestore/users'
+import { getJobs } from '@/lib/firestore/jobs'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
+import { Job } from '@/types/job'
 import { importStoresFromCSV, generateStoresCSVTemplate } from '@/lib/csv/stores'
 import { toast } from 'sonner'
 
@@ -65,6 +67,7 @@ function StoresPageContent() {
   const [stores, setStores] = useState<Store[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
@@ -90,6 +93,7 @@ function StoresPageContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<Store['status'] | 'all'>('all')
   const [companyFilter, setCompanyFilter] = useState<string>('all')
+  const [jobFilter, setJobFilter] = useState<'all' | 'with-jobs' | 'without-jobs'>('all')
   
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'companyName' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
@@ -135,14 +139,16 @@ function StoresPageContent() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [storesData, companiesData, usersData] = await Promise.all([
+      const [storesData, companiesData, usersData, jobsData] = await Promise.all([
         getStores(),
         getCompanies(),
-        getUsers()
+        getUsers(),
+        getJobs()
       ])
       setStores(storesData)
       setCompanies(companiesData)
       setUsers(usersData)
+      setJobs(jobsData)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -384,6 +390,16 @@ function StoresPageContent() {
     return companies.find(c => c.id === companyId)
   }
 
+  // 店舗に紐付いている求人数を取得
+  const getJobCountForStore = (storeId: string): number => {
+    return jobs.filter(job => {
+      // storeIdフィールドまたはstoreIds配列に含まれているかチェック
+      if (job.storeId === storeId) return true
+      if (job.storeIds && Array.isArray(job.storeIds) && job.storeIds.includes(storeId)) return true
+      return false
+    }).length
+  }
+
   const filteredAndSortedStores = stores.filter(store => {
     const matchesSearch = (store.name && store.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          getCompanyName(store.companyId).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -392,8 +408,15 @@ function StoresPageContent() {
     
     const matchesStatus = statusFilter === 'all' || store.status === statusFilter
     const matchesCompany = companyFilter === 'all' || store.companyId === companyFilter
+    
+    // 求人の有無によるフィルタリング
+    const jobCount = getJobCountForStore(store.id)
+    const matchesJobFilter = 
+      jobFilter === 'all' || 
+      (jobFilter === 'with-jobs' && jobCount > 0) ||
+      (jobFilter === 'without-jobs' && jobCount === 0)
 
-    return matchesSearch && matchesStatus && matchesCompany
+    return matchesSearch && matchesStatus && matchesCompany && matchesJobFilter
   }).sort((a, b) => {
     let aValue: any
     let bValue: any
@@ -578,7 +601,7 @@ function StoresPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* 検索 */}
             <div>
               <Label htmlFor="store-search">店舗名・企業名・住所</Label>
@@ -603,6 +626,21 @@ function StoresPageContent() {
                   {Object.entries(statusLabels).map(([key, label]) => (
                     <SelectItem key={key} value={key}>{label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 求人フィルター */}
+            <div>
+              <Label htmlFor="job-filter">求人の有無</Label>
+              <Select value={jobFilter} onValueChange={(value: 'all' | 'with-jobs' | 'without-jobs') => setJobFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="求人の有無" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="with-jobs">求人あり</SelectItem>
+                  <SelectItem value="without-jobs">求人なし</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -685,6 +723,7 @@ function StoresPageContent() {
                   </TableHead>
                   <TableHead>所在地</TableHead>
                   <TableHead>入力率</TableHead>
+                  <TableHead>求人数</TableHead>
                   <TableHead>担当者</TableHead>
                   <TableHead 
                     className="cursor-pointer hover:bg-gray-100"
@@ -783,6 +822,25 @@ function StoresPageContent() {
                             }`}>
                               {rate}%
                             </span>
+                          </div>
+                        )
+                      })()}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const jobCount = getJobCountForStore(store.id)
+                        return (
+                          <div className="flex items-center gap-2">
+                            {jobCount > 0 ? (
+                              <Link 
+                                href={`/stores/${store.id}#related-jobs`}
+                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                              >
+                                {jobCount}件
+                              </Link>
+                            ) : (
+                              <span className="text-gray-400">0件</span>
+                            )}
                           </div>
                         )
                       })()}
