@@ -23,6 +23,7 @@ interface JobWithLocation extends Job {
   company?: Company
   latitude?: number
   longitude?: number
+  displayTitle?: string // 複数店舗の場合に店舗名を含めたタイトル
 }
 
 export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewProps) {
@@ -35,20 +36,32 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
   const [selectedJob, setSelectedJob] = useState<JobWithLocation | null>(null)
 
   // 求人データに店舗・企業・位置情報を結合
-  const jobsWithLocation: JobWithLocation[] = jobs
-    .map(job => {
-      const store = stores.find(s => s.id === job.storeId)
-      const company = companies.find(c => c.id === job.companyId)
+  // 複数店舗の場合は各店舗ごとに展開
+  const jobsWithLocation: JobWithLocation[] = jobs.flatMap(job => {
+    const company = companies.find(c => c.id === job.companyId)
+    
+    // storeIdsまたはstoreIdから店舗リストを取得
+    const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+    
+    if (storeIds.length === 0) return []
+    
+    // 各店舗ごとにジョブエントリを作成
+    return storeIds.map(storeId => {
+      const store = stores.find(s => s.id === storeId)
+      
+      if (!store?.latitude || !store?.longitude) return null
       
       return {
         ...job,
         store,
         company,
-        latitude: store?.latitude,
-        longitude: store?.longitude
-      }
-    })
-    .filter(job => job.latitude && job.longitude) // 位置情報がある求人のみ
+        latitude: store.latitude,
+        longitude: store.longitude,
+        // 複数店舗の場合は店舗名を含める
+        displayTitle: storeIds.length > 1 ? `${job.title} - ${store.name}` : job.title
+      } as JobWithLocation
+    }).filter((job): job is JobWithLocation => job !== null)
+  })
 
   useEffect(() => {
     const initMap = async () => {
@@ -124,13 +137,15 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
     markersRef.current = []
 
     // 新しいマーカーを作成
-    jobsWithLocation.forEach(job => {
-      if (!job.latitude || !job.longitude) return
+    jobsWithLocation.forEach((job, index) => {
+      if (!job.latitude || !job.longitude) {
+        return
+      }
 
       const marker = new google.maps.Marker({
         position: { lat: job.latitude, lng: job.longitude },
         map,
-        title: job.title,
+        title: job.displayTitle || job.title,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
           fillColor: getMarkerColor(job.status),

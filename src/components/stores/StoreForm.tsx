@@ -10,12 +10,13 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Save, Loader2, Plus, Minus } from 'lucide-react'
+import { Save, Loader2, Plus, Minus, MapPin } from 'lucide-react'
 import { Store } from '@/types/store'
 import { Company } from '@/types/company'
 import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { extractPrefecture } from '@/lib/utils/prefecture'
+import { geocodeAddress } from '@/lib/google-maps'
 
 interface StoreFormProps {
   initialData?: Partial<Store>
@@ -34,6 +35,7 @@ export default function StoreForm({
   const [loadingCompanies, setLoadingCompanies] = useState(true)
   const [additionalPhotosCount, setAdditionalPhotosCount] = useState(0)
   const [tabelogUrlError, setTabelogUrlError] = useState<string>('')
+  const [geocoding, setGeocoding] = useState(false)
   const [formData, setFormData] = useState<Partial<Store>>({
     companyId: '',
     name: '',
@@ -76,6 +78,8 @@ export default function StoreForm({
         name: initialData.name || '',
         businessType: initialData.businessType || '',
         address: initialData.address || '',
+        latitude: initialData.latitude,
+        longitude: initialData.longitude,
         nearestStation: initialData.nearestStation || '',
         website: initialData.website || '',
         unitPriceLunch: initialData.unitPriceLunch,
@@ -175,6 +179,36 @@ export default function StoreForm({
       }
     } catch (error) {
       console.error('Error checking tabelog URL:', error)
+    }
+  }
+
+  // 住所から緯度経度を取得
+  const handleGeocodeAddress = async () => {
+    if (!formData.address) {
+      alert('住所を入力してください')
+      return
+    }
+
+    setGeocoding(true)
+    try {
+      console.log('住所から緯度経度を取得開始:', formData.address)
+      const result = await geocodeAddress(formData.address)
+      if (result) {
+        setFormData(prev => ({
+          ...prev,
+          latitude: result.lat,
+          longitude: result.lng
+        }))
+        alert(`✅ 緯度経度を取得しました!\n\n緯度: ${result.lat}\n経度: ${result.lng}\n\n保存ボタンを押してください。`)
+      } else {
+        alert('❌ 住所から緯度経度を取得できませんでした。\n\n住所の形式を確認してください。\n例: 東京都港区六本木1-1-1')
+      }
+    } catch (error: any) {
+      console.error('Geocoding error:', error)
+      const errorMessage = error.message || '緯度経度の取得中にエラーが発生しました'
+      alert(`❌ エラー: ${errorMessage}\n\nブラウザのコンソールで詳細を確認してください。`)
+    } finally {
+      setGeocoding(false)
     }
   }
 
@@ -351,14 +385,48 @@ export default function StoreForm({
               required
             />
             {formData.address && (
-              <div className="mt-2">
-                <span className="text-sm text-gray-500">自動抽出された都道府県: </span>
-                {extractPrefecture(formData.address) ? (
-                  <Badge variant="outline" className="ml-1">
-                    {extractPrefecture(formData.address)}
-                  </Badge>
-                ) : (
-                  <span className="text-sm text-amber-600">都道府県を抽出できませんでした</span>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <span className="text-sm text-gray-500">自動抽出された都道府県: </span>
+                  {extractPrefecture(formData.address) ? (
+                    <Badge variant="outline" className="ml-1">
+                      {extractPrefecture(formData.address)}
+                    </Badge>
+                  ) : (
+                    <span className="text-sm text-amber-600">都道府県を抽出できませんでした</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGeocodeAddress}
+                    disabled={geocoding}
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  >
+                    {geocoding ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        取得中...
+                      </>
+                    ) : (
+                      <>
+                        <MapPin className="h-4 w-4 mr-2" />
+                        地図用の位置情報を取得
+                      </>
+                    )}
+                  </Button>
+                  {formData.latitude && formData.longitude && (
+                    <Badge variant="outline" className="text-green-600">
+                      ✓ 位置情報設定済み
+                    </Badge>
+                  )}
+                </div>
+                {formData.latitude && formData.longitude && (
+                  <div className="text-xs text-gray-500">
+                    緯度: {formData.latitude.toFixed(6)}, 経度: {formData.longitude.toFixed(6)}
+                  </div>
                 )}
               </div>
             )}

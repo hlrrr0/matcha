@@ -3,32 +3,35 @@
  */
 
 // Geocoding API を使って住所から緯度経度を取得
+// サーバーサイドプロキシ経由で呼び出し（HTTPリファラー制限の回避）
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  
-  if (!apiKey) {
-    console.error('Google Maps APIキーが設定されていません')
-    return null
-  }
-
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
-    const response = await fetch(url)
+    console.log('Geocoding API リクエスト:', address)
+    
+    // Next.js API Route経由で呼び出し
+    const response = await fetch('/api/geocode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ address }),
+    })
+
     const data = await response.json()
 
-    if (data.status === 'OK' && data.results.length > 0) {
-      const location = data.results[0].geometry.location
-      return {
-        lat: location.lat,
-        lng: location.lng
-      }
-    } else {
-      console.error('住所の変換に失敗しました:', data.status)
-      return null
+    if (!response.ok) {
+      console.error('Geocoding API エラー:', data.error)
+      throw new Error(data.error || '緯度経度の取得に失敗しました')
+    }
+
+    console.log('緯度経度取得成功:', data)
+    return {
+      lat: data.lat,
+      lng: data.lng
     }
   } catch (error) {
     console.error('Geocoding APIエラー:', error)
-    return null
+    throw error
   }
 }
 

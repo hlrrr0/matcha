@@ -76,16 +76,21 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
             }
 
             // この店舗に関連する求人を取得
-            const jobsQuery = query(
-              collection(db, 'jobs'),
-              where('storeId', '==', resolvedParams.id)
-            )
-            const jobsSnapshot = await getDocs(jobsQuery)
-            const jobsData = jobsSnapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as Job))
+            // storeIdフィールドとstoreIds配列の両方をチェック
+            const allJobsSnapshot = await getDocs(collection(db, 'jobs'))
+            const jobsData = allJobsSnapshot.docs
+              .map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              } as Job))
+              .filter(job => {
+                // 単一店舗（storeId）またはstoreIds配列に含まれている場合
+                if (job.storeId === resolvedParams.id) return true
+                if (job.storeIds && Array.isArray(job.storeIds) && job.storeIds.includes(resolvedParams.id)) return true
+                return false
+              })
             setJobs(jobsData)
+
           } else {
             alert('店舗が見つかりません')
             router.push('/stores')
@@ -555,7 +560,10 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
           {jobs.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>関連求人 ({jobs.length}件)</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  関連求人 ({jobs.length}件)
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {jobs.map((job) => (
@@ -563,7 +571,7 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h4 className="font-medium text-sm">{job.title}</h4>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
                           <Badge 
                             variant={job.status === 'active' ? 'default' : 'secondary'}
                             className="text-xs"
@@ -615,7 +623,7 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">関連求人数</span>
-                  <span className="font-medium">-</span>
+                  <span className="font-medium">{jobs.length}件</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">応募者数</span>
