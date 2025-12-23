@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +36,8 @@ export default function StoreForm({
   const [additionalPhotosCount, setAdditionalPhotosCount] = useState(0)
   const [tabelogUrlError, setTabelogUrlError] = useState<string>('')
   const [geocoding, setGeocoding] = useState(false)
+  const [autoGeocodingEnabled, setAutoGeocodingEnabled] = useState(true)
+  const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [formData, setFormData] = useState<Partial<Store>>({
     companyId: '',
     name: '',
@@ -182,7 +184,35 @@ export default function StoreForm({
     }
   }
 
-  // 住所から緯度経度を取得
+  // 住所が変更されたら自動的に緯度経度を取得（debounce付き）
+  const autoGeocodeAddress = useCallback(async (address: string) => {
+    if (!address || !autoGeocodingEnabled) return
+    
+    // 既存のタイマーをクリア
+    if (geocodeTimeoutRef.current) {
+      clearTimeout(geocodeTimeoutRef.current)
+    }
+
+    // 1秒後に自動取得
+    geocodeTimeoutRef.current = setTimeout(async () => {
+      console.log('自動で緯度経度を取得開始:', address)
+      try {
+        const result = await geocodeAddress(address)
+        if (result) {
+          setFormData(prev => ({
+            ...prev,
+            latitude: result.lat,
+            longitude: result.lng
+          }))
+          console.log(`✅ 自動で緯度経度を取得しました: ${result.lat}, ${result.lng}`)
+        }
+      } catch (error: any) {
+        console.error('自動Geocodingエラー:', error)
+      }
+    }, 1000)
+  }, [autoGeocodingEnabled])
+
+  // 手動で住所から緯度経度を取得
   const handleGeocodeAddress = async () => {
     if (!formData.address) {
       alert('住所を入力してください')
@@ -211,6 +241,15 @@ export default function StoreForm({
       setGeocoding(false)
     }
   }
+
+  // コンポーネントのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (geocodeTimeoutRef.current) {
+        clearTimeout(geocodeTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const addPhotoField = () => {
     if (additionalPhotosCount < 7) {
@@ -379,7 +418,12 @@ export default function StoreForm({
             <Textarea
               id="address"
               value={formData.address || ''}
-              onChange={(e) => handleChange('address', e.target.value)}
+              onChange={(e) => {
+                const newAddress = e.target.value
+                handleChange('address', newAddress)
+                // 住所が変更されたら自動的に緯度経度を取得
+                autoGeocodeAddress(newAddress)
+              }}
               rows={2}
               placeholder="店舗の住所を入力してください"
               required
@@ -396,32 +440,44 @@ export default function StoreForm({
                     <span className="text-sm text-amber-600">都道府県を抽出できませんでした</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGeocodeAddress}
-                    disabled={geocoding}
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    {geocoding ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        取得中...
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="h-4 w-4 mr-2" />
-                        地図用の位置情報を取得
-                      </>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGeocodeAddress}
+                      disabled={geocoding}
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                    >
+                      {geocoding ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          取得中...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-4 w-4 mr-2" />
+                          地図用の位置情報を取得
+                        </>
+                      )}
+                    </Button>
+                    {formData.latitude && formData.longitude && (
+                      <Badge variant="outline" className="text-green-600">
+                        ✓ 位置情報設定済み
+                      </Badge>
                     )}
-                  </Button>
-                  {formData.latitude && formData.longitude && (
-                    <Badge variant="outline" className="text-green-600">
-                      ✓ 位置情報設定済み
-                    </Badge>
-                  )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="auto-geocoding"
+                      checked={autoGeocodingEnabled}
+                      onCheckedChange={setAutoGeocodingEnabled}
+                    />
+                    <Label htmlFor="auto-geocoding" className="text-xs text-gray-500 cursor-pointer">
+                      自動取得
+                    </Label>
+                  </div>
                 </div>
                 {formData.latitude && formData.longitude && (
                   <div className="text-xs text-gray-500">
