@@ -71,13 +71,13 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
         
         if (!mapRef.current) return
 
-        // 日本の中心座標（東京）
-        const center = { lat: 35.6812, lng: 139.7671 }
+        // 大阪の中心座標（大阪市中心部）
+        const center = { lat: 34.6937, lng: 135.5023 }
 
-        // マップを初期化
+        // マップを初期化（大阪全体が見えるズームレベル）
         const map = new google.maps.Map(mapRef.current, {
           center,
-          zoom: 11,
+          zoom: 10, // 大阪全体が見えるズームレベル（10-11が適切）
           mapId: 'job_map_view', // Map ID for advanced markers
           styles: [
             {
@@ -96,7 +96,7 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
         // マーカーを配置
         createMarkers(map)
 
-        // 求人がある場合、最初の求人の位置に中心を移動
+        // 求人がある場合、範囲を調整（ただし、広がりすぎないように制限）
         if (jobsWithLocation.length > 0) {
           const bounds = new google.maps.LatLngBounds()
           jobsWithLocation.forEach(job => {
@@ -105,6 +105,14 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
             }
           })
           map.fitBounds(bounds)
+          
+          // ズームレベルが広がりすぎないように制限（最小ズーム: 9）
+          google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
+            const currentZoom = map.getZoom()
+            if (currentZoom !== undefined && currentZoom < 9) {
+              map.setZoom(9)
+            }
+          })
         }
 
         setLoading(false)
