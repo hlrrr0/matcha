@@ -137,6 +137,7 @@ interface MatchWithDetails extends Match {
   companyName?: string
   candidateName?: string
   storeNames?: string[]
+  employmentType?: string // 雇用形態を追加
 }
 
 interface CandidateDetailPageProps {
@@ -327,7 +328,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               ...match,
               jobTitle: jobData?.title || '求人不明',
               companyName: companyData?.name || '企業不明',
-              storeNames: storeNames
+              storeNames: storeNames,
+              employmentType: jobData?.employmentType || undefined // 雇用形態を追加
             }
           } catch (error) {
             console.error('マッチング詳細取得エラー:', error)
@@ -335,7 +337,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               ...match,
               jobTitle: '取得エラー',
               companyName: '取得エラー',
-              storeNames: []
+              storeNames: [],
+              employmentType: undefined
             }
           }
         })
@@ -878,13 +881,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                             <Link href={`/jobs/${match.jobId}`} className="hover:underline">
                               <div className="font-medium">{match.jobTitle}</div>
                             </Link>
-                            {match.matchReasons.length > 0 && (
+                            {match.employmentType && (
                               <div className="text-xs text-gray-500 mt-1">
-                                {match.matchReasons.slice(0, 2).map((reason: any, index: number) => (
-                                  <span key={index} className="mr-2">
-                                    {reason.description}
-                                  </span>
-                                ))}
+                                {match.employmentType}
                               </div>
                             )}
                           </div>
