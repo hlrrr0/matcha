@@ -49,6 +49,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isInitialized = false
+    
     // セッション永続性を設定（最初に実行）
     const initializePersistence = async () => {
       try {
@@ -62,6 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializePersistence()
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔄 認証状態変更:', firebaseUser ? `ログイン中: ${firebaseUser.email}` : 'ログアウト')
       setUser(firebaseUser)
       
       if (firebaseUser) {
@@ -79,7 +82,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUserProfile(null)
       }
       
-      setLoading(false)
+      // 初期化完了
+      if (!isInitialized) {
+        isInitialized = true
+        setLoading(false)
+      }
     })
 
     // リダイレクト結果を処理
@@ -99,6 +106,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // 少し遅延させてからリダイレクト結果を確認
     const timeoutId = setTimeout(handleRedirectResult, 1000)
     
+    // タブ間の認証状態を同期（別タブでログアウトした場合など）
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key?.startsWith('firebase:authUser:')) {
+        console.log('🔄 別タブで認証状態が変更されました')
+        // Firebaseが自動的に状態を同期するため、特別な処理は不要
+        // onAuthStateChangedが自動的に発火します
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
     // トークンの定期リフレッシュ（50分ごと、トークンは1時間で期限切れ）
     const tokenRefreshInterval = setInterval(async () => {
       if (auth.currentUser) {
@@ -111,10 +129,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }, 50 * 60 * 1000) // 50分
     
+    // 初期ロードタイムアウト（10秒後に強制的にローディング解除）
+    const loadingTimeout = setTimeout(() => {
+      if (!isInitialized) {
+        console.warn('⚠️ 認証状態の初期化がタイムアウトしました')
+        setLoading(false)
+      }
+    }, 10000)
+    
     return () => {
       unsubscribe()
       clearTimeout(timeoutId)
+      clearTimeout(loadingTimeout)
       clearInterval(tokenRefreshInterval)
+      window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
 
