@@ -142,7 +142,7 @@ export default function CandidatesPage() {
   
   // フィルタ・検索の状態
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('active') // デフォルトを「アクティブ」に設定
   const [campusFilter, setCampusFilter] = useState<string>('all')
   const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>('all')
   const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
@@ -168,7 +168,7 @@ export default function CandidatesPage() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const s = params.get('search') || ''
-    const st = params.get('status') || 'all'
+    const st = params.get('status') || 'active' // デフォルトを「active」に
     const cp = params.get('campus') || 'all'
     const en = params.get('enrollment') || 'all'
 

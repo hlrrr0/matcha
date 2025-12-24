@@ -150,6 +150,7 @@ export default function MatchDetailPage() {
   const [editScore, setEditScore] = useState('')
   const [editNotes, setEditNotes] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
+  const [editEndDate, setEditEndDate] = useState('')
 
   // タイムライン編集モーダル
   const [timelineEditOpen, setTimelineEditOpen] = useState(false)
@@ -252,6 +253,18 @@ export default function MatchDetailPage() {
       setEditStartDate('')
     }
     
+    // 退職日の初期化
+    if (match.endDate) {
+      const endDateObj = new Date(match.endDate)
+      if (!isNaN(endDateObj.getTime())) {
+        setEditEndDate(endDateObj.toISOString().split('T')[0])
+      } else {
+        setEditEndDate('')
+      }
+    } else {
+      setEditEndDate('')
+    }
+    
     setMatchEditOpen(true)
   }
 
@@ -275,6 +288,13 @@ export default function MatchDetailPage() {
         updateData.startDate = new Date(editStartDate)
       } else {
         updateData.startDate = null
+      }
+
+      // 退職日の更新（入社日がある場合のみ）
+      if (editStartDate && editEndDate) {
+        updateData.endDate = new Date(editEndDate)
+      } else {
+        updateData.endDate = null
       }
 
       await updateMatch(match.id, updateData)
@@ -790,6 +810,22 @@ export default function MatchDetailPage() {
                     </div>
                   )
                 })()}
+                {match.endDate && (() => {
+                  const endDateObj = new Date(match.endDate)
+                  return !isNaN(endDateObj.getTime()) && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="h-4 w-4 text-red-600" />
+                      <span className="text-gray-600">退職日:</span>
+                      <span className="font-medium text-red-700">
+                        {endDateObj.toLocaleDateString('ja-JP', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                  )
+                })()}
                 {match.notes && (
                   <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                     <div className="text-sm font-medium text-gray-700 mb-1">備考</div>
@@ -1102,13 +1138,38 @@ export default function MatchDetailPage() {
                   id="editStartDate"
                   type="date"
                   value={editStartDate}
-                  onChange={(e) => setEditStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const newStartDate = e.target.value
+                    setEditStartDate(newStartDate)
+                    // 入社日がクリアされた場合は退職日もクリア
+                    if (!newStartDate) {
+                      setEditEndDate('')
+                    }
+                  }}
                   placeholder="年/月/日"
                 />
                 <p className="text-xs text-gray-500">
                   ※入社予定日を設定する場合のみ入力してください
                 </p>
               </div>
+
+              {/* 退職日入力（入社予定日が入力されている場合のみ表示） */}
+              {editStartDate && (
+                <div className="space-y-2">
+                  <Label htmlFor="editEndDate">退職日</Label>
+                  <Input
+                    id="editEndDate"
+                    type="date"
+                    value={editEndDate}
+                    onChange={(e) => setEditEndDate(e.target.value)}
+                    placeholder="年/月/日"
+                    min={editStartDate} // 入社日以降の日付のみ選択可能
+                  />
+                  <p className="text-xs text-gray-500">
+                    ※退職日を設定する場合のみ入力してください（入社日以降の日付）
+                  </p>
+                </div>
+              )}
 
               {/* 備考欄 */}
               <div className="space-y-2">
