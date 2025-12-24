@@ -680,8 +680,18 @@ function ProgressPageContent() {
   const getFilteredJobs = () => {
     return jobs.filter(job => {
       const company = companies.find(c => c.id === job.companyId)
-      const store = stores.find(s => s.id === job.storeId)
-      const searchText = `${job.title} ${company?.name || ''} ${store?.name || ''}`.toLowerCase()
+      
+      // 複数店舗対応: storeIds配列またはstoreId単一
+      const jobStores = job.storeIds && job.storeIds.length > 0
+        ? stores.filter(s => job.storeIds?.includes(s.id))
+        : job.storeId
+        ? [stores.find(s => s.id === job.storeId)].filter(Boolean)
+        : []
+      
+      // 店舗名を結合（複数店舗に対応）
+      const storeNames = jobStores.map(s => s?.name || '').join(' ')
+      
+      const searchText = `${job.title} ${company?.name || ''} ${storeNames}`.toLowerCase()
       return searchText.includes(jobSearchTerm.toLowerCase())
     })
   }
