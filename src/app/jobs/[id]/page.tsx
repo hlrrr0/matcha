@@ -246,8 +246,12 @@ function JobDetailContent({ params }: JobDetailPageProps) {
       // おすすめポイントを取得
       const recommendedPoints = job?.recommendedPoints || ''
       
-      // コピー用のテキストを作成
-      const copyText = `【店舗名】${storeNames}\n【おすすめポイント】\n${recommendedPoints}\n${getPublicUrl()}`
+      // コピー用のテキストを作成（おすすめポイントがある場合のみ表示）
+      let copyText = `【店舗名】${storeNames}`
+      if (recommendedPoints.trim()) {
+        copyText += `\n【おすすめポイント】\n${recommendedPoints}`
+      }
+      copyText += `\n${getPublicUrl()}`
       
       await navigator.clipboard.writeText(copyText)
       alert('店舗名、おすすめポイント、公開URLをクリップボードにコピーしました')

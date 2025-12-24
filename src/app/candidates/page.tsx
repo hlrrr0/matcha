@@ -812,7 +812,8 @@ export default function CandidatesPage() {
                   <TableRow 
                     key={candidate.id}
                     className={rowClassName}
-                    onClick={() => router.push(`/candidates/${candidate.id}`)}
+                    onClick={() => window.open(`/candidates/${candidate.id}`, '_blank')}
+                    style={{ cursor: 'pointer' }}
                   >
                   <TableCell>
                     <div>

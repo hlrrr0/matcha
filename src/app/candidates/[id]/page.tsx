@@ -36,7 +36,8 @@ import {
   AlertCircle,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Copy
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
@@ -686,6 +687,46 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     return age
   }
 
+  // 求人情報をクリップボードにコピー
+  const copyJobInfo = async (jobId: string) => {
+    try {
+      const job = jobs.find(j => j.id === jobId)
+      if (!job) {
+        toast.error('求人情報が見つかりません')
+        return
+      }
+
+      // 店舗名を取得
+      let storeNames = ''
+      if (job.storeIds && job.storeIds.length > 0) {
+        const jobStores = stores.filter(s => job.storeIds?.includes(s.id))
+        storeNames = jobStores.map(s => s.name).join('、')
+      } else if (job.storeId) {
+        const store = stores.find(s => s.id === job.storeId)
+        storeNames = store?.name || ''
+      }
+
+      // おすすめポイントを取得
+      const recommendedPoints = job.recommendedPoints || ''
+
+      // 公開URL
+      const publicUrl = `${window.location.origin}/public/jobs/${jobId}`
+
+      // コピー用のテキストを作成（おすすめポイントがある場合のみ表示）
+      let copyText = `【店舗名】${storeNames}`
+      if (recommendedPoints.trim()) {
+        copyText += `\n【おすすめポイント】\n${recommendedPoints}`
+      }
+      copyText += `\n${publicUrl}`
+
+      await navigator.clipboard.writeText(copyText)
+      toast.success('求人情報をクリップボードにコピーしました')
+    } catch (error) {
+      console.error('クリップボードへのコピーに失敗しました:', error)
+      toast.error('クリップボードへのコピーに失敗しました')
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -875,18 +916,32 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Briefcase className="h-4 w-4 text-purple-600" />
-                          <div>
-                            <Link href={`/jobs/${match.jobId}`} className="hover:underline">
-                              <div className="font-medium">{match.jobTitle}</div>
-                            </Link>
-                            {match.employmentType && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {match.employmentType}
-                              </div>
-                            )}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center space-x-2 flex-1">
+                            <Briefcase className="h-4 w-4 text-purple-600" />
+                            <div>
+                              <Link href={`/jobs/${match.jobId}`} className="hover:underline">
+                                <div className="font-medium">{match.jobTitle}</div>
+                              </Link>
+                              {match.employmentType && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {match.employmentType}
+                                </div>
+                              )}
+                            </div>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              copyJobInfo(match.jobId)
+                            }}
+                            className="h-8 w-8 p-0 flex-shrink-0"
+                            title="求人情報をコピー"
+                          >
+                            <Copy className="h-4 w-4 text-gray-500" />
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell>
