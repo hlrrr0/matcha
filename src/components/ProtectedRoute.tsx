@@ -18,9 +18,18 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
   const router = useRouter()
 
   useEffect(() => {
+    // loadingがfalseになり、かつuserがnullの場合のみリダイレクト
+    // ただし、初期マウント時は少し待機する
     if (!loading && !user) {
       console.warn('⚠️ 認証されていないユーザー - ログインページへリダイレクト')
-      router.push('/auth/login')
+      const timeoutId = setTimeout(() => {
+        // 再度チェック（AuthContextの初期化を待つ）
+        if (!user) {
+          router.push('/auth/login')
+        }
+      }, 500) // 500ms待機してから再チェック
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [user, loading, router])
 
@@ -38,19 +47,28 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
     return () => clearInterval(checkAuthStatus)
   }, [user, router])
 
+  // loadingが完了するまで待機
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <p className="mt-4 text-gray-600">認証状態を確認中...</p>
         </div>
       </div>
     )
   }
 
+  // loading完了後もuserがnullの場合は何も表示しない（リダイレクト処理中）
   if (!user) {
-    return null
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">リダイレクト中...</p>
+        </div>
+      </div>
+    )
   }
 
   // 管理者のみのページで管理者でない場合
