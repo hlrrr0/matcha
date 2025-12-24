@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
-import { getAuth, connectAuthEmulator, setPersistence, browserLocalPersistence } from 'firebase/auth'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
 const firebaseConfig = {
@@ -35,17 +35,6 @@ export const db = getFirestore(app)
 
 // Authentication初期化
 export const auth = getAuth(app)
-
-// セッション永続性を設定（30日間ログイン状態を維持）
-if (typeof window !== 'undefined') {
-  setPersistence(auth, browserLocalPersistence)
-    .then(() => {
-      console.log('✅ Firebase Auth: セッション永続性を設定しました（ローカルストレージ使用）')
-    })
-    .catch((error) => {
-      console.error('❌ Firebase Auth: セッション永続性の設定に失敗しました:', error)
-    })
-}
 
 // Storage初期化
 export const storage = getStorage(app)

@@ -19,9 +19,24 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
 
   useEffect(() => {
     if (!loading && !user) {
+      console.warn('⚠️ 認証されていないユーザー - ログインページへリダイレクト')
       router.push('/auth/login')
     }
   }, [user, loading, router])
+
+  // 定期的に認証状態をチェック（5分ごと）
+  useEffect(() => {
+    if (!user) return
+
+    const checkAuthStatus = setInterval(() => {
+      if (!user) {
+        console.warn('⚠️ 認証セッションが切れました - ログインページへリダイレクト')
+        router.push('/auth/login')
+      }
+    }, 5 * 60 * 1000) // 5分
+
+    return () => clearInterval(checkAuthStatus)
+  }, [user, router])
 
   if (loading) {
     return (

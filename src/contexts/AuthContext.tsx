@@ -49,10 +49,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // セッション永続性を設定（最初に実行）
+    const initializePersistence = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence)
+        console.log('✅ Auth永続性を設定しました（ローカルストレージ）')
+      } catch (error) {
+        console.error('❌ Auth永続性の設定に失敗:', error)
+      }
+    }
+    
+    initializePersistence()
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser)
       
       if (firebaseUser) {
+        // トークンをリフレッシュ（期限切れを防ぐ）
+        try {
+          await firebaseUser.getIdToken(true) // force refresh
+          console.log('✅ トークンをリフレッシュしました')
+        } catch (error) {
+          console.error('❌ トークンのリフレッシュに失敗:', error)
+        }
+        
         // ユーザープロファイルを取得または作成
         await handleUserProfile(firebaseUser)
       } else {
@@ -79,9 +99,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // 少し遅延させてからリダイレクト結果を確認
     const timeoutId = setTimeout(handleRedirectResult, 1000)
     
+    // トークンの定期リフレッシュ（50分ごと、トークンは1時間で期限切れ）
+    const tokenRefreshInterval = setInterval(async () => {
+      if (auth.currentUser) {
+        try {
+          await auth.currentUser.getIdToken(true)
+          console.log('✅ トークンを定期リフレッシュしました')
+        } catch (error) {
+          console.error('❌ 定期トークンリフレッシュに失敗:', error)
+        }
+      }
+    }, 50 * 60 * 1000) // 50分
+    
     return () => {
       unsubscribe()
       clearTimeout(timeoutId)
+      clearInterval(tokenRefreshInterval)
     }
   }, [])
 
