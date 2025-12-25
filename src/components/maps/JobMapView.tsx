@@ -8,7 +8,8 @@ import { loadGoogleMapsScript } from '@/lib/google-maps'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, MapPin, Briefcase } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Eye, MapPin, Briefcase, Search } from 'lucide-react'
 import Link from 'next/link'
 
 interface JobMapViewProps {
@@ -28,12 +29,15 @@ interface JobWithLocation extends Job {
 
 export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<JobWithLocation | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
 
   // 求人データに店舗・企業・位置情報を結合
   // 複数店舗の場合は各店舗ごとに展開
@@ -63,6 +67,62 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
     }).filter((job): job is JobWithLocation => job !== null)
   })
 
+  // 住所検索機能（クライアントサイドで直接Geocoding APIを呼び出す）
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!searchQuery.trim() || !googleMapRef.current) return
+    
+    setSearching(true)
+    
+    try {
+      // Google Maps Geocoding サービスを使用（クライアントサイド）
+      const geocoder = new google.maps.Geocoder()
+      
+      const result = await new Promise<google.maps.GeocoderResult>((resolve, reject) => {
+        geocoder.geocode({ address: searchQuery }, (results, status) => {
+          if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
+            resolve(results[0])
+          } else {
+            reject(new Error(`住所の検索に失敗しました: ${status}`))
+          }
+        })
+      })
+
+      // マップの中心を移動
+      const location = result.geometry.location
+      const newCenter = { lat: location.lat(), lng: location.lng() }
+      googleMapRef.current.setCenter(newCenter)
+      googleMapRef.current.setZoom(14) // ズームレベルを上げて詳細表示
+
+      // 検索位置にマーカーを一時的に表示
+      const searchMarker = new google.maps.Marker({
+        position: newCenter,
+        map: googleMapRef.current,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: '#7c3aed',
+          fillOpacity: 0.6,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          scale: 8
+        },
+        animation: google.maps.Animation.DROP,
+      })
+
+      // 3秒後にマーカーを削除
+      setTimeout(() => {
+        searchMarker.setMap(null)
+      }, 3000)
+
+    } catch (error) {
+      console.error('住所検索エラー:', error)
+      alert(error instanceof Error ? error.message : '住所の検索に失敗しました')
+    } finally {
+      setSearching(false)
+    }
+  }
+
   useEffect(() => {
     const initMap = async () => {
       try {
@@ -71,13 +131,13 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
         
         if (!mapRef.current) return
 
-        // 大阪の中心座標（大阪市中心部）
-        const center = { lat: 34.6937, lng: 135.5023 }
+        // 東京の中心座標（東京駅周辺）
+        const center = { lat: 35.6812, lng: 139.7671 }
 
-        // マップを初期化（大阪全体が見えるズームレベル）
+        // マップを初期化（東京全体が見えるズームレベル）
         const map = new google.maps.Map(mapRef.current, {
           center,
-          zoom: 10, // 大阪全体が見えるズームレベル（10-11が適切）
+          zoom: 10, // 東京全体が見えるズームレベル
           mapId: 'job_map_view', // Map ID for advanced markers
           styles: [
             {
@@ -96,24 +156,10 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
         // マーカーを配置
         createMarkers(map)
 
-        // 求人がある場合、範囲を調整（ただし、広がりすぎないように制限）
-        if (jobsWithLocation.length > 0) {
-          const bounds = new google.maps.LatLngBounds()
-          jobsWithLocation.forEach(job => {
-            if (job.latitude && job.longitude) {
-              bounds.extend({ lat: job.latitude, lng: job.longitude })
-            }
-          })
-          map.fitBounds(bounds)
-          
-          // ズームレベルが広がりすぎないように制限（最小ズーム: 9）
-          google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
-            const currentZoom = map.getZoom()
-            if (currentZoom !== undefined && currentZoom < 9) {
-              map.setZoom(9)
-            }
-          })
-        }
+        // デフォルト位置は常に東京駅を維持（fitBoundsは実行しない）
+        // ユーザーが検索機能やマップ操作で位置を変更できます
+        console.log('✅ マップを東京駅中心で表示します（デフォルト位置）')
+        console.log(`📍 求人データ数: ${jobsWithLocation.length}件`)
 
         setLoading(false)
       } catch (err) {
@@ -260,6 +306,32 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
           </div>
         </div>
       )}
+      
+      {/* 検索窓 */}
+      <div className="absolute top-4 right-4 z-10 w-80">
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <Input
+            ref={searchInputRef}
+            type="text"
+            placeholder="住所や地名を入力（例: 東京駅、渋谷区、大阪市中央区）"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-white shadow-lg"
+            disabled={searching}
+          />
+          <Button 
+            type="submit" 
+            disabled={searching || !searchQuery.trim()}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            {searching ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </Button>
+        </form>
+      </div>
       
       <div ref={mapRef} className="w-full h-full rounded-lg shadow-lg" />
 
