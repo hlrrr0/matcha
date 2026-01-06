@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Pagination } from '@/components/ui/pagination'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -95,6 +96,10 @@ function StoresPageContent() {
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [jobFilter, setJobFilter] = useState<'all' | 'with-jobs' | 'without-jobs'>('all')
   
+  // ページネーション状態（URLパラメータから初期化）
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
+  const [itemsPerPage] = useState(50) // 1ページあたり50件
+  
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'companyName' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -131,6 +136,19 @@ function StoresPageContent() {
       setStatusFilter(statusParam as Store['status'])
     }
   }, [searchParams])
+
+  // ページ変更ハンドラー
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    const newParams = new URLSearchParams()
+    
+    if (searchTerm) newParams.set('search', searchTerm)
+    if (statusFilter !== 'all') newParams.set('status', statusFilter)
+    if (companyFilter !== 'all') newParams.set('company', companyFilter)
+    if (page > 1) newParams.set('page', page.toString())
+    
+    router.push(`/stores?${newParams.toString()}`)
+  }
 
   useEffect(() => {
     loadData()
@@ -451,6 +469,24 @@ function StoresPageContent() {
     return 0
   })
 
+  // ページネーション処理
+  const totalPages = Math.ceil(filteredAndSortedStores.length / itemsPerPage)
+  const paginatedStores = filteredAndSortedStores.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // フィルター変更時はページを1に戻す（初回ロード時は除外）
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    setCurrentPage(1)
+    handlePageChange(1)
+  }, [searchTerm, statusFilter, companyFilter, jobFilter])
+
   const getStatusBadge = (status: Store['status']) => {
     const color = statusColors[status] || 'bg-gray-100 text-gray-800'
     return (
@@ -741,7 +777,7 @@ function StoresPageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedStores.map((store: Store) => (
+                {paginatedStores.map((store: Store) => (
                   <TableRow key={store.id}>
                     {isAdmin && (
                       <TableCell>
@@ -753,7 +789,14 @@ function StoresPageContent() {
                     )}
                     <TableCell className="font-medium">
                       <div className="font-semibold">
-                        {store.name}
+                        <Link 
+                          href={`/stores/${store.id}?returnPage=${currentPage}&search=${encodeURIComponent(searchTerm)}&status=${statusFilter}&company=${companyFilter}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {store.name}
+                        </Link>
                         {store.prefecture && (
                           <span className="ml-2 text-gray-500 font-normal">【{store.prefecture}】</span>
                         )}
@@ -910,6 +953,19 @@ function StoresPageContent() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          
+          {/* ページネーション */}
+          {filteredAndSortedStores.length > 0 && (
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                itemsPerPage={itemsPerPage}
+                totalItems={filteredAndSortedStores.length}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

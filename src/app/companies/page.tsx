@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Pagination } from '@/components/ui/pagination'
 import { 
   Building2, 
   Plus, 
@@ -99,6 +100,10 @@ function CompaniesPageContent() {
   const [dominoFilter, setDominoFilter] = useState<'all' | 'connected' | 'not_connected'>((searchParams.get('domino') as 'all' | 'connected' | 'not_connected') || 'all')
   const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
   
+  // ページネーション状態（URLパラメータから初期化）
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
+  const [itemsPerPage] = useState(50) // 1ページあたり50件
+  
   // ソート状態
   const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -135,6 +140,7 @@ function CompaniesPageContent() {
     size?: string
     domino?: string
     consultant?: string
+    page?: number
   }) => {
     const newParams = new URLSearchParams()
     
@@ -143,8 +149,22 @@ function CompaniesPageContent() {
     if (params.size && params.size !== 'all') newParams.set('size', params.size)
     if (params.domino && params.domino !== 'all') newParams.set('domino', params.domino)
     if (params.consultant && params.consultant !== 'all') newParams.set('consultant', params.consultant)
+    if (params.page && params.page > 1) newParams.set('page', params.page.toString())
     
     router.push(`/companies?${newParams.toString()}`)
+  }
+
+  // ページ変更ハンドラー
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    updateURLParams({
+      search: searchTerm,
+      status: statusFilter,
+      size: sizeFilter,
+      domino: dominoFilter,
+      consultant: consultantFilter,
+      page
+    })
   }
 
   const loadUsers = async () => {
@@ -566,6 +586,24 @@ function CompaniesPageContent() {
       return 0
     })
 
+  // ページネーション処理
+  const totalPages = Math.ceil(filteredAndSortedCompanies.length / itemsPerPage)
+  const paginatedCompanies = filteredAndSortedCompanies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // フィルター変更時はページを1に戻す（初回ロード時は除外）
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    setCurrentPage(1)
+    handlePageChange(1)
+  }, [searchTerm, statusFilter, sizeFilter, dominoFilter, consultantFilter])
+
   // ソート切り替えハンドラー
   const handleSort = (field: 'name' | 'createdAt' | 'updatedAt' | 'status') => {
     if (sortBy === field) {
@@ -905,7 +943,7 @@ function CompaniesPageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedCompanies.map((company) => {
+                {paginatedCompanies.map((company) => {
                   const isInactive = company.status === 'inactive'
                   const isExpanded = expandedCompanies.has(company.id)
                   const storeCount = getStoreCount(company.id)
@@ -1148,6 +1186,19 @@ function CompaniesPageContent() {
                 })}
               </TableBody>
             </Table>
+          )}
+          
+          {/* ページネーション */}
+          {filteredAndSortedCompanies.length > 0 && (
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                itemsPerPage={itemsPerPage}
+                totalItems={filteredAndSortedCompanies.length}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

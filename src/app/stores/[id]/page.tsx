@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -41,12 +41,22 @@ export default function StoreDetailPage({ params }: StoreDetailPageProps) {
 
 function StoreDetailContent({ params }: StoreDetailPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [storeId, setStoreId] = useState<string>('')
   const [store, setStore] = useState<StoreType | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [modalImage, setModalImage] = useState<{ src: string; alt: string } | null>(null)
+
+  // URLパラメータから戻り先のパラメータを取得
+  const returnPage = searchParams.get('returnPage') || '1'
+  const returnSearch = searchParams.get('search') || ''
+  const returnStatus = searchParams.get('status') || 'all'
+  const returnCompany = searchParams.get('company') || 'all'
+  
+  // 戻り先のURLを構築
+  const returnUrl = `/stores?page=${returnPage}&search=${encodeURIComponent(returnSearch)}&status=${returnStatus}&company=${returnCompany}`
 
   useEffect(() => {
     const initializeComponent = async () => {
@@ -219,10 +229,10 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
       <div className="container mx-auto px-4 py-8">
       {/* ヘッダー */}
       <div className="mb-8">
-      <Link href="/stores">
+      <Link href={returnUrl}>
         <Button variant="outline" size="sm">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          求人一覧に戻る
+          一覧に戻る
         </Button>
       </Link>
       </div>

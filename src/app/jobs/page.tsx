@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Pagination } from '@/components/ui/pagination'
 import {
   Accordion,
   AccordionContent,
@@ -88,6 +89,10 @@ function JobsPageContent() {
   
   // 一括選択状態
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
+  
+  // ページネーション状態（URLパラメータから初期化）
+  const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
+  const [itemsPerPage] = useState(50) // 1ページあたり50件
   
   // フィルター・検索状態（URLパラメータから初期化）
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
@@ -390,6 +395,21 @@ function JobsPageContent() {
     return company?.address || '-'
   }
 
+  // ページ変更ハンドラー
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    const newParams = new URLSearchParams()
+    
+    if (searchTerm) newParams.set('search', searchTerm)
+    if (statusFilter !== 'all') newParams.set('status', statusFilter)
+    if (employmentTypeFilter !== 'all') newParams.set('employmentType', employmentTypeFilter)
+    if (consultantFilter !== 'all') newParams.set('consultant', consultantFilter)
+    if (ageLimitFilter !== 'all') newParams.set('ageLimit', ageLimitFilter)
+    if (page > 1) newParams.set('page', page.toString())
+    
+    router.push(`/jobs?${newParams.toString()}`)
+  }
+
   // フィルタリングとソートされた求人リストをuseMemoで計算
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
@@ -531,6 +551,26 @@ function JobsPageContent() {
   }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter, 
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
       housingSupportFilter, independenceSupportFilter, sortBy, sortOrder])
+
+  // ページネーション処理
+  const totalPages = Math.ceil(filteredJobs.length / itemsPerPage)
+  const paginatedJobs = filteredJobs.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // フィルター変更時はページを1に戻す（初回ロード時は除外）
+  const isInitialMount = useRef(true)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    setCurrentPage(1)
+    handlePageChange(1)
+  }, [searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter,
+      unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax,
+      reservationSystemFilter, housingSupportFilter, independenceSupportFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -1038,7 +1078,7 @@ function JobsPageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobs.map((job) => {
+                {paginatedJobs.map((job) => {
                   const company = getCompany(job.companyId)
                   const isFreeOnly = company?.contractType === 'free_only'
                   
@@ -1199,6 +1239,19 @@ function JobsPageContent() {
                 })}
               </TableBody>
             </Table>
+          )}
+          
+          {/* ページネーション */}
+          {filteredJobs.length > 0 && (
+            <div className="mt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                itemsPerPage={itemsPerPage}
+                totalItems={filteredJobs.length}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
