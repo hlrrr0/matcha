@@ -402,7 +402,7 @@ function JobsPageContent() {
     
     if (searchTerm) newParams.set('search', searchTerm)
     if (statusFilter !== 'all') newParams.set('status', statusFilter)
-    if (employmentTypeFilter !== 'all') newParams.set('employmentType', employmentTypeFilter)
+    if (employmentTypeFilter !== 'all' && employmentTypeFilter) newParams.set('employmentType', employmentTypeFilter)
     if (consultantFilter !== 'all') newParams.set('consultant', consultantFilter)
     if (ageLimitFilter !== 'all') newParams.set('ageLimit', ageLimitFilter)
     if (page > 1) newParams.set('page', page.toString())
