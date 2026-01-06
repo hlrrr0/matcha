@@ -2,11 +2,12 @@
 
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AlertCircle, Clock, UserX } from 'lucide-react'
+import { auth } from '@/lib/firebase'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -16,20 +17,46 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
   const { user, userProfile, loading, isApproved, isAdmin, canAccess, logout } = useAuth()
   const router = useRouter()
+  const hasCheckedAuth = useRef(false)
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    // loadingがfalseになり、かつuserがnullの場合のみリダイレクト
-    // ただし、初期マウント時は少し待機する
-    if (!loading && !user) {
-      console.warn('⚠️ 認証されていないユーザー - ログインページへリダイレクト')
-      const timeoutId = setTimeout(() => {
-        // 再度チェック（AuthContextの初期化を待つ）
-        if (!user) {
-          router.push('/auth/login')
-        }
-      }, 500) // 500ms待機してから再チェック
+    // loadingが完了するまで何もしない
+    if (loading) {
+      return
+    }
+
+    // 初回チェック完了フラグを設定
+    if (!hasCheckedAuth.current) {
+      hasCheckedAuth.current = true
+      console.log('🔐 初回認証チェック:', user ? `ログイン中: ${user.email}` : 'ログアウト')
+    }
+
+    // ユーザーがいない場合、十分な待機時間を設けてからリダイレクト
+    if (!user) {
+      console.warn('⚠️ 認証されていないユーザー - リダイレクトを準備中')
       
-      return () => clearTimeout(timeoutId)
+      // 既存のタイムアウトをクリア
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current)
+      }
+      
+      // 2秒待機してから最終確認（新しいタブでの初期化を待つ）
+      redirectTimeoutRef.current = setTimeout(() => {
+        // auth.currentUserを直接チェック（最新の状態を確認）
+        if (!user && !auth.currentUser) {
+          console.warn('⚠️ 認証確認完了 - ログインページへリダイレクト')
+          router.push('/auth/login')
+        } else if (auth.currentUser) {
+          console.log('✅ 認証状態が復元されました:', auth.currentUser.email)
+        }
+      }, 2000)
+    }
+
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current)
+      }
     }
   }, [user, loading, router])
 
