@@ -11,7 +11,7 @@
 ## 概要
 
 ### 基本情報
-- **ベースURL**: `https://your-hr-system.vercel.app/api`
+- **ベースURL**: `https://agent-system-ten.vercel.app/api`
 - **プロトコル**: HTTPS
 - **データ形式**: JSON
 - **文字エンコーディング**: UTF-8
