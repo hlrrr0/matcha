@@ -521,7 +521,7 @@ export const updateMatchStatus = async (
     if (endDate) {
       const endDateValue = typeof endDate === 'string' ? new Date(endDate) : endDate
       updateData.endDate = endDateValue
-      console.log('📅 退職予定日を保存しました:', endDateValue.toISOString())
+      console.log('📅 退職日を保存しました:', endDateValue.toISOString())
     }
 
     await updateMatch(id, updateData)

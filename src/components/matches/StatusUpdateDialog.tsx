@@ -305,6 +305,7 @@ export function StatusUpdateDialog({
       setEventDate('')
       setEventTime('')
       setStartDate('')
+      setEndDate('')
       setStatusNotes('')
     } catch (error) {
       console.error('Status update error:', error)
@@ -482,7 +483,7 @@ export function StatusUpdateDialog({
           {/* 退職日入力（内定承諾のみ） */}
           {newStatus === 'offer_accepted' && (
             <div>
-              <Label>退職予定日</Label>
+              <Label>退職日</Label>
               <div className="mt-2">
                 <Input
                   type="date"
@@ -492,7 +493,7 @@ export function StatusUpdateDialog({
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                ※退職予定日は後から変更できます（任意）
+                ※退職日は後から変更できます（任意）
               </p>
             </div>
           )}

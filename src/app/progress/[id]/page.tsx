@@ -212,7 +212,7 @@ export default function MatchDetailPage() {
     }
   }
 
-  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date) => {
+  const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date, endDate?: Date) => {
     if (!match || !user) return
 
     try {
@@ -224,7 +224,8 @@ export default function MatchDetailPage() {
         notes || undefined,
         eventDateTime,
         undefined, // interviewRound
-        startDate
+        startDate,
+        endDate
       )
       
       toast.success('ステータスを更新しました')
