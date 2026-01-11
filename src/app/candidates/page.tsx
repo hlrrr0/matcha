@@ -138,6 +138,11 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
+  
+  // ページネーション
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(50)
+  const [totalItems, setTotalItems] = useState(0)
   const [stats, setStats] = useState<any>(null)
   
   // フィルタ・検索の状態
@@ -185,7 +190,14 @@ export default function CandidatesPage() {
   useEffect(() => {
     applyFilters()
     updateURLParams()
+    // フィルター変更時は1ページ目に戻す
+    setCurrentPage(1)
   }, [candidates, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter, sortBy, sortOrder])
+
+  // ページ変更時のみフィルター再適用
+  useEffect(() => {
+    applyFilters()
+  }, [currentPage, itemsPerPage])
 
   // 入学年月のユニーク値を抽出
   useEffect(() => {
@@ -395,8 +407,16 @@ export default function CandidatesPage() {
       return sortOrder === 'asc' ? compareResult : -compareResult
     })
 
-    console.log('✅ 最終的なフィルタ結果:', filtered)
-    setFilteredCandidates(filtered)
+    // 総件数を更新
+    setTotalItems(filtered.length)
+    
+    // ページネーション適用
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const paginatedCandidates = filtered.slice(startIndex, endIndex)
+
+    console.log('✅ 最終的なフィルタ結果:', filtered.length, 'ページング後:', paginatedCandidates.length)
+    setFilteredCandidates(paginatedCandidates)
   }
 
   // 年齢計算のヘルパー関数
@@ -954,6 +974,68 @@ export default function CandidatesPage() {
             </div>
           )}
         </CardContent>
+        
+        {/* ページネーション */}
+        {totalItems > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-white">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-700">
+                {totalItems}件中 {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}-{Math.min(currentPage * itemsPerPage, totalItems)}件を表示
+              </span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value))
+                  setCurrentPage(1)
+                }}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value={20}>20件</option>
+                <option value={50}>50件</option>
+                <option value={100}>100件</option>
+                <option value={200}>200件</option>
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+              >
+                最初
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                前へ
+              </Button>
+              <span className="text-sm px-4">
+                {currentPage} / {Math.ceil(totalItems / itemsPerPage)}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalItems / itemsPerPage), p + 1))}
+                disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
+              >
+                次へ
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.ceil(totalItems / itemsPerPage))}
+                disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
+              >
+                最後
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
       </div>
     </ProtectedRoute>
