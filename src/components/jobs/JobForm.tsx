@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Loader2, Copy, Check, Search } from 'lucide-react'
+import { Save, Loader2, Copy, Check, Search, Sparkles } from 'lucide-react'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -32,6 +32,7 @@ export default function JobForm({
   const [storeSearchTerm, setStoreSearchTerm] = useState('')
   const [loadingData, setLoadingData] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
   
   const [formData, setFormData] = useState<Partial<Job>>({
     companyId: '',
@@ -367,6 +368,107 @@ export default function JobForm({
     }
   }
 
+  // AIで求人情報を自動生成する関数
+  const handleGenerateWithAI = async () => {
+    // 企業と店舗が選択されているかチェック
+    if (!formData.companyId || !formData.storeIds || formData.storeIds.length === 0) {
+      alert('企業と店舗を先に選択してください')
+      return
+    }
+
+    setGeneratingAI(true)
+    try {
+      // 選択された企業と店舗の情報を取得
+      const selectedCompany = companies.find(c => c.id === formData.companyId)
+      const selectedStore = stores.find(s => s.id === formData.storeIds[0])
+
+      if (!selectedCompany || !selectedStore) {
+        alert('企業または店舗の情報が見つかりません')
+        return
+      }
+
+      // AI APIを呼び出し
+      const response = await fetch('/api/ai/generate-job', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyName: selectedCompany.name,
+          storeName: selectedStore.name,
+          storeAddress: selectedStore.address,
+          businessType: selectedStore.businessType || formData.businessType,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'AI生成に失敗しました')
+      }
+
+      const aiData = await response.json()
+
+      // 生成されたデータをフォームに反映（既存のデータは上書きしない）
+      setFormData(prev => ({
+        ...prev,
+        ...(aiData.title && !prev.title && { title: aiData.title }),
+        ...(aiData.jobDescription && !prev.jobDescription && { jobDescription: aiData.jobDescription }),
+        ...(aiData.requiredSkills && !prev.requiredSkills && { requiredSkills: aiData.requiredSkills }),
+        ...(aiData.trialPeriod && !prev.trialPeriod && { trialPeriod: aiData.trialPeriod }),
+        ...(aiData.workingHours && !prev.workingHours && { workingHours: aiData.workingHours }),
+        ...(aiData.holidays && !prev.holidays && { holidays: aiData.holidays }),
+        ...(aiData.overtime && !prev.overtime && { overtime: aiData.overtime }),
+        ...(aiData.salaryInexperienced && !prev.salaryInexperienced && { salaryInexperienced: aiData.salaryInexperienced }),
+        ...(aiData.salaryExperienced && !prev.salaryExperienced && { salaryExperienced: aiData.salaryExperienced }),
+        ...(aiData.smokingPolicy && !prev.smokingPolicy && { smokingPolicy: aiData.smokingPolicy }),
+        ...(aiData.insurance && !prev.insurance && { insurance: aiData.insurance }),
+        ...(aiData.benefits && !prev.benefits && { benefits: aiData.benefits }),
+        ...(aiData.selectionProcess && !prev.selectionProcess && { selectionProcess: aiData.selectionProcess }),
+        ...(aiData.recommendedPoints && !prev.recommendedPoints && { recommendedPoints: aiData.recommendedPoints }),
+        ...(aiData.consultantReview && !prev.consultantReview && { consultantReview: aiData.consultantReview }),
+        // matchingDataも反映
+        ...(aiData.matchingData && {
+          matchingData: {
+            workLifeBalance: {
+              ...prev.matchingData?.workLifeBalance,
+              ...(aiData.matchingData.workLifeBalance?.monthlyScheduledHours && !prev.matchingData?.workLifeBalance?.monthlyScheduledHours && { monthlyScheduledHours: aiData.matchingData.workLifeBalance.monthlyScheduledHours }),
+              ...(aiData.matchingData.workLifeBalance?.monthlyActualWorkHours && !prev.matchingData?.workLifeBalance?.monthlyActualWorkHours && { monthlyActualWorkHours: aiData.matchingData.workLifeBalance.monthlyActualWorkHours }),
+              ...(aiData.matchingData.workLifeBalance?.averageOvertimeHours && !prev.matchingData?.workLifeBalance?.averageOvertimeHours && { averageOvertimeHours: aiData.matchingData.workLifeBalance.averageOvertimeHours }),
+              ...(aiData.matchingData.workLifeBalance?.weekendWorkFrequency && !prev.matchingData?.workLifeBalance?.weekendWorkFrequency && { weekendWorkFrequency: aiData.matchingData.workLifeBalance.weekendWorkFrequency }),
+              ...(aiData.matchingData.workLifeBalance?.holidaysPerMonth && !prev.matchingData?.workLifeBalance?.holidaysPerMonth && { holidaysPerMonth: aiData.matchingData.workLifeBalance.holidaysPerMonth }),
+            },
+            income: {
+              ...prev.matchingData?.income,
+              ...(aiData.matchingData.income?.firstYearMin && !prev.matchingData?.income?.firstYearMin && { firstYearMin: aiData.matchingData.income.firstYearMin }),
+              ...(aiData.matchingData.income?.firstYearMax && !prev.matchingData?.income?.firstYearMax && { firstYearMax: aiData.matchingData.income.firstYearMax }),
+              ...(aiData.matchingData.income?.firstYearAverage && !prev.matchingData?.income?.firstYearAverage && { firstYearAverage: aiData.matchingData.income.firstYearAverage }),
+              ...(aiData.matchingData.income?.thirdYearExpected && !prev.matchingData?.income?.thirdYearExpected && { thirdYearExpected: aiData.matchingData.income.thirdYearExpected }),
+            },
+            organization: {
+              ...prev.matchingData?.organization,
+              ...(aiData.matchingData.organization?.teamSize && !prev.matchingData?.organization?.teamSize && { teamSize: aiData.matchingData.organization.teamSize }),
+              ...(aiData.matchingData.organization?.averageAge && !prev.matchingData?.organization?.averageAge && { averageAge: aiData.matchingData.organization.averageAge }),
+              ...(aiData.matchingData.organization?.storeScale && !prev.matchingData?.organization?.storeScale && { storeScale: aiData.matchingData.organization.storeScale }),
+            },
+            industry: {
+              ...prev.matchingData?.industry,
+              ...(aiData.matchingData.industry?.trainingPeriodMonths && !prev.matchingData?.industry?.trainingPeriodMonths && { trainingPeriodMonths: aiData.matchingData.industry.trainingPeriodMonths }),
+              ...(aiData.matchingData.industry?.hasIndependenceSupport !== undefined && prev.matchingData?.industry?.hasIndependenceSupport === undefined && { hasIndependenceSupport: aiData.matchingData.industry.hasIndependenceSupport }),
+              ...(aiData.matchingData.industry?.michelinStars !== undefined && !prev.matchingData?.industry?.michelinStars && { michelinStars: aiData.matchingData.industry.michelinStars }),
+            },
+          },
+        }),
+      }))
+
+      alert('✅ AIで求人情報を生成しました！\n\n既に入力されている項目は上書きされません。')
+    } catch (error: any) {
+      console.error('AI生成エラー:', error)
+      alert(`❌ エラー: ${error.message}`)
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
+
   if (loadingData) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -378,37 +480,83 @@ export default function JobForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* フォーム項目コピーボタン */}
-      <Card className="bg-blue-50 border-blue-200">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-blue-900 mb-1">入力項目をコピー</h3>
-              <p className="text-sm text-blue-700">
-                全ての入力項目の見出しをコピーして、GPTなどのAIに求人情報の作成を依頼できます
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCopyFieldLabels}
-              className="ml-4 bg-white hover:bg-blue-50 border-blue-300"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 mr-2 text-green-600" />
-                  コピー済み
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-2" />
-                  項目をコピー
-                </>
-              )}
-            </Button>
+      {/* AI生成中の表示 */}
+      {generatingAI && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 shadow-lg">
+          <div className="container mx-auto flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <span className="font-semibold">AIで求人情報を生成中...</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {/* AI自動生成・フォーム項目コピーボタン */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* AI自動生成ボタン */}
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-purple-900 mb-1">AIで自動生成</h3>
+                <p className="text-sm text-purple-700">
+                  企業と店舗情報からAIが求人情報を自動生成します
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGenerateWithAI}
+                disabled={generatingAI || !formData.companyId || !formData.storeIds || formData.storeIds.length === 0}
+                className="ml-4 bg-white hover:bg-purple-50 border-purple-300"
+              >
+                {generatingAI ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    生成中...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    AI生成
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* フォーム項目コピーボタン */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-blue-900 mb-1">入力項目をコピー</h3>
+                <p className="text-sm text-blue-700">
+                  全ての入力項目の見出しをコピーして、GPTなどのAIに求人情報の作成を依頼できます
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCopyFieldLabels}
+                className="ml-4 bg-white hover:bg-blue-50 border-blue-300"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2 text-green-600" />
+                    コピー済み
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    項目をコピー
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 基本情報 */}
       <Card>

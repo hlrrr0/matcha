@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Save, Loader2 } from 'lucide-react'
+import { Save, Loader2, Sparkles } from 'lucide-react'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
 import { collection, getDocs, query, where } from 'firebase/firestore'
@@ -30,6 +30,7 @@ export default function CompanyForm({
 }: CompanyFormProps) {
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
   const [formData, setFormData] = useState<Partial<Company>>({
     name: '',
     memo: '',
@@ -91,6 +92,63 @@ export default function CompanyForm({
     }))
   }
 
+  const handleGenerateWithAI = async () => {
+    if (!formData.name) {
+      alert('企業名を入力してからAI生成ボタンを押してください')
+      return
+    }
+
+    setGeneratingAI(true)
+    try {
+      // AI APIを呼び出し
+      const response = await fetch('/api/ai/generate-company', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          companyName: formData.name,
+          address: formData.address,
+          website: formData.website,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'AI生成に失敗しました')
+      }
+
+      const aiData = await response.json()
+
+      // 生成されたデータをフォームに反映（既存のデータは上書きしない）
+      setFormData(prev => ({
+        ...prev,
+        ...(aiData.employeeCount && !prev.employeeCount && { employeeCount: aiData.employeeCount }),
+        ...(aiData.representative && !prev.representative && { representative: aiData.representative }),
+        ...(aiData.capital && !prev.capital && { capital: aiData.capital }),
+        ...(aiData.establishedYear && !prev.establishedYear && { establishedYear: aiData.establishedYear }),
+        ...(aiData.website && !prev.website && { website: aiData.website }),
+        ...(aiData.feature1 && !prev.feature1 && { feature1: aiData.feature1 }),
+        ...(aiData.feature2 && !prev.feature2 && { feature2: aiData.feature2 }),
+        ...(aiData.feature3 && !prev.feature3 && { feature3: aiData.feature3 }),
+        ...(aiData.careerPath && !prev.careerPath && { careerPath: aiData.careerPath }),
+        ...(aiData.youngRecruitReason && !prev.youngRecruitReason && { youngRecruitReason: aiData.youngRecruitReason }),
+        ...(aiData.fullTimeAgeGroup && !prev.fullTimeAgeGroup && { fullTimeAgeGroup: aiData.fullTimeAgeGroup }),
+        ...(aiData.independenceRecord && !prev.independenceRecord && { independenceRecord: aiData.independenceRecord }),
+        ...(aiData.hasIndependenceSupport !== undefined && prev.hasIndependenceSupport === undefined && { hasIndependenceSupport: aiData.hasIndependenceSupport }),
+        ...(aiData.hasHousingSupport !== undefined && prev.hasHousingSupport === undefined && { hasHousingSupport: aiData.hasHousingSupport }),
+        ...(aiData.hasShokuninUnivRecord !== undefined && prev.hasShokuninUnivRecord === undefined && { hasShokuninUnivRecord: aiData.hasShokuninUnivRecord }),
+      }))
+
+      alert('✅ AIで企業情報を生成しました！\n\n既に入力されている項目は上書きされません。')
+    } catch (error: any) {
+      console.error('AI生成エラー:', error)
+      alert(`❌ エラー: ${error.message}`)
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -125,6 +183,16 @@ export default function CompanyForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* AI生成中の表示 */}
+      {generatingAI && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 px-4 shadow-lg">
+          <div className="container mx-auto flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            <span className="font-semibold">AIで企業情報を生成中...</span>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>契約情報</CardTitle>
@@ -226,6 +294,29 @@ export default function CompanyForm({
           </div>
         </CardContent>
       </Card>
+
+      {/* AI生成ボタン */}
+      <div className="flex justify-center">
+        <Button
+          type="button"
+          onClick={handleGenerateWithAI}
+          disabled={generatingAI || !formData.name}
+          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+        >
+          {generatingAI ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              AI生成中...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              AIで企業情報を生成
+            </>
+          )}
+        </Button>
+      </div>
+
       {/* 基本情報 */}
       <Card>
         <CardHeader>
