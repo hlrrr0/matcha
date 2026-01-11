@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
 import { 
   TrendingUp, 
   Plus, 
@@ -212,9 +213,38 @@ function ProgressPageContent() {
     }
   }, [searchParams, candidates])
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true)
+      
+      // キャッシュキーを生成
+      const cacheKey = 'progress_data'
+      
+      // キャッシュチェック（強制更新でない場合のみ）
+      if (!forceRefresh) {
+        const cached = getCache<{
+          matches: any[]
+          candidates: any[]
+          jobs: any[]
+          companies: any[]
+          stores: any[]
+          users: any[]
+        }>(cacheKey)
+        
+        if (cached) {
+          console.log('📦 キャッシュからデータ読み込み')
+          setMatches(cached.matches)
+          setCandidates(cached.candidates)
+          setJobs(cached.jobs)
+          setCompanies(cached.companies)
+          setStores(cached.stores)
+          setUsers(cached.users)
+          setLoading(false)
+          return
+        }
+      }
+      
+      console.log('🔄 Firestoreからデータ読み込み')
       const [matchesData, candidatesData, jobsData, companiesData, storesData, usersData] = await Promise.all([
         getMatches(),
         getCandidates(),
@@ -284,6 +314,17 @@ function ProgressPageContent() {
       })
 
       setMatches(matchesWithDetails)
+      
+      // キャッシュに保存（5分間有効）
+      setCache(cacheKey, {
+        matches: matchesWithDetails,
+        candidates: candidatesData,
+        jobs: jobsData,
+        companies: companiesData,
+        stores: storesData,
+        users: usersData
+      })
+      console.log('💾 データをキャッシュに保存')
     } catch (error) {
       console.error('データの読み込みエラー:', error)
     } finally {
@@ -872,8 +913,9 @@ function ProgressPageContent() {
                 )}
                 <Button
                   variant="secondary"
-                  onClick={() => loadData()}
+                  onClick={() => loadData(true)}
                   className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                  title="キャッシュをクリアして最新データを取得"
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   更新

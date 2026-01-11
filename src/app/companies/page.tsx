@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Pagination } from '@/components/ui/pagination'
+import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
 import { 
   Building2, 
   Plus, 
@@ -184,9 +185,30 @@ function CompaniesPageContent() {
     }
   }
 
-  const loadCompanies = async () => {
+  const loadCompanies = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true)
+      
+      // キャッシュキーを生成
+      const cacheKey = 'companies_data'
+      
+      // キャッシュチェック（強制更新でない場合のみ）
+      if (!forceRefresh) {
+        const cached = getCache<{
+          companies: any[]
+          storeCounts: Record<string, number>
+        }>(cacheKey)
+        
+        if (cached) {
+          console.log('📦 キャッシュからデータ読み込み')
+          setCompanies(cached.companies)
+          setStoreCounts(cached.storeCounts)
+          setLoading(false)
+          return
+        }
+      }
+      
+      console.log('🔄 Firestoreからデータ読み込み')
       const data = await getCompanies()
       setCompanies(data)
       
@@ -208,6 +230,13 @@ function CompaniesPageContent() {
       }, {} as Record<string, number>)
       
       setStoreCounts(storeCountsMap)
+      
+      // キャッシュに保存（5分間有効）
+      setCache(cacheKey, {
+        companies: data,
+        storeCounts: storeCountsMap
+      })
+      console.log('💾 データをキャッシュに保存')
       
     } catch (error) {
       console.error('❌ 企業データの読み込みエラー:', error)
@@ -242,8 +271,8 @@ function CompaniesPageContent() {
         }
       }
       
-      // データを再読み込み
-      await loadCompanies()
+      // データを再読み込み（キャッシュをクリア）
+      await loadCompanies(true)
     } catch (error) {
       console.error('Error importing CSV:', error)
       toast.error('CSVインポートに失敗しました')
@@ -463,9 +492,9 @@ function CompaniesPageContent() {
       console.error('❌ 企業削除エラー:', error)
       toast.error(`「${companyToDelete.name}」の削除に失敗しました: ${error}`)
     } finally {
-      // 成功・失敗に関わらず一覧を更新（データ整合性確保）
+      // 成功・失敗に関わらず一覧を更新（データ整合性確保、キャッシュクリア）
       try {
-        await loadCompanies()
+        await loadCompanies(true)
       } catch (reloadError) {
         console.error('❌ 一覧再読み込みエラー:', reloadError)
         toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')
@@ -511,9 +540,9 @@ function CompaniesPageContent() {
       setSelectedCompanies(new Set())
       setIsAllSelected(false)
       
-      // 成功・失敗に関わらず一覧を更新
+      // 成功・失敗に関わらず一覧を更新（キャッシュクリア）
       try {
-        await loadCompanies()
+        await loadCompanies(true)
       } catch (reloadError) {
         console.error('❌ 一覧再読み込みエラー:', reloadError)
         toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')

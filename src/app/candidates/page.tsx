@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
 import {
   Table,
   TableBody,
@@ -226,9 +227,33 @@ export default function CandidatesPage() {
     router.replace(newUrl, { scroll: false })
   }
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true)
+      
+      // キャッシュキーを生成
+      const cacheKey = 'candidates_data'
+      
+      // キャッシュチェック（強制更新でない場合のみ）
+      if (!forceRefresh) {
+        const cached = getCache<{
+          candidates: any[]
+          stats: any
+          users: any[]
+        }>(cacheKey)
+        
+        if (cached) {
+          console.log('📦 キャッシュからデータ読み込み')
+          setCandidates(cached.candidates)
+          setStats(cached.stats)
+          setUsers(cached.users)
+          loadProgressCounts(cached.candidates)
+          setLoading(false)
+          return
+        }
+      }
+      
+      console.log('🔄 Firestoreからデータ読み込み')
       const [candidatesData, statsData, usersData] = await Promise.all([
         getCandidates(),
         getCandidateStats(),
@@ -239,6 +264,14 @@ export default function CandidatesPage() {
       setCandidates(candidatesData)
       setStats(statsData)
       setUsers(usersData)
+      
+      // キャッシュに保存（5分間有効）
+      setCache(cacheKey, {
+        candidates: candidatesData,
+        stats: statsData,
+        users: usersData
+      })
+      console.log('💾 データをキャッシュに保存')
       
       // 進捗データを並行して取得
       loadProgressCounts(candidatesData)
@@ -571,9 +604,10 @@ export default function CandidatesPage() {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={loadData}
+              onClick={() => loadData(true)}
               variant="outline"
               className="bg-white text-red-600 hover:bg-red-50 border-white flex items-center gap-2"
+              title="キャッシュをクリアして最新データを取得"
             >
               <RefreshCw className="h-4 w-4" />
               更新
