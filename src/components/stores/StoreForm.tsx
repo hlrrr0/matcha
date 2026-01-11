@@ -38,6 +38,7 @@ export default function StoreForm({
   const [geocoding, setGeocoding] = useState(false)
   const [autoGeocodingEnabled, setAutoGeocodingEnabled] = useState(true)
   const geocodeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [fetchingTabelog, setFetchingTabelog] = useState(false)
   const [formData, setFormData] = useState<Partial<Store>>({
     companyId: '',
     name: '',
@@ -250,6 +251,80 @@ export default function StoreForm({
       }
     }
   }, [])
+
+  // 食べログURLから情報を取得
+  const handleFetchTabelogInfo = async () => {
+    if (!formData.tabelogUrl) {
+      alert('食べログURLを入力してください')
+      return
+    }
+
+    setFetchingTabelog(true)
+    try {
+      const response = await fetch('/api/tabelog/fetch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: formData.tabelogUrl }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '情報の取得に失敗しました')
+      }
+
+      const data = await response.json()
+      
+      // 写真データの数をカウント（店内写真も含む）
+      const photoCount = [1, 2, 3, 4, 5, 6].filter(i => data[`photo${i}`]).length
+      const hasInteriorPhoto = !!data.interiorPhoto
+      
+      // 取得したデータをフォームに反映
+      setFormData(prev => ({
+        ...prev,
+        ...(data.name && !prev.name && { name: data.name }),
+        ...(data.address && !prev.address && { address: data.address }),
+        ...(data.nearestStation && !prev.nearestStation && { nearestStation: data.nearestStation }),
+        ...(data.website && !prev.website && { website: data.website }),
+        ...(data.instagramUrl && !prev.instagramUrl && { instagramUrl: data.instagramUrl }),
+        ...(data.tabelogScore && !prev.tabelogScore && { tabelogScore: data.tabelogScore }),
+        ...(data.seatCount && !prev.seatCount && { seatCount: data.seatCount }),
+        ...(data.unitPriceLunch && !prev.unitPriceLunch && { unitPriceLunch: data.unitPriceLunch }),
+        ...(data.unitPriceDinner && !prev.unitPriceDinner && { unitPriceDinner: data.unitPriceDinner }),
+        ...(data.businessType && !prev.businessType && { businessType: data.businessType }),
+        // 店内写真を反映
+        ...(data.interiorPhoto && !prev.interiorPhoto && { interiorPhoto: data.interiorPhoto }),
+        // 素材写真を反映（既存の写真がない場合のみ）
+        ...(data.photo1 && !prev.photo1 && { photo1: data.photo1 }),
+        ...(data.photo2 && !prev.photo2 && { photo2: data.photo2 }),
+        ...(data.photo3 && !prev.photo3 && { photo3: data.photo3 }),
+        ...(data.photo4 && !prev.photo4 && { photo4: data.photo4 }),
+        ...(data.photo5 && !prev.photo5 && { photo5: data.photo5 }),
+        ...(data.photo6 && !prev.photo6 && { photo6: data.photo6 }),
+      }))
+
+      // 写真フィールドの表示数を更新
+      if (photoCount > additionalPhotosCount) {
+        setAdditionalPhotosCount(photoCount)
+      }
+
+      // 住所が取得できた場合は自動的に緯度経度も取得
+      if (data.address && !formData.address && autoGeocodingEnabled) {
+        autoGeocodeAddress(data.address)
+      }
+
+      const photoMessage = photoCount > 0 || hasInteriorPhoto 
+        ? `\n\n写真を取得しました: ${hasInteriorPhoto ? '店内写真1枚' : ''}${photoCount > 0 ? ` 素材写真${photoCount}枚` : ''}` 
+        : ''
+      alert(`✅ 食べログから情報を取得しました！${photoMessage}\n\n既に入力されている項目は上書きされません。`)
+    } catch (error: any) {
+      console.error('食べログ情報取得エラー:', error)
+      alert(`❌ エラー: ${error.message}`)
+    } finally {
+      setFetchingTabelog(false)
+    }
+  }
 
   const addPhotoField = () => {
     if (additionalPhotosCount < 7) {
@@ -525,17 +600,39 @@ export default function StoreForm({
             <Label htmlFor="tabelogUrl">
               食べログURL {!formData.tabelogUrlException && <span className="text-red-500">*</span>}
             </Label>
-            <Input
-              id="tabelogUrl"
-              type="url"
-              value={formData.tabelogUrl || ''}
-              onChange={(e) => handleChange('tabelogUrl', e.target.value)}
-              placeholder="https://tabelog.com/..."
-              required={!formData.tabelogUrlException}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="tabelogUrl"
+                type="url"
+                value={formData.tabelogUrl || ''}
+                onChange={(e) => handleChange('tabelogUrl', e.target.value)}
+                placeholder="https://tabelog.com/..."
+                required={!formData.tabelogUrlException}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFetchTabelogInfo}
+                disabled={fetchingTabelog || !formData.tabelogUrl}
+                className="whitespace-nowrap"
+              >
+                {fetchingTabelog ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    取得中...
+                  </>
+                ) : (
+                  '情報取得'
+                )}
+              </Button>
+            </div>
             {tabelogUrlError && (
               <p className="text-sm text-red-500 mt-1">{tabelogUrlError}</p>
             )}
+            <p className="text-xs text-gray-500 mt-1">
+              食べログURLを入力後、「情報取得」ボタンで店舗情報を自動入力できます
+            </p>
           </div>
 
           <div className="space-y-3">

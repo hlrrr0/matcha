@@ -3,32 +3,36 @@
  */
 
 // Geocoding API を使って住所から緯度経度を取得
-// サーバーサイドプロキシ経由で呼び出し（HTTPリファラー制限の回避）
+// Google Maps JavaScript API の Geocoder を使用（リファラー制限対応）
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
     console.log('Geocoding API リクエスト:', address)
     
-    // Next.js API Route経由で呼び出し
-    const response = await fetch('/api/geocode', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ address }),
+    // Google Maps JavaScript API がロードされていない場合はロード
+    if (!window.google?.maps) {
+      await loadGoogleMapsScript()
+    }
+
+    // Geocoder を使用して住所を緯度経度に変換
+    const geocoder = new google.maps.Geocoder()
+    
+    return new Promise((resolve, reject) => {
+      geocoder.geocode({ address: address }, (results, status) => {
+        if (status === 'OK' && results && results[0]) {
+          const location = results[0].geometry.location
+          const lat = location.lat()
+          const lng = location.lng()
+          console.log('緯度経度取得成功:', { lat, lng })
+          resolve({ lat, lng })
+        } else if (status === 'REQUEST_DENIED') {
+          console.error('Geocoding API エラー:', status)
+          reject(new Error(`APIリクエストが拒否されました: ${status}`))
+        } else {
+          console.error('Geocoding API エラー:', status)
+          reject(new Error(`住所の変換に失敗しました: ${status}`))
+        }
+      })
     })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      console.error('Geocoding API エラー:', data.error)
-      throw new Error(data.error || '緯度経度の取得に失敗しました')
-    }
-
-    console.log('緯度経度取得成功:', data)
-    return {
-      lat: data.lat,
-      lng: data.lng
-    }
   } catch (error) {
     console.error('Geocoding APIエラー:', error)
     throw error
