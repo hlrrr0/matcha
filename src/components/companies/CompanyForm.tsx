@@ -605,7 +605,7 @@ export default function CompanyForm({
       </Card>
 
       {/* 送信ボタン */}
-      <div className="flex gap-4">
+      <div className="flex gap-4" style={{flexDirection: 'row-reverse'}}>
         <Button 
           type="submit" 
           disabled={loading}

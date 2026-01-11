@@ -380,7 +380,7 @@ export default function JobForm({
     try {
       // 選択された企業と店舗の情報を取得
       const selectedCompany = companies.find(c => c.id === formData.companyId)
-      const selectedStore = stores.find(s => s.id === formData.storeIds[0])
+      const selectedStore = stores.find(s => s.id === formData.storeIds?.[0])
 
       if (!selectedCompany || !selectedStore) {
         alert('企業または店舗の情報が見つかりません')
