@@ -4,8 +4,14 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserCheck, LogOut, User } from "lucide-react"
+import { UserCheck, LogOut, User, ChevronDown } from "lucide-react"
 import SimpleTranslate from "@/components/SimpleTranslate"
 
 export default function Header() {
@@ -55,13 +61,27 @@ export default function Header() {
               <Link href="/progress">
                 <Button variant="ghost" className="text-orange-800 hover:text-orange-900 hover:bg-orange-50">進捗管理</Button>
               </Link>
-              <Link href="/domino/import">
-                <Button variant="ghost">Domino連携</Button>
-              </Link>
               {isAdmin && (
-                <Link href="/admin/users">
-                  <Button variant="ghost" className="text-blue-600">管理者</Button>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center gap-1">
+                      管理者
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/users" className="w-full cursor-pointer">
+                        ユーザー管理
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/domino/import" className="w-full cursor-pointer">
+                        Domino連携
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </nav>
           )}
