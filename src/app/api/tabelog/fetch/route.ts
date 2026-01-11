@@ -342,10 +342,15 @@ export async function POST(request: NextRequest) {
     
     console.log('写真取得開始...')
 
+    // 写真がレストランの写真かチェックする関数
+    const isRestaurantPhoto = (url: string): boolean => {
+      return url.includes('/restaurant/') && !url.includes('/user/') && !url.includes('noimage')
+    }
+
     // パターン1: メイン写真エリア（rstinfo-photo-list）
     $('.rstinfo-photo-list__photo img, .rstinfo-photo-list img').each((_, elem) => {
       const src = $(elem).attr('src') || $(elem).attr('data-src') || $(elem).attr('data-original')
-      if (src && !src.includes('noimage') && !photoUrls.has(src)) {
+      if (src && isRestaurantPhoto(src) && !photoUrls.has(src)) {
         const largeUrl = convertToLargeImageUrl(src)
         photoUrls.add(src)
         photos.push(largeUrl)
@@ -356,7 +361,7 @@ export async function POST(request: NextRequest) {
     // パターン2: 写真ギャラリー（js-gallery-image）
     $('.js-gallery-image, .p-gallery__item img').each((_, elem) => {
       const src = $(elem).attr('data-src') || $(elem).attr('src') || $(elem).attr('data-original')
-      if (src && !src.includes('noimage') && !photoUrls.has(src)) {
+      if (src && isRestaurantPhoto(src) && !photoUrls.has(src)) {
         const largeUrl = convertToLargeImageUrl(src)
         photoUrls.add(src)
         photos.push(largeUrl)
@@ -367,7 +372,7 @@ export async function POST(request: NextRequest) {
     // パターン3: ヘッダー写真（rdheader-photo）
     $('.rdheader-photo__item img, .rdheader-photo img').each((_, elem) => {
       const src = $(elem).attr('src') || $(elem).attr('data-src') || $(elem).attr('data-original')
-      if (src && !src.includes('noimage') && !photoUrls.has(src)) {
+      if (src && isRestaurantPhoto(src) && !photoUrls.has(src)) {
         const largeUrl = convertToLargeImageUrl(src)
         photoUrls.add(src)
         photos.push(largeUrl)
@@ -378,7 +383,7 @@ export async function POST(request: NextRequest) {
     // パターン4: トップ写真エリア
     $('.rstdtl-top-photos img, .rstdtl-top-photo img').each((_, elem) => {
       const src = $(elem).attr('src') || $(elem).attr('data-src') || $(elem).attr('data-original')
-      if (src && !src.includes('noimage') && !photoUrls.has(src)) {
+      if (src && isRestaurantPhoto(src) && !photoUrls.has(src)) {
         const largeUrl = convertToLargeImageUrl(src)
         photoUrls.add(src)
         photos.push(largeUrl)
@@ -389,10 +394,9 @@ export async function POST(request: NextRequest) {
     // パターン5: 料理・内観・外観写真
     $('img[class*="photo"], img[class*="image"]').each((_, elem) => {
       const src = $(elem).attr('src') || $(elem).attr('data-src') || $(elem).attr('data-original')
-      const alt = $(elem).attr('alt') || ''
       
-      // 食べログドメインの画像のみ対象
-      if (src && src.includes('tblg.k-img.com') && !src.includes('noimage') && !photoUrls.has(src)) {
+      // 食べログドメインの画像のみ対象、/restaurant/を含むもののみ
+      if (src && src.includes('tblg.k-img.com') && isRestaurantPhoto(src) && !photoUrls.has(src)) {
         const largeUrl = convertToLargeImageUrl(src)
         photoUrls.add(src)
         photos.push(largeUrl)
@@ -403,7 +407,7 @@ export async function POST(request: NextRequest) {
     // パターン6: aタグ内のhref（大きい画像へのリンク）
     $('a[href*="tblg.k-img.com"]').each((_, elem) => {
       const href = $(elem).attr('href')
-      if (href && !href.includes('noimage') && !photoUrls.has(href)) {
+      if (href && isRestaurantPhoto(href) && !photoUrls.has(href)) {
         const largeUrl = convertToLargeImageUrl(href)
         photoUrls.add(href)
         photos.push(largeUrl)
