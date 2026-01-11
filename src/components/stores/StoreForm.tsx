@@ -17,6 +17,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { extractPrefecture } from '@/lib/utils/prefecture'
 import { geocodeAddress } from '@/lib/google-maps'
+import { authenticatedPost } from '@/lib/api-client'
 
 interface StoreFormProps {
   initialData?: Partial<Store>
@@ -261,20 +262,14 @@ export default function StoreForm({
 
     setFetchingTabelog(true)
     try {
-      const response = await fetch('/api/tabelog/fetch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: formData.tabelogUrl }),
+      // AI APIを呼び出し（認証付き）
+      const data = await authenticatedPost('/api/tabelog/fetch', {
+        url: formData.tabelogUrl
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '情報の取得に失敗しました')
+      if (!data) {
+        throw new Error('情報の取得に失敗しました')
       }
-
-      const data = await response.json()
       
       // 写真データの数をカウント（店内写真も含む）
       const photoCount = [1, 2, 3, 4, 5, 6].filter(i => data[`photo${i}`]).length

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
+import { withAuth, withRateLimit } from '@/lib/api/middleware'
 
-export async function POST(request: NextRequest) {
+async function handleTabelogFetch(request: NextRequest, context: { userId: string; userRole: string }) {
   try {
     const { url } = await request.json()
 
@@ -460,3 +461,12 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// 認証とレート制限を適用（15リクエスト/分）
+export const POST = withAuth(
+  withRateLimit(
+    handleTabelogFetch,
+    15,    // 15リクエスト
+    60000  // 1分間
+  )
+)

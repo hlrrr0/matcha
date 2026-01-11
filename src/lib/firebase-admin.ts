@@ -5,6 +5,7 @@
 
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
 import { getFirestore, Firestore } from 'firebase-admin/firestore'
+import { getAuth } from 'firebase-admin/auth'
 
 let adminApp: App | undefined
 let adminDb: Firestore | undefined
@@ -95,4 +96,31 @@ export function getAdminApp(): App {
     return app
   }
   return adminApp
+}
+
+/**
+ * Firebase ID Tokenを検証
+ * @param token - 検証するトークン
+ * @returns デコードされたトークン情報、または null
+ */
+export async function verifyIdToken(token: string) {
+  try {
+    const app = getAdminApp()
+    const auth = getAuth(app)
+    const decodedToken = await auth.verifyIdToken(token)
+    
+    // ユーザー情報を取得してroleを追加
+    const db = getAdminDb()
+    const userDoc = await db.collection('users').doc(decodedToken.uid).get()
+    const userData = userDoc.data()
+    
+    return {
+      ...decodedToken,
+      role: userData?.role || 'user',
+      isApproved: userData?.isApproved || false
+    }
+  } catch (error) {
+    console.error('Token verification error:', error)
+    return null
+  }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withAuth, withRateLimit } from '@/lib/api/middleware'
 
-export async function POST(request: NextRequest) {
+async function handleGenerateJob(request: NextRequest, context: { userId: string; userRole: string }) {
   try {
     const { companyName, storeName, storeAddress, businessType } = await request.json()
 
@@ -203,3 +204,12 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+// 認証とレート制限を適用（20リクエスト/分）
+export const POST = withAuth(
+  withRateLimit(
+    handleGenerateJob,
+    20,    // 20リクエスト
+    60000  // 1分間
+  )
+)

@@ -13,6 +13,7 @@ import { Save, Loader2, Sparkles } from 'lucide-react'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
 import { collection, getDocs, query, where } from 'firebase/firestore'
+import { authenticatedPost } from '@/lib/api-client'
 import { db } from '@/lib/firebase'
 
 interface CompanyFormProps {
@@ -100,25 +101,16 @@ export default function CompanyForm({
 
     setGeneratingAI(true)
     try {
-      // AI APIを呼び出し
-      const response = await fetch('/api/ai/generate-company', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          companyName: formData.name,
-          address: formData.address,
-          website: formData.website,
-        }),
+      // AI APIを呼び出し（認証付き）
+      const aiData = await authenticatedPost('/api/ai/generate-company', {
+        companyName: formData.name,
+        address: formData.address,
+        website: formData.website,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'AI生成に失敗しました')
+      if (!aiData) {
+        throw new Error('AI生成に失敗しました')
       }
-
-      const aiData = await response.json()
 
       // 生成されたデータをフォームに反映（既存のデータは上書きしない）
       setFormData(prev => ({

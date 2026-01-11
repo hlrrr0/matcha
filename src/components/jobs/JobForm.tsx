@@ -12,6 +12,7 @@ import { Save, Loader2, Copy, Check, Search, Sparkles } from 'lucide-react'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
+import { authenticatedPost } from '@/lib/api-client'
 
 interface JobFormProps {
   initialData?: Partial<Job>
@@ -387,26 +388,17 @@ export default function JobForm({
         return
       }
 
-      // AI APIを呼び出し
-      const response = await fetch('/api/ai/generate-job', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          companyName: selectedCompany.name,
-          storeName: selectedStore.name,
-          storeAddress: selectedStore.address,
-          businessType: selectedStore.businessType || formData.businessType,
-        }),
+      // AI APIを呼び出し（認証付き）
+      const aiData = await authenticatedPost('/api/ai/generate-job', {
+        companyName: selectedCompany.name,
+        storeName: selectedStore.name,
+        storeAddress: selectedStore.address,
+        businessType: selectedStore.businessType || formData.businessType,
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'AI生成に失敗しました')
+      if (!aiData) {
+        throw new Error('AI生成に失敗しました')
       }
-
-      const aiData = await response.json()
 
       // 生成されたデータをフォームに反映（既存のデータは上書きしない）
       setFormData(prev => ({

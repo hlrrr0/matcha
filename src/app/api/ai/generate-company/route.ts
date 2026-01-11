@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withAuth, withRateLimit } from '@/lib/api/middleware'
 
-export async function POST(request: NextRequest) {
+async function handleGenerateCompany(request: NextRequest, context: { userId: string; userRole: string }) {
   try {
     const { companyName, address, website } = await request.json()
 
@@ -182,3 +183,12 @@ ${website ? `- 公式HP: ${website}` : ''}
     )
   }
 }
+
+// 認証とレート制限を適用（10リクエスト/分）
+export const POST = withAuth(
+  withRateLimit(
+    handleGenerateCompany,
+    10,    // 10リクエスト
+    60000  // 1分間
+  )
+)

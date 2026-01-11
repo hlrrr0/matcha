@@ -36,7 +36,7 @@ interface PublicJob {
   }
   company: {
     id: string
-    name: string
+    name?: string
     industry?: string
     description?: string
     website?: string
@@ -52,12 +52,12 @@ interface PublicJob {
   qualifications?: string[]
   benefits?: string[]
   recruitmentCount?: number
-  ageLimit: boolean
+  ageLimit?: boolean
   ageLimitReason?: string
   recommendedPoints?: string
-  publicUrl: string
+  publicUrl?: string
   status: string
-  createdAt: string
+  createdAt?: string
   updatedAt: string
 }
 
@@ -251,28 +251,28 @@ export async function exportPublicJobs(options: ExportOptions) {
         },
         company: {
           id: company.id,
-          name: company.name,
+          name: undefined,
           industry: undefined,
           description: undefined,
-          website: company.website
+          website: undefined
         },
         stores: stores.map(s => ({
           id: s.id,
           name: s.name,
           address: s.address,
-          phoneNumber: s.phone,
+          phoneNumber: undefined,
           latitude: s.latitude,
           longitude: s.longitude
         })),
         qualifications: job.requiredSkills ? [job.requiredSkills] : undefined,
         benefits: job.benefits ? [job.benefits] : undefined,
         recruitmentCount: undefined,
-        ageLimit: job.ageLimit ? true : false,
-        ageLimitReason: job.ageNote,
+        ageLimit: undefined,
+        ageLimitReason: undefined,
         recommendedPoints: job.recommendedPoints,
-        publicUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agent-system.com'}/public/jobs/${jobDoc.id}`,
+        publicUrl: undefined,
         status: job.status,
-        createdAt: typeof job.createdAt === 'string' ? job.createdAt : job.createdAt instanceof Date ? job.createdAt.toISOString() : new Date().toISOString(),
+        createdAt: undefined,
         updatedAt: typeof job.updatedAt === 'string' ? job.updatedAt : job.updatedAt instanceof Date ? job.updatedAt.toISOString() : new Date().toISOString()
       }
 
@@ -347,28 +347,28 @@ export async function getPublicJob(jobId: string): Promise<PublicJob | null> {
       },
       company: {
         id: company.id,
-        name: company.name,
+        name: undefined,
         industry: undefined,
         description: undefined,
-        website: company.website
+        website: undefined
       },
       stores: stores.map(s => ({
         id: s.id,
         name: s.name,
         address: s.address,
-        phoneNumber: s.phone,
+        phoneNumber: undefined,
         latitude: s.latitude,
         longitude: s.longitude
       })),
       qualifications: job.requiredSkills ? [job.requiredSkills] : undefined,
       benefits: job.benefits ? [job.benefits] : undefined,
       recruitmentCount: undefined,
-      ageLimit: job.ageLimit ? true : false,
-      ageLimitReason: job.ageNote,
+      ageLimit: undefined,
+      ageLimitReason: undefined,
       recommendedPoints: job.recommendedPoints,
-      publicUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://agent-system.com'}/public/jobs/${jobDoc.id}`,
+      publicUrl: undefined,
       status: job.status,
-      createdAt: typeof job.createdAt === 'string' ? job.createdAt : job.createdAt instanceof Date ? job.createdAt.toISOString() : new Date().toISOString(),
+      createdAt: undefined,
       updatedAt: typeof job.updatedAt === 'string' ? job.updatedAt : job.updatedAt instanceof Date ? job.updatedAt.toISOString() : new Date().toISOString()
     }
     
