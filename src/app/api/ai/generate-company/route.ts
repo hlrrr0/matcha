@@ -151,8 +151,16 @@ ${website ? `- 公式HP: ${website}` : ''}
     } catch (parseError: any) {
       console.error('JSONパースエラー:', parseError.message)
       console.error('パースしようとしたテキスト（全文）:', jsonText)
+      console.error('テキスト長:', jsonText.length)
       return NextResponse.json(
-        { error: 'AIの出力をJSON形式に変換できませんでした。もう一度お試しください。' },
+        { 
+          error: 'AIの出力をJSON形式に変換できませんでした。もう一度お試しください。',
+          details: {
+            parseError: parseError.message,
+            textLength: jsonText.length,
+            textPreview: jsonText.substring(0, 500)
+          }
+        },
         { status: 500 }
       )
     }
@@ -161,8 +169,15 @@ ${website ? `- 公式HP: ${website}` : ''}
 
   } catch (error: any) {
     console.error('AI生成エラー:', error)
+    console.error('エラースタック:', error.stack)
     return NextResponse.json(
-      { error: error.message || 'AIによる企業情報生成中にエラーが発生しました' },
+      { 
+        error: error.message || 'AIによる企業情報生成中にエラーが発生しました',
+        details: {
+          stack: error.stack,
+          name: error.name
+        }
+      },
       { status: 500 }
     )
   }
