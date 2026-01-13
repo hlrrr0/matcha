@@ -13,15 +13,17 @@ FirebaseのAPIキーエラーは、Vercelのプロダクション環境で環境
 5. 以下の環境変数を追加：
 
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyD6pa5Qi9vumPncVNhc3fr3IzC9TON_YsA
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=agent-system-23630.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=agent-system-23630
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=agent-system-23630.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=543575360817
-NEXT_PUBLIC_FIREBASE_APP_ID=1:543575360817:web:dea8b4496f3814b2061c10
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 DOMINO_API_URL=https://api.domino.example.com
-DOMINO_API_KEY=demo-api-key
+DOMINO_API_KEY=your_domino_api_key_here
 ```
+
+> **Note**: Replace all placeholder values with your actual Firebase and Domino API credentials. Never commit real API keys to the repository.
 
 ### 2. CLI での設定（代替方法）
 ```bash
