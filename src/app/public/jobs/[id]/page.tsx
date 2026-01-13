@@ -66,6 +66,7 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
     // 関連店舗の取得（複数対応）
     const storeIds = jobData.storeIds || (jobData.storeId ? [jobData.storeId] : [])
     const validStoreIds = storeIds.filter(id => id && id.trim() !== '')
+    let storePrefectures: string[] = []
     if (validStoreIds.length > 0) {
       for (const storeId of validStoreIds) {
         const storeDoc = await getDoc(doc(db, 'stores', storeId))
@@ -74,22 +75,69 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
           if (storeData.name) {
             storeNames.push(storeData.name)
           }
+          if (storeData.prefecture && !storePrefectures.includes(storeData.prefecture)) {
+            storePrefectures.push(storeData.prefecture)
+          }
         }
       }
     }
 
-    // タイトルの構築: "{企業名} - {店舗名} - {求人名}"
-    const titleParts = []
-    if (companyName) titleParts.push(companyName)
-    if (storeNames.length > 0) titleParts.push(storeNames[0]) // 最初の店舗名のみ
-    if (jobData.title) titleParts.push(jobData.title)
+    // タイトルの構築: "{店舗名}-{職種名}"
+    const storeName = storeNames.length > 0 ? storeNames[0] : companyName
+    const jobTitle = jobData.title || '求人'
+    const title = storeName ? `${storeName}-${jobTitle}` : jobTitle
     
-    const title = titleParts.length > 0 ? titleParts.join(' - ') : '求人情報'
-    const storeNamesText = storeNames.length > 0 ? ` ${storeNames.join('、')}` : ''
+    // ディスクリプションの構築
+    const generateDescription = () => {
+      // エリア情報
+      const area = storePrefectures.length > 0 
+        ? `${storePrefectures.join('・')}エリア` 
+        : (storeNames.length > 0 ? `${storeNames[0]}` : '')
+      
+      // 雇用形態
+      const employmentTypeMap: Record<string, string> = {
+        'full-time': '正社員',
+        'part-time': 'アルバイト・パート',
+        'contract': '契約社員',
+        'temporary': '派遣社員',
+        'other': '業務委託'
+      }
+      const employmentText = jobData.employmentType ? employmentTypeMap[jobData.employmentType] || '' : ''
+      
+      // 給与情報（未経験・経験者の両方を考慮）
+      let salaryText = ''
+      if (jobData.salaryInexperienced && jobData.salaryExperienced) {
+        salaryText = `月給${jobData.salaryInexperienced}～${jobData.salaryExperienced}`
+      } else if (jobData.salaryInexperienced) {
+        salaryText = `月給${jobData.salaryInexperienced}`
+      } else if (jobData.salaryExperienced) {
+        salaryText = `月給${jobData.salaryExperienced}`
+      }
+      
+      // 経験条件（requiredSkillsから判断）
+      const experienceText = jobData.requiredSkills && jobData.requiredSkills.includes('経験') && !jobData.requiredSkills.includes('未経験')
+        ? '経験者優遇' 
+        : '未経験歓迎'
+      
+      // ディスクリプションパターン（王道）
+      if (area && employmentText) {
+        return `${jobTitle}の求人情報｜${area}の${companyName || ''}で${employmentText}募集。${experienceText}。${salaryText ? `${salaryText}。` : ''}仕事内容、給与、待遇を詳しく掲載中。`
+      }
+      
+      // カジュアルパターン（エリアない場合）
+      if (companyName) {
+        return `【${jobTitle}募集】${companyName}${storeNames[0] ? `の${storeNames[0]}` : ''}で勤務。${experienceText}・${employmentText}。${salaryText ? `${salaryText}。` : ''}給与・休日・福利厚生を求人ページで確認。`
+      }
+      
+      // フォールバック
+      return `${jobTitle}の求人情報。${experienceText}。${employmentText}の募集です。詳細は求人ページをご覧ください。`
+    }
     
+    const description = generateDescription()
+
     return {
       title,
-      description: jobData.jobDescription || `${companyName}${storeNamesText}の求人情報です。`,
+      description: description,
       robots: {
         index: false,
         follow: false,
@@ -100,7 +148,7 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
       },
       openGraph: {
         title,
-        description: jobData.jobDescription || `${companyName}${storeNamesText}の求人情報です。`,
+        description: description,
         type: 'website',
       },
     }
