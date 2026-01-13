@@ -1,7 +1,7 @@
 // テスト用のマッチングデータを作成するスクリプト
+import dotenv from 'dotenv'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, getDocs } from 'firebase/firestore'
-import dotenv from 'dotenv'
 
 // 環境変数をロード
 dotenv.config({ path: '.env.local' })
@@ -16,8 +16,16 @@ const firebaseConfig = {
 }
 
 // 環境変数の検証
-if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-  console.error('❌ エラー: Firebase環境変数が設定されていません。.env.localファイルを確認してください。')
+const requiredEnvVars = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId']
+const missingVars = requiredEnvVars.filter(key => !firebaseConfig[key])
+
+if (missingVars.length > 0) {
+  console.error('❌ エラー: 以下のFirebase環境変数が設定されていません:')
+  missingVars.forEach(varName => {
+    const envName = `NEXT_PUBLIC_FIREBASE_${varName.replace(/([A-Z])/g, '_$1').toUpperCase()}`
+    console.error(`   - ${envName}`)
+  })
+  console.error('\n.env.localファイルを確認してください。')
   process.exit(1)
 }
 
