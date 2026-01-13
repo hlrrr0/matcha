@@ -21,10 +21,19 @@ const missingVars = requiredEnvVars.filter(key => !firebaseConfig[key])
 
 if (missingVars.length > 0) {
   console.error('❌ エラー: 以下のFirebase環境変数が設定されていません:')
+  
+  // 環境変数名のマッピング
+  const envVarNames = {
+    apiKey: 'NEXT_PUBLIC_FIREBASE_API_KEY',
+    authDomain: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    projectId: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    storageBucket: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    messagingSenderId: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    appId: 'NEXT_PUBLIC_FIREBASE_APP_ID'
+  }
+  
   missingVars.forEach(varName => {
-    // camelCaseをSNAKE_CASEに変換
-    const envName = `NEXT_PUBLIC_FIREBASE_${varName.replace(/([A-Z])/g, '_$1').toUpperCase().replace(/^_/, '')}`
-    console.error(`   - ${envName}`)
+    console.error(`   - ${envVarNames[varName]}`)
   })
   console.error('\n.env.localファイルを確認してください。')
   process.exit(1)
