@@ -1,14 +1,21 @@
 // テスト用のマッチングデータを作成するスクリプト
+import 'dotenv/config'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, collection, addDoc, getDocs } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBEOGEOGcMmUk8VRj70zDiGu2gqVyMZqso",
-  authDomain: "agent-system-bc2ec.firebaseapp.com",
-  projectId: "agent-system-bc2ec",
-  storageBucket: "agent-system-bc2ec.firebasestorage.app",
-  messagingSenderId: "577455306516",
-  appId: "1:577455306516:web:bda95e6926996d89ea5bd8"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "agent-system-bc2ec.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "agent-system-bc2ec",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "agent-system-bc2ec.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "577455306516",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:577455306516:web:bda95e6926996d89ea5bd8"
+}
+
+if (!firebaseConfig.apiKey) {
+  console.error('❌ Error: NEXT_PUBLIC_FIREBASE_API_KEY environment variable is not set')
+  console.error('Please create a .env.local file with your Firebase configuration')
+  process.exit(1)
 }
 
 const app = initializeApp(firebaseConfig)
