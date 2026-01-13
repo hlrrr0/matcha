@@ -20,7 +20,8 @@ const missingVars = requiredEnvVars.filter(key => !firebaseConfig[key]);
 if (missingVars.length > 0) {
   console.error('❌ エラー: 以下のFirebase環境変数が設定されていません:');
   missingVars.forEach(varName => {
-    const envName = `NEXT_PUBLIC_FIREBASE_${varName.replace(/([A-Z])/g, '_$1').toUpperCase()}`;
+    // camelCaseをSNAKE_CASEに変換
+    const envName = `NEXT_PUBLIC_FIREBASE_${varName.replace(/([A-Z])/g, '_$1').toUpperCase().replace(/^_/, '')}`;
     console.error(`   - ${envName}`);
   });
   console.error('\n.env.localファイルを確認してください。');
