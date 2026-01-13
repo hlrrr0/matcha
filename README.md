@@ -298,8 +298,29 @@ interface Company {
 - **[機能仕様](./docs/features)** - 各機能の詳細仕様
 - **[セットアップガイド](./docs/setup)** - 環境構築手順
 - **[アーキテクチャ](./docs/architecture)** - システム設計ドキュメント
+- **[セキュリティ](./docs/security)** - APIキー管理とセキュリティガイドライン
 
 詳しくは [docs/README.md](./docs/README.md) をご覧ください。
+
+## 🔒 セキュリティ
+
+本プロジェクトではAPIキーや認証情報を安全に管理することが重要です。
+
+- **環境変数の使用**: すべてのAPIキーは `.env.local` で管理（このファイルはgitignoreされています）
+- **`.env.example`**: 必要な環境変数のテンプレートファイル
+- **セキュリティガイド**: 詳細は [docs/security/API_KEY_MANAGEMENT.md](./docs/security/API_KEY_MANAGEMENT.md) を参照
+
+### クイックセットアップ
+
+```bash
+# .env.exampleをコピーして環境変数ファイルを作成
+cp .env.example .env.local
+
+# .env.localを編集して実際のAPIキーを設定
+# エディタで .env.local を開き、各環境変数に実際の値を設定してください
+```
+
+⚠️ **重要**: `.env.local` ファイルは絶対にコミットしないでください。
 
 ## 🔧 スクリプト
 
