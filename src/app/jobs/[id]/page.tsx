@@ -56,6 +56,7 @@ function JobDetailContent({ params }: JobDetailPageProps) {
   const [stores, setStores] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
   const [showPublicUrl, setShowPublicUrl] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
 
   useEffect(() => {
     // 認証が完了するまで待つ
@@ -65,6 +66,11 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     
     // 認証されていない場合は何もしない（ProtectedRouteがリダイレクト）
     if (!user) {
+      return
+    }
+    
+    // すでにデータ取得済みの場合はスキップ
+    if (hasFetched) {
       return
     }
     
@@ -78,6 +84,7 @@ function JobDetailContent({ params }: JobDetailPageProps) {
       }
       
       setJobId(resolvedParams.id)
+      setHasFetched(true)
       
       const fetchJobData = async () => {
         try {
@@ -126,7 +133,12 @@ function JobDetailContent({ params }: JobDetailPageProps) {
           }
         } catch (error) {
           console.error('求人データの取得に失敗しました:', error)
-          alert('求人データの取得に失敗しました')
+          // 認証エラーの場合は静かに失敗（ProtectedRouteがリダイレクトする）
+          if (error instanceof Error && error.message.includes('permission')) {
+            console.warn('認証待機中...', error)
+          } else {
+            alert('求人データの取得に失敗しました')
+          }
         } finally {
           setLoading(false)
         }
