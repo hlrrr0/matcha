@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import RelatedMatches from '@/components/matches/RelatedMatches'
+import { useAuth } from '@/contexts/AuthContext'
 import { 
   ArrowLeft, 
   Briefcase, 
@@ -47,6 +48,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
 
 function JobDetailContent({ params }: JobDetailPageProps) {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [jobId, setJobId] = useState<string>('')
   const [job, setJob] = useState<Job | null>(null)
@@ -56,6 +58,16 @@ function JobDetailContent({ params }: JobDetailPageProps) {
   const [showPublicUrl, setShowPublicUrl] = useState(false)
 
   useEffect(() => {
+    // 認証が完了するまで待つ
+    if (authLoading) {
+      return
+    }
+    
+    // 認証されていない場合は何もしない（ProtectedRouteがリダイレクト）
+    if (!user) {
+      return
+    }
+    
     const initializeComponent = async () => {
       const resolvedParams = await params
       
@@ -124,7 +136,7 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     }
 
     initializeComponent()
-  }, [params, router])
+  }, [params, router, user, authLoading])
 
   // 日時をフォーマットする関数
   const formatDateTime = (dateValue: any) => {
@@ -265,7 +277,8 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     window.open(getPublicUrl(), '_blank')
   }
 
-  if (loading) {
+  // 認証中または求人データ読み込み中
+  if (authLoading || loading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">読み込み中...</div>
