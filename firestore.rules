@@ -52,8 +52,8 @@ service cloud.firestore {
     // ========================================
     
     match /companies/{companyId} {
-      // 読み取り: 認証済みユーザーのみ
-      allow read: if isAuthenticated();
+      // 読み取り: 誰でも可能（公開求人からの参照用）
+      allow read: if true;
       
       // 作成・更新・削除: 認証済みユーザーのみ
       allow create, update, delete: if isAuthenticated();
@@ -64,8 +64,8 @@ service cloud.firestore {
     // ========================================
     
     match /stores/{storeId} {
-      // 読み取り: 認証済みユーザーのみ
-      allow read: if isAuthenticated();
+      // 読み取り: 誰でも可能（公開求人からの参照用）
+      allow read: if true;
       
       // 作成・更新・削除: 認証済みユーザーのみ
       allow create, update, delete: if isAuthenticated();
@@ -76,8 +76,8 @@ service cloud.firestore {
     // ========================================
     
     match /jobs/{jobId} {
-      // 読み取り: 認証済みユーザーのみ
-      allow read: if isAuthenticated();
+      // 読み取り: 公開中の求人は誰でも閲覧可能、それ以外は認証必須
+      allow read: if resource.data.status == 'active' || isAuthenticated();
       
       // 作成・更新・削除: 認証済みユーザーのみ
       allow create, update, delete: if isAuthenticated();
