@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/api-auth'
-import { createCompany, findCompanyByNameAndWebsite, findCompanyByDominoId } from '@/lib/firestore/companies'
+import { createCompany, findCompanyByNameAndWebsite, findCompanyByDominoId } from '@/lib/firestore/companies-admin'
 import { Company } from '@/types/company'
 
 /**

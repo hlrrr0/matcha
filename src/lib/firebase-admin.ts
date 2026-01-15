@@ -88,6 +88,13 @@ export function getAdminDb(): Firestore {
 }
 
 /**
+ * Admin Firestoreインスタンスを取得（エイリアス）
+ */
+export function getAdminFirestore(): Firestore {
+  return getAdminDb()
+}
+
+/**
  * Admin Appインスタンスを取得
  */
 export function getAdminApp(): App {

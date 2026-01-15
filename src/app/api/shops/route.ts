@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { withAuth, createErrorResponse, createSuccessResponse } from '@/lib/api-auth'
-import { createStore } from '@/lib/firestore/stores'
+import { createStore, findStoreByNameAndCompany } from '@/lib/firestore/stores-admin'
 import { Store } from '@/types/store'
 
 /**
