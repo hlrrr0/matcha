@@ -1069,7 +1069,7 @@ function ProgressPageContent() {
               <CardTitle className="text-orange-800">検索とフィルター</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
                 <div className="flex-1">
                   <Label htmlFor="progress-search">求職者名・職種・企業名</Label>
                   <div className="relative">
@@ -1081,6 +1081,66 @@ function ProgressPageContent() {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-8"
                     />
+                  </div>
+                </div>
+                {/* ステータスフィルタープリセットボタン */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">クイックフィルター</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        setStatusFilter(new Set([
+                          'suggested',
+                          'applied',
+                          'document_screening',
+                          'document_passed',
+                          'interview',
+                          'interview_passed',
+                          'offer',
+                          'offer_accepted',
+                          'rejected',
+                          'withdrawn'
+                        ]))
+                      }}
+                    >
+                      全選択
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        setStatusFilter(new Set([
+                          'applied',
+                          'document_screening',
+                          'document_passed',
+                          'interview',
+                          'interview_passed',
+                          'offer'
+                        ]))
+                      }}
+                    >
+                      進捗中
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => {
+                        setStatusFilter(new Set([
+                          'document_passed',
+                          'interview_passed'
+                        ]))
+                      }}
+                    >
+                      日程調整中
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
