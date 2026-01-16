@@ -100,7 +100,9 @@ const matchToFirestore = (match: Omit<Match, 'id'>) => {
     updatedAt: match.updatedAt ? Timestamp.fromDate(safeCreateDate(match.updatedAt)) : Timestamp.fromDate(new Date()),
     timeline: (match.timeline || []).map(item => ({
       ...item,
-      timestamp: item.timestamp ? Timestamp.fromDate(safeCreateDate(item.timestamp)) : Timestamp.fromDate(new Date())
+      timestamp: item.timestamp ? Timestamp.fromDate(safeCreateDate(item.timestamp)) : Timestamp.fromDate(new Date()),
+      // eventDateの変換を追加
+      eventDate: item.eventDate ? Timestamp.fromDate(safeCreateDate(item.eventDate)) : undefined
     }))
   }
   
@@ -125,7 +127,9 @@ const matchFromFirestore = (doc: any): Match => {
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : safeCreateDate(data.updatedAt),
       timeline: (data.timeline || []).map((item: any) => ({
         ...item,
-        timestamp: item.timestamp?.toDate ? item.timestamp.toDate() : safeCreateDate(item.timestamp)
+        timestamp: item.timestamp?.toDate ? item.timestamp.toDate() : safeCreateDate(item.timestamp),
+        // eventDateの変換を追加
+        eventDate: item.eventDate?.toDate ? item.eventDate.toDate() : (item.eventDate ? safeCreateDate(item.eventDate) : undefined)
       })),
       // イベント日時フィールドの変換
       appliedDate: data.appliedDate?.toDate ? data.appliedDate.toDate() : (data.appliedDate ? safeCreateDate(data.appliedDate) : undefined),

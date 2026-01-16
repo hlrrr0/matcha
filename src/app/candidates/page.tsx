@@ -298,7 +298,7 @@ export default function CandidatesPage() {
             // 最新3件を取得
             const topMatches = sortedMatches.slice(0, 3)
             
-            // 各マッチに店舗情報を追加
+            // 各マッチに店舗情報と面接日時を追加
             const matchesWithDetails = await Promise.all(
               topMatches.map(async (match) => {
                 try {
@@ -322,9 +322,44 @@ export default function CandidatesPage() {
                     }
                   }
                   
+                  // 現在のステータスに対応する面接日時を取得
+                  let latestInterviewDate: Date | undefined
+                  if (match.timeline && match.timeline.length > 0) {
+                    // タイムラインを日付順にソート（新しい順）
+                    const sortedTimeline = [...match.timeline].sort((a, b) => {
+                      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                      return timeB - timeA
+                    })
+                    
+                    // 現在のステータスに対応する最新のタイムラインを取得
+                    const currentStatusEvent = sortedTimeline.find(t => t.status === match.status && t.eventDate)
+                    if (currentStatusEvent && currentStatusEvent.eventDate) {
+                      latestInterviewDate = currentStatusEvent.eventDate instanceof Date 
+                        ? currentStatusEvent.eventDate 
+                        : new Date(currentStatusEvent.eventDate)
+                    } else {
+                      // 現在のステータスにeventDateがない場合は、最新のeventDateを取得
+                      const latestEvent = sortedTimeline.find(t => t.eventDate)
+                      if (latestEvent && latestEvent.eventDate) {
+                        latestInterviewDate = latestEvent.eventDate instanceof Date 
+                          ? latestEvent.eventDate 
+                          : new Date(latestEvent.eventDate)
+                      }
+                    }
+                  }
+                  
+                  // interviewDateフィールドがある場合はそちらも確認
+                  if (!latestInterviewDate && match.interviewDate) {
+                    latestInterviewDate = match.interviewDate instanceof Date 
+                      ? match.interviewDate 
+                      : new Date(match.interviewDate)
+                  }
+                  
                   return {
                     ...match,
-                    storeNames
+                    storeNames,
+                    interviewDate: latestInterviewDate
                   }
                 } catch (error) {
                   console.error('店舗情報取得エラー:', error)

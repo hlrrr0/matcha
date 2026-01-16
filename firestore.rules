@@ -111,7 +111,7 @@ service cloud.firestore {
     // キャリア診断
     // ========================================
     
-    match /diagnosis/{diagnosisId} {
+    match /diagnoses/{diagnosisId} {
       // 読み取り: 認証済みユーザーのみ
       allow read: if isAuthenticated();
       

@@ -325,9 +325,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               }
             }
             
-            // 最新のタイムラインから面接日時を取得
+            // 現在のステータスに対応するタイムラインから面接日時を取得
             let latestInterviewDate: Date | undefined
             if (match.timeline && match.timeline.length > 0) {
+              console.log('🔍 Match ID:', match.id, 'Status:', match.status, 'Timeline:', match.timeline)
+              
               // タイムラインを日付順にソート（新しい順）
               const sortedTimeline = [...match.timeline].sort((a, b) => {
                 const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
@@ -335,12 +337,28 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 return timeB - timeA
               })
               
-              // 最新のタイムラインからeventDateを取得
-              const latestEvent = sortedTimeline.find(t => t.eventDate)
-              if (latestEvent && latestEvent.eventDate) {
-                latestInterviewDate = latestEvent.eventDate instanceof Date 
-                  ? latestEvent.eventDate 
-                  : new Date(latestEvent.eventDate)
+              console.log('📋 Sorted Timeline:', sortedTimeline)
+              
+              // 現在のステータスに対応する最新のタイムラインを取得
+              const currentStatusEvent = sortedTimeline.find(t => t.status === match.status && t.eventDate)
+              console.log('🎯 Current Status Event:', currentStatusEvent)
+              
+              if (currentStatusEvent && currentStatusEvent.eventDate) {
+                latestInterviewDate = currentStatusEvent.eventDate instanceof Date 
+                  ? currentStatusEvent.eventDate 
+                  : new Date(currentStatusEvent.eventDate)
+                console.log('✅ Interview Date from current status:', latestInterviewDate)
+              } else {
+                // 現在のステータスにeventDateがない場合は、最新のeventDateを取得
+                const latestEvent = sortedTimeline.find(t => t.eventDate)
+                console.log('🔄 Latest Event with eventDate:', latestEvent)
+                
+                if (latestEvent && latestEvent.eventDate) {
+                  latestInterviewDate = latestEvent.eventDate instanceof Date 
+                    ? latestEvent.eventDate 
+                    : new Date(latestEvent.eventDate)
+                  console.log('✅ Interview Date from latest event:', latestInterviewDate)
+                }
               }
             }
             
