@@ -325,12 +325,39 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               }
             }
             
+            // 最新のタイムラインから面接日時を取得
+            let latestInterviewDate: Date | undefined
+            if (match.timeline && match.timeline.length > 0) {
+              // タイムラインを日付順にソート（新しい順）
+              const sortedTimeline = [...match.timeline].sort((a, b) => {
+                const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                return timeB - timeA
+              })
+              
+              // 最新のタイムラインからeventDateを取得
+              const latestEvent = sortedTimeline.find(t => t.eventDate)
+              if (latestEvent && latestEvent.eventDate) {
+                latestInterviewDate = latestEvent.eventDate instanceof Date 
+                  ? latestEvent.eventDate 
+                  : new Date(latestEvent.eventDate)
+              }
+            }
+            
+            // interviewDateフィールドがある場合はそちらも確認
+            if (!latestInterviewDate && match.interviewDate) {
+              latestInterviewDate = match.interviewDate instanceof Date 
+                ? match.interviewDate 
+                : new Date(match.interviewDate)
+            }
+            
             return {
               ...match,
               jobTitle: jobData?.title || '求人不明',
               companyName: companyData?.name || '企業不明',
               storeNames: storeNames,
-              employmentType: jobData?.employmentType || undefined // 雇用形態を追加
+              employmentType: jobData?.employmentType || undefined, // 雇用形態を追加
+              interviewDate: latestInterviewDate // 最新の面接日時を設定
             }
           } catch (error) {
             console.error('マッチング詳細取得エラー:', error)

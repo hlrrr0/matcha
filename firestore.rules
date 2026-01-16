@@ -108,6 +108,18 @@ service cloud.firestore {
     }
     
     // ========================================
+    // キャリア診断
+    // ========================================
+    
+    match /diagnosis/{diagnosisId} {
+      // 読み取り: 認証済みユーザーのみ
+      allow read: if isAuthenticated();
+      
+      // 作成・更新・削除: 認証済みユーザーのみ
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // ========================================
     // API管理（Admin SDKのみアクセス）
     // ========================================
     
