@@ -876,49 +876,57 @@ function ProgressPageContent() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-100">
         <div className="container mx-auto py-8 px-4">
           {/* ヘッダー */}
-          <div className="mb-8 p-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-full">
-                  <TrendingUp className="h-8 w-8" />
+          <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white">
+            <div className="flex flex-col gap-4">
+              {/* タイトル部分 */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+                  <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold">進捗管理</h1>
-                  <p className="text-orange-100">求職者と求人のマッチング状況を管理</p>
+                  <h1 className="text-xl sm:text-3xl font-bold">進捗管理</h1>
+                  <p className="text-orange-100 text-xs sm:text-sm">求職者と求人のマッチング状況を管理</p>
                 </div>
               </div>
-              <div className="flex gap-4">
+              
+              {/* ヘッダーアクション */}
+              <div className="flex flex-wrap gap-2">
                 {selectedMatchIds.size > 0 && (
                   <>
                     <Button
                       variant="secondary"
+                      size="sm"
                       onClick={openBulkStatusUpdate}
                       disabled={getSelectedMatchesStatus() === null}
-                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm"
                     >
-                      <ArrowRight className="h-4 w-4 mr-2" />
-                      一括で進捗更新 ({selectedMatchIds.size})
+                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">一括で進捗更新 ({selectedMatchIds.size})</span>
+                      <span className="sm:hidden">進捗更新 ({selectedMatchIds.size})</span>
                     </Button>
                     {isAdmin && (
                       <Button
                         variant="secondary"
+                        size="sm"
                         onClick={() => setBulkDeleteDialogOpen(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white"
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm"
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        選択中を削除 ({selectedMatchIds.size})
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                        <span className="hidden sm:inline">削除 ({selectedMatchIds.size})</span>
+                        <span className="sm:hidden">削除 ({selectedMatchIds.size})</span>
                       </Button>
                     )}
                   </>
                 )}
                 <Button
                   variant="secondary"
+                  size="sm"
                   onClick={() => loadData(true)}
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                  className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs sm:text-sm"
                   title="キャッシュをクリアして最新データを取得"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  更新
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  <span className="hidden sm:inline">更新</span>
                 </Button>
                 <Dialog open={createMatchOpen} onOpenChange={(open) => {
                   setCreateMatchOpen(open)
@@ -928,9 +936,13 @@ function ProgressPageContent() {
                   }
                 }}>
                   <DialogTrigger asChild>
-                    <Button className="bg-white/20 hover:bg-white/30 text-white border-white/30">
-                      <Plus className="h-4 w-4 mr-2" />
-                      新規マッチング
+                    <Button 
+                      size="sm"
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs sm:text-sm"
+                    >
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">新規マッチング</span>
+                      <span className="sm:hidden">新規</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-md">

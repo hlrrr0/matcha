@@ -628,86 +628,97 @@ function JobsPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* ページヘッダー - 紫系テーマ */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-full">
-              <Briefcase className="h-8 w-8" />
+      {/* ページヘッダー */}
+      <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg text-white">
+        <div className="flex flex-col gap-4">
+          {/* タイトル部分 */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+              <Briefcase className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">求人管理</h1>
-              <p className="text-purple-100 mt-1">
+              <h1 className="text-xl sm:text-3xl font-bold">求人管理</h1>
+              <p className="text-purple-100 mt-1 text-xs sm:text-sm">
                 求人情報の管理・検索・マッチング
               </p>
             </div>
           </div>
           
           {/* ヘッダーアクション */}
-          <div className="flex flex-col sm:flex-col gap-2">
-            {isAdmin && (
-              <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
+          <div className="flex flex-col gap-2">
+            {isAdmin && selectedJobs.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 bg-white/20 rounded-lg p-2">
                 <Checkbox
                   checked={isAllSelectedCalculated}
                   onCheckedChange={handleSelectAll}
                   id="select-all-header"
                 />
-                <label htmlFor="select-all-header" className="text-sm text-white cursor-pointer">
+                <label htmlFor="select-all-header" className="text-xs sm:text-sm text-white cursor-pointer whitespace-nowrap">
                   全て選択 ({selectedJobs.size}件)
                 </label>
-                {selectedJobs.size > 0 && (
-                  <Button
-                    onClick={exportSelectedJobsCSV}
-                    variant="outline"
-                    size="sm"
-                    className="bg-green-600 text-white hover:bg-green-700 border-green-600 ml-2"
-                  >
-                    CSV出力 ({selectedJobs.size}件)
-                  </Button>
-                )}
+                <Button
+                  onClick={exportSelectedJobsCSV}
+                  variant="outline"
+                  size="sm"
+                  className="bg-green-600 text-white hover:bg-green-700 border-green-600 text-xs"
+                >
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  CSV出力
+                </Button>
               </div>
             )}
-            <label htmlFor="csv-upload" className="cursor-pointer">
-              <Button
-                variant="outline"
-                className="bg-white text-purple-600 hover:bg-purple-50 border-white flex items-center gap-2"
-                disabled={csvImporting}
-                asChild
-              >
-                <span>
-                  {csvImporting ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      インポート中...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      CSVインポート
-                    </>
-                  )}
-                </span>
-              </Button>
-            </label>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  handleCSVImport(file)
-                  e.target.value = '' // リセット
-                }
-              }}
-            />
-            <Link href="/jobs/new">
-              <Button variant="outline" className="bg-white text-purple-600 hover:bg-purple-50 border-white">
-                <Plus className="h-4 w-4 mr-2" />
-                新規求人追加
-              </Button>
-            </Link>
+            
+            <div className="flex flex-wrap gap-2">
+              <label htmlFor="csv-upload" className="cursor-pointer">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-purple-600 hover:bg-purple-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                  disabled={csvImporting}
+                  asChild
+                >
+                  <span>
+                    {csvImporting ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                        <span className="hidden sm:inline">インポート中...</span>
+                        <span className="sm:hidden">処理中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">CSVインポート</span>
+                        <span className="sm:hidden">インポート</span>
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    handleCSVImport(file)
+                    e.target.value = '' // リセット
+                  }
+                }}
+              />
+              <Link href="/jobs/new">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white text-purple-600 hover:bg-purple-50 border-white text-xs sm:text-sm"
+                >
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  <span className="hidden sm:inline">新規求人追加</span>
+                  <span className="sm:hidden">新規追加</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

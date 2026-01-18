@@ -509,25 +509,26 @@ function StoresPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* ページヘッダー - オレンジ系テーマ */}
-      <div className="mb-8 p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-lg text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-full">
-              <StoreIcon className="h-8 w-8" />
+      {/* ページヘッダー */}
+      <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-lg text-white">
+        <div className="flex flex-col gap-4">
+          {/* タイトル部分 */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+              <StoreIcon className="h-6 w-6 sm:h-8 sm:w-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">店舗管理</h1>
-              <p className="text-orange-100 mt-1">
+              <h1 className="text-xl sm:text-3xl font-bold">店舗管理</h1>
+              <p className="text-green-100 mt-1 text-xs sm:text-sm">
                 登録店舗の管理・検索・業態別分析
               </p>
             </div>
           </div>
           
           {/* ヘッダーアクション */}
-          <div className="flex flex-col sm:flex-col gap-2">
-            {isAdmin && (
-              <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
+          <div className="flex flex-col gap-2">
+            {isAdmin && selectedStores.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 bg-white/20 rounded-lg p-2">
                 <Checkbox
                   checked={selectedStores.length === filteredAndSortedStores.length && filteredAndSortedStores.length > 0}
                   onCheckedChange={(checked) => {
@@ -539,91 +540,101 @@ function StoresPageContent() {
                   }}
                   id="select-all-header"
                 />
-                <label htmlFor="select-all-header" className="text-sm text-white cursor-pointer">
+                <label htmlFor="select-all-header" className="text-xs sm:text-sm text-white cursor-pointer whitespace-nowrap">
                   全て選択 ({selectedStores.length}件)
                 </label>
-                {selectedStores.length > 0 && (
-                  <>
-                    <Button
-                      onClick={exportSelectedStoresCSV}
-                      variant="outline"
-                      size="sm"
-                      className="bg-green-600 text-white hover:bg-green-700 border-green-600 ml-2"
-                    >
-                      CSV出力 ({selectedStores.length}件)
-                    </Button>
-                    <Button
-                      onClick={handleBulkDelete}
-                      disabled={bulkDeleting}
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-600 text-white hover:bg-red-700 border-red-600"
-                    >
-                      {bulkDeleting ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          削除中...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          削除 ({selectedStores.length}件)
-                        </>
-                      )}
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
-            <Button
-              onClick={downloadCSVTemplate}
-              variant="outline"
-              className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              CSVテンプレート
-            </Button>
-            <label htmlFor="csv-upload" className="cursor-pointer">
-              <Button
-                variant="outline"
-                className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-2"
-                disabled={csvImporting}
-                asChild
-              >
-                <span>
-                  {csvImporting ? (
+                <Button
+                  onClick={exportSelectedStoresCSV}
+                  variant="outline"
+                  size="sm"
+                  className="bg-green-600 text-white hover:bg-green-700 border-green-600 text-xs"
+                >
+                  <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  CSV出力
+                </Button>
+                <Button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  variant="outline"
+                  size="sm"
+                  className="bg-red-600 text-white hover:bg-red-700 border-red-600 text-xs"
+                >
+                  {bulkDeleting ? (
                     <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      インポート中...
+                      <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                      <span className="hidden sm:inline ml-1">削除中...</span>
                     </>
                   ) : (
                     <>
-                      <Upload className="h-4 w-4" />
-                      CSVインポート
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      削除
                     </>
                   )}
-                </span>
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={downloadCSVTemplate}
+                variant="outline"
+                size="sm"
+                className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+              >
+                <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">CSVテンプレート</span>
+                <span className="sm:hidden">テンプレート</span>
               </Button>
-            </label>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  handleCSVImport(file)
-                  e.target.value = '' // リセット
-                }
-              }}
-            />
-            <Link href="/stores/new">
-              <Button variant="outline" className="bg-white text-green-600 hover:bg-green-50 border-white">
-                <Plus className="h-4 w-4 mr-2" />
-                新規店舗追加
-              </Button>
-            </Link>
+              <label htmlFor="csv-upload" className="cursor-pointer">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                  disabled={csvImporting}
+                  asChild
+                >
+                  <span>
+                    {csvImporting ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                        <span className="hidden sm:inline">インポート中...</span>
+                        <span className="sm:hidden">処理中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">CSVインポート</span>
+                        <span className="sm:hidden">インポート</span>
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+              <input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    handleCSVImport(file)
+                    e.target.value = '' // リセット
+                  }
+                }}
+              />
+              <Link href="/stores/new">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white text-green-600 hover:bg-green-50 border-white text-xs sm:text-sm"
+                >
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  <span className="hidden sm:inline">新規店舗追加</span>
+                  <span className="sm:hidden">新規追加</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

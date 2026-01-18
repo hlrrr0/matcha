@@ -629,71 +629,84 @@ export default function CandidatesPage() {
   return (
     <ProtectedRoute>
       <div className="container mx-auto px-4 py-8">
-        {/* ページヘッダー - 青系テーマ */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-red-500 to-red-600 rounded-lg text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-full">
-              <Users className="h-8 w-8" />
+        {/* ページヘッダー */}
+        <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-red-500 to-red-600 rounded-lg text-white">
+          <div className="flex flex-col gap-4">
+            {/* タイトル部分 */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+                <Users className="h-6 w-6 sm:h-8 sm:w-8" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-3xl font-bold">求職者管理</h1>
+                <p className="text-red-100 mt-1 text-xs sm:text-sm">
+                  登録された求職者の管理・マッチング
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">求職者管理</h1>
-              <p className="text-blue-100 mt-1">
-                登録された求職者の管理・マッチング
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={() => loadData(true)}
-              variant="outline"
-              className="bg-white text-red-600 hover:bg-red-50 border-white flex items-center gap-2"
-              title="キャッシュをクリアして最新データを取得"
-            >
-              <RefreshCw className="h-4 w-4" />
-              更新
-            </Button>
-            <Button
-              onClick={downloadCSVTemplate}
-              variant="outline"
-              className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              テンプレート
-            </Button>
-            <Button
-              variant="outline"
-              className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2 relative"
-              disabled={csvImporting}
-            >
-              {csvImporting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  インポート中...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4" />
-                  CSVインポート
-                </>
-              )}
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleCSVImport}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={csvImporting}
-              />
-            </Button>
-            <Link href="/candidates/new">
-              <Button variant="outline" className="bg-white text-red-600 hover:bg-red-50 border-white">
-                <Plus className="h-4 w-4 mr-2" />
-                新規登録
+            
+            {/* ヘッダーアクション */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => loadData(true)}
+                variant="outline"
+                size="sm"
+                className="bg-white text-red-600 hover:bg-red-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                title="キャッシュをクリアして最新データを取得"
+              >
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">更新</span>
               </Button>
-            </Link>
+              <Button
+                onClick={downloadCSVTemplate}
+                variant="outline"
+                size="sm"
+                className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+              >
+                <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">テンプレート</span>
+                <span className="sm:hidden">CSV</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 relative text-xs sm:text-sm"
+                disabled={csvImporting}
+              >
+                {csvImporting ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                    <span className="hidden sm:inline">処理中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">CSVインポート</span>
+                    <span className="sm:hidden">インポート</span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVImport}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  disabled={csvImporting}
+                />
+              </Button>
+              <Link href="/candidates/new">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white text-red-600 hover:bg-red-50 border-white text-xs sm:text-sm"
+                >
+                  <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  <span className="hidden sm:inline">新規登録</span>
+                  <span className="sm:hidden">新規</span>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* 統計カード */}
       {stats && (
