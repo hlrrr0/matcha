@@ -10,14 +10,17 @@ import { auth } from '@/lib/firebase'
 export async function getAuthToken(): Promise<string | null> {
   const user = auth.currentUser
   if (!user) {
+    console.error('❌ No authenticated user found')
     throw new Error('ログインが必要です')
   }
   
   try {
+    console.log('🔑 Getting ID token for user:', user.uid)
     const token = await user.getIdToken()
+    console.log('✅ ID token obtained successfully')
     return token
   } catch (error) {
-    console.error('Token retrieval error:', error)
+    console.error('❌ Token retrieval error:', error)
     throw new Error('認証トークンの取得に失敗しました')
   }
 }

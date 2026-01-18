@@ -67,6 +67,11 @@ export function withAuth(
     const auth = await authenticateRequest(request)
     
     if (!auth.authenticated) {
+      console.error('❌ Authentication failed:', auth.error)
+      console.error('Request headers:', {
+        authorization: request.headers.get('authorization') ? 'Present' : 'Missing',
+        contentType: request.headers.get('content-type')
+      })
       return NextResponse.json(
         { error: 'Unauthorized', message: auth.error },
         { status: 401 }
