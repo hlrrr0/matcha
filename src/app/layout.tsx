@@ -9,7 +9,7 @@ import { Toaster } from '@/components/ui/sonner'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '人材紹介システム',
+  title: 'MATCHA - 人材紹介システム',
   description: 'Dominoシステム連携型人材紹介管理システム',
   robots: {
     index: false,

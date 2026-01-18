@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '求人情報 - 人材紹介システム',
-  description: '人材紹介サービスの求人情報',
+  title: '求人情報 - MATCHA',
+  description: 'MATCHA 人材紹介サービスの求人情報',
   robots: {
     index: false,
     follow: false,

@@ -33,7 +33,8 @@ import {
   Upload,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Briefcase
 } from 'lucide-react'
 import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
 import { getCandidates, getCandidateStats } from '@/lib/firestore/candidates'
@@ -133,7 +134,8 @@ function ExpandableText({ text }: { text: string }) {
 
 export default function CandidatesPage() {
   const router = useRouter()
-  const [candidates, setCandidates] = useState<CandidateWithProgress[]>([])
+  const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [candidatesWithProgress, setCandidatesWithProgress] = useState<CandidateWithProgress[]>([])
   const [filteredCandidates, setFilteredCandidates] = useState<CandidateWithProgress[]>([])
   const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
@@ -193,7 +195,7 @@ export default function CandidatesPage() {
     updateURLParams()
     // フィルター変更時は1ページ目に戻す
     setCurrentPage(1)
-  }, [candidates, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter, sortBy, sortOrder])
+  }, [candidatesWithProgress, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter, sortBy, sortOrder])
 
   // ページ変更時のみフィルター再適用
   useEffect(() => {
@@ -240,20 +242,22 @@ export default function CandidatesPage() {
           candidates: any[]
           stats: any
           users: any[]
+          candidatesWithProgress?: CandidateWithProgress[]
         }>(cacheKey)
         
         if (cached) {
-          console.log('📦 キャッシュからデータ読み込み')
           setCandidates(cached.candidates)
           setStats(cached.stats)
           setUsers(cached.users)
-          loadProgressCounts(cached.candidates)
+          // 進捗データがキャッシュにある場合はそれを使用
+          if (cached.candidatesWithProgress) {
+            setCandidatesWithProgress(cached.candidatesWithProgress)
+          }
           setLoading(false)
           return
         }
       }
       
-      console.log('🔄 Firestoreからデータ読み込み')
       const [candidatesData, statsData, usersData] = await Promise.all([
         getCandidates(),
         getCandidateStats(),
@@ -265,16 +269,16 @@ export default function CandidatesPage() {
       setStats(statsData)
       setUsers(usersData)
       
+      // 進捗データを取得
+      const candidatesWithProgress = await loadProgressCounts(candidatesData)
+      
       // キャッシュに保存（5分間有効）
       setCache(cacheKey, {
         candidates: candidatesData,
         stats: statsData,
-        users: usersData
+        users: usersData,
+        candidatesWithProgress // 進捗データも含める
       })
-      console.log('💾 データをキャッシュに保存')
-      
-      // 進捗データを並行して取得
-      loadProgressCounts(candidatesData)
     } catch (error) {
       console.error('Error loading candidates:', error)
       toast.error('求職者データの読み込みに失敗しました')
@@ -385,16 +389,18 @@ export default function CandidatesPage() {
         })
       )
       
-      setCandidates(candidatesWithProgress)
+      setCandidatesWithProgress(candidatesWithProgress)
+      return candidatesWithProgress // 配列を返す
     } catch (error) {
       console.error('進捗データ読み込みエラー:', error)
+      return candidatesData // エラー時は元の配列を返す
     } finally {
       setProgressLoading(false)
     }
   }
 
   const applyFilters = () => {
-    let filtered = candidates
+    let filtered = candidatesWithProgress.length > 0 ? candidatesWithProgress : candidates
 
     // ステータスフィルタ
     if (statusFilter !== 'all') {
@@ -692,7 +698,10 @@ export default function CandidatesPage() {
       {/* 統計カード */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setStatusFilter('all')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 総求職者数
@@ -704,7 +713,10 @@ export default function CandidatesPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setStatusFilter('active')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 アクティブ
@@ -716,7 +728,25 @@ export default function CandidatesPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setStatusFilter('hired')}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                就職決定
+              </CardTitle>
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.byStatus?.hired || 0}</div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="cursor-pointer hover:bg-accent transition-colors"
+            onClick={() => setStatusFilter('inactive')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 非アクティブ

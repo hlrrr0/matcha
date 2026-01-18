@@ -88,7 +88,7 @@ ${candidateName} 様
 ※心当たりがない場合は、このメールを無視してください。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
-人材紹介システム RecruitPro
+人材紹介システム MATCHA
 ━━━━━━━━━━━━━━━━━━━━━━━━
 `
 
@@ -97,7 +97,7 @@ ${candidateName} 様
       const data = await resend.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
         to: email,
-        subject: '【RecruitPro】マイページログイン認証コード',
+        subject: '【MATCHA】マイページログイン認証コード',
         text: emailBody,
       })
 

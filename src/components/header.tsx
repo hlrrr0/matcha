@@ -40,7 +40,7 @@ export default function Header() {
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <UserCheck className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">RecruitPro</h1>
+              <h1 className="text-2xl font-bold text-gray-900">MATCHA</h1>
             </Link>
           </div>
           

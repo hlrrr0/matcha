@@ -17,6 +17,7 @@ import { db } from '@/lib/firebase'
 import { Match, MatchTimeline } from '@/types/matching'
 
 const COLLECTION_NAME = 'matches'
+const DEBUG = false // デバッグログを出力するかどうか
 
 // 有効な日付かチェックするヘルパー関数
 function isValidDate(date: any): boolean {
@@ -106,11 +107,13 @@ const matchToFirestore = (match: Omit<Match, 'id'>) => {
     }))
   }
   
-  console.log('🔄 Firestore変換データ:', {
-    createdAt: safeMatch.createdAt,
-    updatedAt: safeMatch.updatedAt,
-    timelineCount: safeMatch.timeline.length
-  })
+  if (DEBUG) {
+    console.log('🔄 Firestore変換データ:', {
+      createdAt: safeMatch.createdAt,
+      updatedAt: safeMatch.updatedAt,
+      timelineCount: safeMatch.timeline.length
+    })
+  }
   
   return safeMatch
 }
@@ -176,19 +179,19 @@ export const getMatches = async (options?: {
   limit?: number
 }): Promise<Match[]> => {
   try {
-    console.log('🔍 getMatches開始', options)
+    if (DEBUG) console.log('🔍 getMatches開始', options)
     
     // シンプルなクエリでテスト
     const snapshot = await getDocs(collection(db, COLLECTION_NAME))
-    console.log('📋 Firestoreから取得したマッチングドキュメント数:', snapshot.docs.length)
+    if (DEBUG) console.log('📋 Firestoreから取得したマッチングドキュメント数:', snapshot.docs.length)
     
     if (snapshot.docs.length === 0) {
-      console.log('❌ Firestoreにマッチングドキュメントが存在しません')
+      if (DEBUG) console.log('❌ Firestoreにマッチングドキュメントが存在しません')
       return []
     }
     
     let matches = snapshot.docs.map(matchFromFirestore)
-    console.log('🔄 変換後のマッチングデータ:', matches)
+    if (DEBUG) console.log('🔄 変換後のマッチングデータ:', matches)
     
     // クライアントサイドフィルタリング
     if (options?.status) {
@@ -207,7 +210,7 @@ export const getMatches = async (options?: {
       matches = matches.slice(0, options.limit)
     }
     
-    console.log('✅ getMatches完了 返却データ件数:', matches.length)
+    if (DEBUG) console.log('✅ getMatches完了 返却データ件数:', matches.length)
     return matches
   } catch (error) {
     console.error('❌ getMatchesエラー:', error)
@@ -260,7 +263,7 @@ export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id
     if (!id || id.trim() === '') {
       throw new Error('無効なマッチングIDです')
     }
-    console.log('🔄 マッチング更新開始 ID:', id, 'データ:', matchData)
+    if (DEBUG) console.log('🔄 マッチング更新開始 ID:', id, 'データ:', matchData)
     
     const docRef = doc(db, COLLECTION_NAME, id)
     
@@ -303,10 +306,10 @@ export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id
     }
     
     const cleanedUpdateData = removeUndefinedFields(updateFields)
-    console.log('🔄 更新用データ準備完了:', cleanedUpdateData)
+    if (DEBUG) console.log('🔄 更新用データ準備完了:', cleanedUpdateData)
     
     await updateDoc(docRef, cleanedUpdateData)
-    console.log('✅ マッチング更新完了')
+    if (DEBUG) console.log('✅ マッチング更新完了')
   } catch (error) {
     console.error('❌ マッチング更新エラー:', error)
     throw error
@@ -341,7 +344,7 @@ export const updateMatchStatus = async (
   endDate?: Date | string
 ): Promise<void> => {
   try {
-    console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
+    if (DEBUG) console.log('🔄 ステータス更新開始 ID:', id, 'ステータス:', status)
     
     const match = await getMatch(id)
     if (!match) {
@@ -352,40 +355,42 @@ export const updateMatchStatus = async (
     const now = Date.now()
     const existingTimeline = Array.isArray(match.timeline) ? match.timeline : []
     
-    console.log('🔍 既存タイムライン:', existingTimeline.map(item => {
-      let eventDateStr = 'なし'
-      let eventDateType = 'なし'
-      if (item.eventDate) {
-        eventDateType = typeof item.eventDate
-        // Firestore Timestampかチェック
-        if (item.eventDate && typeof item.eventDate === 'object' && 'toDate' in item.eventDate) {
-          eventDateType = 'Firestore Timestamp'
-          try {
-            const d = (item.eventDate as any).toDate()
-            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
-          } catch {
-            eventDateStr = 'Timestamp変換エラー'
-          }
-        } else {
-          try {
-            const d = item.eventDate instanceof Date 
-              ? item.eventDate 
-              : new Date(item.eventDate as any)
-            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
-          } catch {
-            eventDateStr = 'エラー'
+    if (DEBUG) {
+      console.log('🔍 既存タイムライン:', existingTimeline.map(item => {
+        let eventDateStr = 'なし'
+        let eventDateType = 'なし'
+        if (item.eventDate) {
+          eventDateType = typeof item.eventDate
+          // Firestore Timestampかチェック
+          if (item.eventDate && typeof item.eventDate === 'object' && 'toDate' in item.eventDate) {
+            eventDateType = 'Firestore Timestamp'
+            try {
+              const d = (item.eventDate as any).toDate()
+              eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+            } catch {
+              eventDateStr = 'Timestamp変換エラー'
+            }
+          } else {
+            try {
+              const d = item.eventDate instanceof Date 
+                ? item.eventDate 
+                : new Date(item.eventDate as any)
+              eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+            } catch {
+              eventDateStr = 'エラー'
+            }
           }
         }
-      }
-      return {
-        id: item.id,
-        status: item.status,
-        eventDate: eventDateStr,
-        eventDateType: eventDateType,
-        eventDateRaw: item.eventDate,
-        timestamp: item.timestamp
-      }
-    }))
+        return {
+          id: item.id,
+          status: item.status,
+          eventDate: eventDateStr,
+          eventDateType: eventDateType,
+          eventDateRaw: item.eventDate,
+          timestamp: item.timestamp
+        }
+      }))
+    }
     
     // 既存のタイムラインの最新のタイムスタンプを取得
     const latestTimestamp = existingTimeline.length > 0
@@ -443,32 +448,34 @@ export const updateMatchStatus = async (
       console.log('⚠️ タイムライン追加スキップ（重複検出）:', { status, createdBy, notes })
     } else {
       updatedTimeline = [...existingTimeline, newTimelineItem]
-      console.log('🔄 タイムライン更新:', {
-        既存件数: existingTimeline.length,
-        新規追加: newTimelineItem,
-        更新後件数: updatedTimeline.length,
-        タイムスタンプ: new Date(uniqueTimestamp).toISOString()
-      })
-      
-      console.log('📋 更新後タイムライン:', updatedTimeline.map(item => {
-        let eventDateStr = 'なし'
-        if (item.eventDate) {
-          try {
-            const d = item.eventDate instanceof Date 
-              ? item.eventDate 
-              : new Date(item.eventDate)
-            eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
-          } catch {
-            eventDateStr = 'エラー'
+      if (DEBUG) {
+        console.log('🔄 タイムライン更新:', {
+          既存件数: existingTimeline.length,
+          新規追加: newTimelineItem,
+          更新後件数: updatedTimeline.length,
+          タイムスタンプ: new Date(uniqueTimestamp).toISOString()
+        })
+        
+        console.log('📋 更新後タイムライン:', updatedTimeline.map(item => {
+          let eventDateStr = 'なし'
+          if (item.eventDate) {
+            try {
+              const d = item.eventDate instanceof Date 
+                ? item.eventDate 
+                : new Date(item.eventDate)
+              eventDateStr = isNaN(d.getTime()) ? '無効な日付' : d.toISOString()
+            } catch {
+              eventDateStr = 'エラー'
+            }
           }
-        }
-        return {
-          id: item.id,
-          status: item.status,
-          eventDate: eventDateStr,
-          timestamp: item.timestamp
-        }
-      }))
+          return {
+            id: item.id,
+            status: item.status,
+            eventDate: eventDateStr,
+            timestamp: item.timestamp
+          }
+        }))
+      }
     }
 
     // 更新データを準備
@@ -494,11 +501,11 @@ export const updateMatchStatus = async (
         case 'interview':
           // 面接日時は timeline.eventDate に保存済み
           // match.interviewDate は後方互換性のため残すが、新規では更新しない
-          console.log('📅 面接日時を timeline に保存しました')
+          if (DEBUG) console.log('📅 面接日時を timeline に保存しました')
           break
         case 'interview_passed':
           // 面接通過の場合は日時不要（登録日時のみ表示）
-          console.log('✅ 面接通過: 日時は保存しません（登録日時のみ表示）')
+          if (DEBUG) console.log('✅ 面接通過: 日時は保存しません（登録日時のみ表示）')
           break
         case 'offer':
           updateData.offerDate = dateValue
@@ -506,7 +513,7 @@ export const updateMatchStatus = async (
         case 'offer_accepted':
           // 内定承諾日は timeline.eventDate に保存済み
           // match.acceptedDate は後方互換性のため残すが、新規では更新しない
-          console.log('📅 内定承諾日を timeline に保存しました')
+          if (DEBUG) console.log('📅 内定承諾日を timeline に保存しました')
           break
         case 'rejected':
           updateData.rejectedDate = dateValue
@@ -518,14 +525,14 @@ export const updateMatchStatus = async (
     if (startDate) {
       const startDateValue = typeof startDate === 'string' ? new Date(startDate) : startDate
       updateData.startDate = startDateValue
-      console.log('📅 入社予定日を保存しました:', startDateValue.toISOString())
+      if (DEBUG) console.log('📅 入社予定日を保存しました:', startDateValue.toISOString())
     }
 
     // 退職日の保存
     if (endDate) {
       const endDateValue = typeof endDate === 'string' ? new Date(endDate) : endDate
       updateData.endDate = endDateValue
-      console.log('📅 退職日を保存しました:', endDateValue.toISOString())
+      if (DEBUG) console.log('📅 退職日を保存しました:', endDateValue.toISOString())
     }
 
     await updateMatch(id, updateData)
@@ -533,17 +540,17 @@ export const updateMatchStatus = async (
     // ステータスが「内定承諾」の場合、候補者ステータスを「hired」に自動更新
     if (status === 'offer_accepted') {
       try {
-        console.log('💼 内定承諾のため候補者ステータスを「hired」に更新します')
+        if (DEBUG) console.log('💼 内定承諾のため候補者ステータスを「hired」に更新します')
         const { updateCandidate } = await import('./candidates')
         await updateCandidate(match.candidateId, { status: 'hired' })
-        console.log('✅ 候補者ステータスを「hired」に更新しました')
+        if (DEBUG) console.log('✅ 候補者ステータスを「hired」に更新しました')
       } catch (candidateError) {
         console.error('⚠️ 候補者ステータスの更新に失敗しました:', candidateError)
         // 候補者ステータスの更新失敗はエラーにせず警告のみ
       }
     }
     
-    console.log('✅ ステータス更新完了')
+    if (DEBUG) console.log('✅ ステータス更新完了')
   } catch (error) {
     console.error('❌ ステータス更新エラー:', error)
     throw error

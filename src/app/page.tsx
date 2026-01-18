@@ -194,7 +194,7 @@ export default function HomePage() {
 
               <div className="pt-6 border-t">
                 <p className="text-xs text-gray-500">
-                  &copy; 2024 RecruitPro. All rights reserved.
+                  &copy; 2024 MATCHA. All rights reserved.
                 </p>
               </div>
             </CardContent>
@@ -403,7 +403,7 @@ export default function HomePage() {
       {/* フッター */}
       <footer className="border-t bg-white py-8">
         <div className="container mx-auto px-4 text-center text-gray-600">
-          <p>&copy; 2024 RecruitPro. All rights reserved.</p>
+          <p>&copy; 2024 MATCHA. All rights reserved.</p>
         </div>
       </footer>
     </div>

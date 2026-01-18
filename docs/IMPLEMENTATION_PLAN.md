@@ -1,4 +1,4 @@
-# RecruitPro 実装計画
+# MATCHA 実装計画
 
 ## 📋 要件定義対応状況
 
