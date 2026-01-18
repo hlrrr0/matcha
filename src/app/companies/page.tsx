@@ -685,125 +685,136 @@ function CompaniesPageContent() {
   return (
     <ProtectedRoute>
       <div className="container mx-auto px-4 py-8">
-        {/* ページヘッダー - 緑系テーマ */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-full">
-              <Building2 className="h-8 w-8" />
+        {/* ページヘッダー */}
+        <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white">
+          <div className="flex flex-col gap-4">
+            {/* タイトル部分 */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="p-2 sm:p-3 bg-white/20 rounded-full">
+                <Building2 className="h-6 w-6 sm:h-8 sm:w-8" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-3xl font-bold">企業管理</h1>
+                <p className="text-blue-100 mt-1 text-xs sm:text-sm">
+                  登録企業の管理・検索・Dominoシステムとの連携
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold">企業管理</h1>
-              <p className="text-green-100 mt-1">
-                登録企業の管理・検索・Dominoシステムとの連携
-              </p>
-            </div>
-          </div>
-          
-          {/* ヘッダーアクション */}
-          <div className="flex flex-col sm:flex-col gap-2">
-            {isAdmin && (
-              <div className="flex items-center gap-2 bg-white/20 rounded-lg p-2">
-                <Checkbox
-                  checked={selectedCompanies.size === filteredAndSortedCompanies.length && filteredAndSortedCompanies.length > 0}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedCompanies(new Set(filteredAndSortedCompanies.map((c: Company) => c.id)))
-                    } else {
-                      setSelectedCompanies(new Set())
+            
+            {/* ヘッダーアクション */}
+            <div className="flex flex-col gap-2">
+              {isAdmin && selectedCompanies.size > 0 && (
+                <div className="flex flex-wrap items-center gap-2 bg-white/20 rounded-lg p-2">
+                  <Checkbox
+                    checked={selectedCompanies.size === filteredAndSortedCompanies.length && filteredAndSortedCompanies.length > 0}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedCompanies(new Set(filteredAndSortedCompanies.map((c: Company) => c.id)))
+                      } else {
+                        setSelectedCompanies(new Set())
+                      }
+                    }}
+                    id="select-all-header"
+                  />
+                  <label htmlFor="select-all-header" className="text-xs sm:text-sm text-white cursor-pointer whitespace-nowrap">
+                    全て選択 ({selectedCompanies.size}件)
+                  </label>
+                  <Button
+                    onClick={exportSelectedCompaniesCSV}
+                    variant="outline"
+                    size="sm"
+                    className="bg-green-600 text-white hover:bg-green-700 border-green-600 text-xs"
+                  >
+                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    CSV出力
+                  </Button>
+                  <Button
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                    variant="outline"
+                    size="sm"
+                    className="bg-red-600 text-white hover:bg-red-700 border-red-600 text-xs"
+                  >
+                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    削除
+                  </Button>
+                </div>
+              )}
+              
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={downloadCSVTemplate}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                >
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">CSVテンプレート</span>
+                  <span className="sm:hidden">テンプレート</span>
+                </Button>
+                <label htmlFor="csv-upload" className="cursor-pointer">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                    disabled={csvImporting}
+                    asChild
+                  >
+                    <span>
+                      {csvImporting ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                          <span className="hidden sm:inline">インポート中...</span>
+                          <span className="sm:hidden">処理中...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">CSVインポート</span>
+                          <span className="sm:hidden">インポート</span>
+                        </>
+                      )}
+                    </span>
+                  </Button>
+                </label>
+                <input
+                  id="csv-upload"
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      handleCSVImport(file)
+                      e.target.value = '' // リセット
                     }
                   }}
-                  id="select-all-header"
                 />
-                <label htmlFor="select-all-header" className="text-sm text-white cursor-pointer">
-                  全て選択 ({selectedCompanies.size}件)
-                </label>
-                {selectedCompanies.size > 0 && (
-                  <>
-                    <Button
-                      onClick={exportSelectedCompaniesCSV}
-                      variant="outline"
-                      size="sm"
-                      className="bg-green-600 text-white hover:bg-green-700 border-green-600 ml-2"
-                    >
-                      CSV出力 ({selectedCompanies.size}件)
-                    </Button>
-                    <Button
-                      onClick={() => setBulkDeleteDialogOpen(true)}
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-600 text-white hover:bg-red-700 border-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      削除 ({selectedCompanies.size}件)
-                    </Button>
-                  </>
-                )}
+                <Link href="/companies/new">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="bg-white text-blue-600 hover:bg-blue-50 border-white text-xs sm:text-sm"
+                  >
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    <span className="hidden sm:inline">新規企業追加</span>
+                    <span className="sm:hidden">新規追加</span>
+                  </Button>
+                </Link>
               </div>
-            )}
-            <Button
-              onClick={downloadCSVTemplate}
-              variant="outline"
-              className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              CSVテンプレート
-            </Button>
-            <label htmlFor="csv-upload" className="cursor-pointer">
-              <Button
-                variant="outline"
-                className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-2"
-                disabled={csvImporting}
-                asChild
-              >
-                <span>
-                  {csvImporting ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      インポート中...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      CSVインポート
-                    </>
-                  )}
-                </span>
-              </Button>
-            </label>
-            <input
-              id="csv-upload"
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) {
-                  handleCSVImport(file)
-                  e.target.value = '' // リセット
-                }
-              }}
-            />
-            <Link href="/companies/new">
-              <Button variant="outline" className="bg-white text-blue-600 hover:bg-blue-50 border-white">
-                <Plus className="h-4 w-4 mr-2" />
-                新規企業追加
-              </Button>
-            </Link>
+            </div>
           </div>
         </div>
-      </div>
 
       {/* 検索・フィルター */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            検索・フィルター・ソート
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Search className="h-4 w-4 sm:h-5 sm:w-5" />
+            検索・フィルター
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
             {/* 検索 */}
             <div>
               <Label htmlFor="company-search">企業名・住所</Label>
@@ -938,18 +949,19 @@ function CompaniesPageContent() {
       {/* 企業リスト */}
       <Card>
         <CardHeader>
-          <CardTitle>企業リスト ({filteredAndSortedCompanies.length}件)</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-base sm:text-lg">企業リスト ({filteredAndSortedCompanies.length}件)</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             登録企業の一覧と管理
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {filteredAndSortedCompanies.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 text-sm">
               {companies.length === 0 ? '企業が登録されていません' : '検索条件に一致する企業がありません'}
             </div>
           ) : (
-            <Table>
+            <div className="min-w-full">
+              <Table>
               <TableHeader>
                 <TableRow>
                   {isAdmin && (
@@ -1101,16 +1113,16 @@ function CompaniesPageContent() {
                           </button>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             <Link href={`/companies/${company.id}`}>
-                              <Button variant="outline" size="sm">
-                                <Eye className="h-4 w-4" />
+                              <Button variant="outline" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
+                                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                               </Button>
                             </Link>
                             {isAdmin && (
                               <Link href={`/companies/${company.id}/edit`}>
-                                <Button variant="outline" size="sm">
-                                  <Edit className="h-4 w-4" />
+                                <Button variant="outline" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
+                                  <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                                 </Button>
                               </Link>
                             )}
@@ -1126,9 +1138,9 @@ function CompaniesPageContent() {
                                   setCompanyToDelete(company)
                                   setDeleteDialogOpen(true)
                                 }}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-red-600 hover:text-red-700 h-7 w-7 sm:h-8 sm:w-8 p-0"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                               </Button>
                             )}
                           </div>
@@ -1145,10 +1157,10 @@ function CompaniesPageContent() {
                                 {stores.map((store) => (
                                   <div
                                     key={store.id}
-                                    className="bg-white p-3 rounded border border-gray-200 flex justify-between items-start"
+                                    className="bg-white p-3 rounded border border-gray-200 flex flex-col sm:flex-row justify-between items-start gap-3"
                                   >
-                                    <div>
-                                      <div className="font-medium">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-medium truncate">
                                         {store.name}
                                         {store.prefecture && (
                                           <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
@@ -1184,21 +1196,21 @@ function CompaniesPageContent() {
                                           )}
                                         </div>
                                       )}
-                                      <div className="text-sm text-gray-600">
-                                        {store.address && <div>📍 {store.address}</div>}
-                                        {store.website && <div>🌐 <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{store.website}</a></div>}
+                                      <div className="text-sm text-gray-600 break-words">
+                                        {store.address && <div className="text-xs sm:text-sm">📍 {store.address}</div>}
+                                        {store.website && <div className="text-xs sm:text-sm">🌐 <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{store.website}</a></div>}
                                       </div>
                                     </div>
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-2 flex-shrink-0 items-center mt-2 sm:mt-0">
                                       <Link href={`/stores/${store.id}`}>
-                                        <Button variant="outline" size="sm">
-                                          <Eye className="h-3 w-3" />
+                                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-7 sm:w-7">
+                                          <Eye className="h-4 w-4" />
                                         </Button>
                                       </Link>
                                       {isAdmin && (
                                         <Link href={`/stores/${store.id}/edit`}>
-                                          <Button variant="outline" size="sm">
-                                            <Edit className="h-3 w-3" />
+                                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-7 sm:w-7">
+                                            <Edit className="h-4 w-4" />
                                           </Button>
                                         </Link>
                                       )}
@@ -1215,18 +1227,25 @@ function CompaniesPageContent() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
           
           {/* ページネーション */}
           {filteredAndSortedCompanies.length > 0 && (
             <div className="mt-4">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                itemsPerPage={itemsPerPage}
-                totalItems={filteredAndSortedCompanies.length}
-              />
+              <div className="flex items-center justify-center sm:justify-end">
+                <div className="overflow-x-auto">
+                  <div className="inline-block">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                      itemsPerPage={itemsPerPage}
+                      totalItems={filteredAndSortedCompanies.length}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
