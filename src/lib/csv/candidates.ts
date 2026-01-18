@@ -151,10 +151,12 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
 
         if (existingCandidate) {
           // メールアドレスが一致する既存の求職者を更新
+          console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
           await updateCandidate(existingCandidate.id, candidateData)
           result.updated++
         } else {
           // 新規作成
+          console.log(`✨ 新規: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email || 'メールなし'})`)
           await createCandidate(candidateData)
           result.success++
         }
