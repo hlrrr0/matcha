@@ -185,7 +185,7 @@ export default function Header() {
                       <span>MATCHA</span>
                     </SheetTitle>
                   </SheetHeader>
-                  <nav className="flex flex-col gap-4 mt-8">
+                  <nav className="flex justify-between items-center gap-4 mt-8">
                     {/* ユーザー情報 */}
                     <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
                       <User className="h-4 w-4 text-gray-600" />

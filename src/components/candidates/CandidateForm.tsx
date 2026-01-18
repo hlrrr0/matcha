@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -73,6 +74,24 @@ export default function CandidateForm({
       [field]: value
     }))
   }
+
+  // ⌘+S / Ctrl+S でフォーム保存
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        if (!loading) {
+          const form = document.querySelector('form')
+          if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [loading])
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">

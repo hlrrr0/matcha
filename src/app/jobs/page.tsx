@@ -630,7 +630,7 @@ function JobsPageContent() {
     <div className="container mx-auto px-4 py-8">
       {/* ページヘッダー */}
       <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg text-white">
-        <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center gap-4">
           {/* タイトル部分 */}
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 bg-white/20 rounded-full">
@@ -669,6 +669,16 @@ function JobsPageContent() {
             )}
             
             <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={loadData}
+                variant="outline"
+                size="sm"
+                className="bg-white text-purple-600 hover:bg-purple-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                title="最新データを取得"
+              >
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">更新</span>
+              </Button>
               <label htmlFor="csv-upload" className="cursor-pointer">
                 <Button
                   variant="outline"

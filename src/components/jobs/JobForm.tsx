@@ -321,6 +321,24 @@ export default function JobForm({
     await onSubmit(cleanFormData)
   }
 
+  // ⌘+S / Ctrl+S でフォーム保存
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        if (!loading) {
+          const form = document.querySelector('form')
+          if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [loading])
+
   // フォーム項目の見出しをコピーする関数
   const handleCopyFieldLabels = async () => {
     const fieldLabels = `

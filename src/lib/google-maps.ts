@@ -22,14 +22,18 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
           const location = results[0].geometry.location
           const lat = location.lat()
           const lng = location.lng()
-          console.log('緯度経度取得成功:', { lat, lng })
+          console.log('✅ 緯度経度取得成功:', { lat, lng })
           resolve({ lat, lng })
+        } else if (status === 'ZERO_RESULTS') {
+          // 結果が見つからない場合（正常な応答）
+          console.warn('⚠️ Geocoding: 住所に該当する位置情報が見つかりませんでした')
+          resolve(null)
         } else if (status === 'REQUEST_DENIED') {
-          console.error('Geocoding API エラー:', status)
+          console.error('❌ Geocoding API エラー:', status)
           reject(new Error(`APIリクエストが拒否されました: ${status}`))
         } else {
-          console.error('Geocoding API エラー:', status)
-          reject(new Error(`住所の変換に失敗しました: ${status}`))
+          console.warn('⚠️ Geocoding API:', status)
+          resolve(null)
         }
       })
     })

@@ -511,7 +511,7 @@ function StoresPageContent() {
     <div className="container mx-auto px-4 py-8">
       {/* ページヘッダー */}
       <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-lg text-white">
-        <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center gap-4">
           {/* タイトル部分 */}
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 bg-white/20 rounded-full">
@@ -575,6 +575,16 @@ function StoresPageContent() {
             )}
             
             <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={loadData}
+                variant="outline"
+                size="sm"
+                className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                title="最新データを取得"
+              >
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">更新</span>
+              </Button>
               <Button
                 onClick={downloadCSVTemplate}
                 variant="outline"
@@ -789,7 +799,10 @@ function StoresPageContent() {
               </TableHeader>
               <TableBody>
                 {paginatedStores.map((store: Store) => (
-                  <TableRow key={store.id}>
+                  <TableRow 
+                    key={store.id}
+                    className={store.status === 'inactive' ? 'bg-gray-100' : ''}
+                  >
                     {isAdmin && (
                       <TableCell>
                         <Checkbox

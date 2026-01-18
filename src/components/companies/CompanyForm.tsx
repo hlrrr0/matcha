@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -172,6 +172,24 @@ export default function CompanyForm({
       console.error('Error submitting form:', error)
     }
   }
+
+  // ⌘+S / Ctrl+S でフォーム保存
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        if (!loading && !generatingAI) {
+          const form = document.querySelector('form')
+          if (form) {
+            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          }
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [loading, generatingAI])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

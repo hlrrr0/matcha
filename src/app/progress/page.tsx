@@ -877,7 +877,7 @@ function ProgressPageContent() {
         <div className="container mx-auto py-8 px-4">
           {/* ヘッダー */}
           <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white">
-            <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center gap-4">
               {/* タイトル部分 */}
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="p-2 sm:p-3 bg-white/20 rounded-full">

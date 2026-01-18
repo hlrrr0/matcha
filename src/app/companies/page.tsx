@@ -687,7 +687,7 @@ function CompaniesPageContent() {
       <div className="container mx-auto px-4 py-8">
         {/* ページヘッダー */}
         <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white">
-          <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center gap-4">
             {/* タイトル部分 */}
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="p-2 sm:p-3 bg-white/20 rounded-full">
@@ -741,6 +741,16 @@ function CompaniesPageContent() {
               )}
               
               <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => loadData(true)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                  title="キャッシュをクリアして最新データを取得"
+                >
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">更新</span>
+                </Button>
                 <Button
                   onClick={downloadCSVTemplate}
                   variant="outline"
