@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,19 +19,33 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { useAuth } from "@/contexts/AuthContext"
-import { UserCheck, LogOut, User, ChevronDown, Menu, X } from "lucide-react"
+import { UserCheck, LogOut, User, ChevronDown, Menu, Search } from "lucide-react"
 import SimpleTranslate from "@/components/SimpleTranslate"
+import GlobalSearch from "@/components/GlobalSearch"
 
 export default function Header() {
   const { user, logout, isAdmin } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // 公開ページではヘッダーを表示しない
   if (pathname?.startsWith('/public/')) {
     return null
   }
+
+  // キーボードショートカット: ⌘+K (Mac) / Ctrl+K (Windows/Linux)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    document.addEventListener('keydown', down)
+    return () => document.removeEventListener('keydown', down)
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -104,6 +118,21 @@ export default function Header() {
 
           {/* 右側のメニュー（デスクトップ） */}
           <div className="hidden lg:flex items-center gap-4">
+            {/* 検索ボタン */}
+            {user && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+              >
+                <Search className="h-4 w-4" />
+                <span className="hidden xl:inline">検索</span>
+                <kbd className="hidden xl:inline pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 inline-flex">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            )}
             <SimpleTranslate />
             {user ? (
               <>
@@ -130,6 +159,17 @@ export default function Header() {
 
           {/* モバイルメニュー（ハンバーガー） */}
           <div className="lg:hidden flex items-center gap-2">
+            {/* モバイル検索ボタン */}
+            {user && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setSearchOpen(true)}
+                className="p-2"
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            )}
             <SimpleTranslate />
             {user && (
               <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -219,6 +259,9 @@ export default function Header() {
           </div>
         </div>
       </div>
+      
+      {/* グローバル検索ダイアログ */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   )
 }
