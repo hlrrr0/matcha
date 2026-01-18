@@ -13,6 +13,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Pagination } from '@/components/ui/pagination'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -40,7 +48,7 @@ import {
   List
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
-import { getJobs, deleteJob } from '@/lib/firestore/jobs'
+import { getJobs, deleteJob, updateJob } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
 import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
@@ -90,6 +98,11 @@ function JobsPageContent() {
   // 一括選択状態
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
   
+  // 一括ステータス変更用の状態
+  const [bulkStatusChangeDialogOpen, setBulkStatusChangeDialogOpen] = useState(false)
+  const [bulkStatusValue, setBulkStatusValue] = useState<Job['status']>('active')
+  const [bulkStatusChanging, setBulkStatusChanging] = useState(false)
+  
   // ページネーション状態（URLパラメータから初期化）
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
   const [itemsPerPage] = useState(50) // 1ページあたり50件
@@ -97,7 +110,13 @@ function JobsPageContent() {
   // フィルター・検索状態（URLパラメータから初期化）
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
   const [statusFilter, setStatusFilter] = useState<Job['status'] | 'all'>((searchParams.get('status') as Job['status']) || 'all')
-  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Job['employmentType'] | 'all'>((searchParams.get('employmentType') as Job['employmentType']) || 'all')
+  const [employmentTypeFilter, setEmploymentTypeFilter] = useState<Set<Job['employmentType']>>(() => {
+    const param = searchParams.get('employmentType')
+    if (param && param !== 'all') {
+      return new Set(param.split(',') as Job['employmentType'][])
+    }
+    return new Set()
+  })
   const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
   const [ageLimitFilter, setAgeLimitFilter] = useState<string>(searchParams.get('ageLimit') || 'all')
   
@@ -183,7 +202,7 @@ function JobsPageContent() {
     
     if (params.search) newParams.set('search', params.search)
     if (params.status && params.status !== 'all') newParams.set('status', params.status)
-    if (params.employmentType && params.employmentType !== 'all') newParams.set('employmentType', params.employmentType)
+    if (params.employmentType && params.employmentType !== 'all' && params.employmentType !== '') newParams.set('employmentType', params.employmentType)
     if (params.consultant && params.consultant !== 'all') newParams.set('consultant', params.consultant)
     if (params.ageLimit && params.ageLimit !== 'all') newParams.set('ageLimit', params.ageLimit)
     
@@ -305,6 +324,38 @@ function JobsPageContent() {
     toast.success(`${selectedJobs.size}件の求人データをエクスポートしました`)
   }
 
+  // 一括ステータス変更
+  const handleBulkStatusChange = async () => {
+    if (selectedJobs.size === 0) {
+      toast.error('求人を選択してください')
+      return
+    }
+
+    setBulkStatusChanging(true)
+    try {
+      const selectedJobIds = Array.from(selectedJobs)
+      const updatePromises = selectedJobIds.map(jobId => 
+        updateJob(jobId, { status: bulkStatusValue })
+      )
+      
+      await Promise.all(updatePromises)
+      
+      toast.success(`${selectedJobs.size}件の求人ステータスを「${jobStatusLabels[bulkStatusValue]}」に変更しました`)
+      
+      // データを再読み込み
+      await loadData()
+      
+      // 選択をクリア
+      setSelectedJobs(new Set())
+      setBulkStatusChangeDialogOpen(false)
+    } catch (error) {
+      console.error('一括ステータス変更エラー:', error)
+      toast.error('ステータスの変更に失敗しました')
+    } finally {
+      setBulkStatusChanging(false)
+    }
+  }
+
   const downloadCSVTemplate = () => {
     const csvContent = generateJobsCSVTemplate()
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -402,7 +453,7 @@ function JobsPageContent() {
     
     if (searchTerm) newParams.set('search', searchTerm)
     if (statusFilter !== 'all') newParams.set('status', statusFilter)
-    if (employmentTypeFilter !== 'all' && employmentTypeFilter) newParams.set('employmentType', employmentTypeFilter)
+    if (employmentTypeFilter.size > 0) newParams.set('employmentType', Array.from(employmentTypeFilter).join(','))
     if (consultantFilter !== 'all') newParams.set('consultant', consultantFilter)
     if (ageLimitFilter !== 'all') newParams.set('ageLimit', ageLimitFilter)
     if (page > 1) newParams.set('page', page.toString())
@@ -436,7 +487,13 @@ function JobsPageContent() {
                            (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
       
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
-      const matchesEmploymentType = employmentTypeFilter === 'all' || job.employmentType === employmentTypeFilter
+      
+      // 雇用形態フィルター: 求人の雇用形態（カンマ区切り）のいずれかが、選択されたフィルターに含まれているかチェック
+      const matchesEmploymentType = employmentTypeFilter.size === 0 || (() => {
+        if (!job.employmentType) return false
+        const jobTypes = job.employmentType.split(',').map(t => t.trim())
+        return jobTypes.some(type => employmentTypeFilter.has(type))
+      })()
       // 企業の担当者でフィルタリング
       const matchesConsultant = consultantFilter === 'all' || company?.consultantId === consultantFilter
 
@@ -548,7 +605,7 @@ function JobsPageContent() {
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
-  }, [jobs, stores, companies, searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter, 
+  }, [jobs, stores, companies, searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter, 
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
       housingSupportFilter, independenceSupportFilter, sortBy, sortOrder])
 
@@ -568,7 +625,7 @@ function JobsPageContent() {
     }
     setCurrentPage(1)
     handlePageChange(1)
-  }, [searchTerm, statusFilter, employmentTypeFilter, consultantFilter, ageLimitFilter,
+  }, [searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter,
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax,
       reservationSystemFilter, housingSupportFilter, independenceSupportFilter])
 
@@ -656,6 +713,15 @@ function JobsPageContent() {
                 <label htmlFor="select-all-header" className="text-xs sm:text-sm text-white cursor-pointer whitespace-nowrap">
                   全て選択 ({selectedJobs.size}件)
                 </label>
+                <Button
+                  onClick={() => setBulkStatusChangeDialogOpen(true)}
+                  variant="outline"
+                  size="sm"
+                  className="bg-purple-600 text-white hover:bg-purple-700 border-purple-600 text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                  ステータス変更
+                </Button>
                 <Button
                   onClick={exportSelectedJobsCSV}
                   variant="outline"
@@ -779,7 +845,7 @@ function JobsPageContent() {
                 onChange={(e) => {
                   const value = e.target.value
                   setSearchTerm(value)
-                  updateURLParams({ search: value, status: statusFilter, employmentType: employmentTypeFilter, consultant: consultantFilter, ageLimit: ageLimitFilter })
+                  updateURLParams({ search: value, status: statusFilter, employmentType: Array.from(employmentTypeFilter).join(','), consultant: consultantFilter, ageLimit: ageLimitFilter })
                 }}
                 className="w-full"
               />
@@ -790,7 +856,7 @@ function JobsPageContent() {
               <Label htmlFor="status-filter">ステータス</Label>
               <Select value={statusFilter} onValueChange={(value: Job['status'] | 'all') => {
                 setStatusFilter(value)
-                updateURLParams({ search: searchTerm, status: value, employmentType: employmentTypeFilter, consultant: consultantFilter, ageLimit: ageLimitFilter })
+                updateURLParams({ search: searchTerm, status: value, employmentType: Array.from(employmentTypeFilter).join(','), consultant: consultantFilter, ageLimit: ageLimitFilter })
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="ステータス" />
@@ -806,27 +872,102 @@ function JobsPageContent() {
             
             {/* 雇用形態フィルター */}
             <div>
-              <Label htmlFor="employment-type-filter">雇用形態</Label>
-              <Select value={employmentTypeFilter} onValueChange={(value: Job['employmentType'] | 'all') => {
-                setEmploymentTypeFilter(value)
-                updateURLParams({ search: searchTerm, status: statusFilter, employmentType: value, consultant: consultantFilter, ageLimit: ageLimitFilter })
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="雇用形態" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべての雇用形態</SelectItem>
-                  {availableEmploymentTypes.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>雇用形態</Label>
+              <div className="border rounded-md p-3 space-y-2 bg-white">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="employment-fulltime"
+                    checked={employmentTypeFilter.has('正社員')}
+                    onCheckedChange={(checked) => {
+                      const newFilter = new Set(employmentTypeFilter)
+                      if (checked) {
+                        newFilter.add('正社員')
+                      } else {
+                        newFilter.delete('正社員')
+                      }
+                      setEmploymentTypeFilter(newFilter)
+                      updateURLParams({ 
+                        search: searchTerm, 
+                        status: statusFilter, 
+                        employmentType: Array.from(newFilter).join(','), 
+                        consultant: consultantFilter, 
+                        ageLimit: ageLimitFilter 
+                      })
+                    }}
+                  />
+                  <label
+                    htmlFor="employment-fulltime"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    正社員
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="employment-contract"
+                    checked={employmentTypeFilter.has('契約社員')}
+                    onCheckedChange={(checked) => {
+                      const newFilter = new Set(employmentTypeFilter)
+                      if (checked) {
+                        newFilter.add('契約社員')
+                      } else {
+                        newFilter.delete('契約社員')
+                      }
+                      setEmploymentTypeFilter(newFilter)
+                      updateURLParams({ 
+                        search: searchTerm, 
+                        status: statusFilter, 
+                        employmentType: Array.from(newFilter).join(','), 
+                        consultant: consultantFilter, 
+                        ageLimit: ageLimitFilter 
+                      })
+                    }}
+                  />
+                  <label
+                    htmlFor="employment-contract"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    契約社員
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="employment-parttime"
+                    checked={employmentTypeFilter.has('アルバイト')}
+                    onCheckedChange={(checked) => {
+                      const newFilter = new Set(employmentTypeFilter)
+                      if (checked) {
+                        newFilter.add('アルバイト')
+                      } else {
+                        newFilter.delete('アルバイト')
+                      }
+                      setEmploymentTypeFilter(newFilter)
+                      updateURLParams({ 
+                        search: searchTerm, 
+                        status: statusFilter, 
+                        employmentType: Array.from(newFilter).join(','), 
+                        consultant: consultantFilter, 
+                        ageLimit: ageLimitFilter 
+                      })
+                    }}
+                  />
+                  <label
+                    htmlFor="employment-parttime"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    アルバイト
+                  </label>
+                </div>
+              </div>
             </div>
             
             {/* 担当者フィルター */}
             <div>
               <Label htmlFor="consultant-filter">担当者</Label>
-              <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+              <Select value={consultantFilter} onValueChange={(value) => {
+                setConsultantFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, employmentType: Array.from(employmentTypeFilter).join(','), consultant: value, ageLimit: ageLimitFilter })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="担当者" />
                 </SelectTrigger>
@@ -844,7 +985,10 @@ function JobsPageContent() {
             {/* 年齢上限フィルター */}
             <div>
               <Label htmlFor="age-limit-filter">年齢上限</Label>
-              <Select value={ageLimitFilter} onValueChange={setAgeLimitFilter}>
+              <Select value={ageLimitFilter} onValueChange={(value) => {
+                setAgeLimitFilter(value)
+                updateURLParams({ search: searchTerm, status: statusFilter, employmentType: Array.from(employmentTypeFilter).join(','), consultant: consultantFilter, ageLimit: value })
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="年齢上限" />
                 </SelectTrigger>
@@ -1277,6 +1421,60 @@ function JobsPageContent() {
         </CardContent>
       </Card>
       )}
+
+      {/* 一括ステータス変更ダイアログ */}
+      <Dialog open={bulkStatusChangeDialogOpen} onOpenChange={setBulkStatusChangeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>選択した求人のステータスを一括変更</DialogTitle>
+            <DialogDescription>
+              {selectedJobs.size}件の求人のステータスを変更します
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="bulk-status">新しいステータス</Label>
+              <Select
+                value={bulkStatusValue}
+                onValueChange={(value) => setBulkStatusValue(value as Job['status'])}
+              >
+                <SelectTrigger id="bulk-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">下書き</SelectItem>
+                  <SelectItem value="active">公開中</SelectItem>
+                  <SelectItem value="closed">募集終了</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkStatusChangeDialogOpen(false)}
+              disabled={bulkStatusChanging}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleBulkStatusChange}
+              disabled={bulkStatusChanging}
+            >
+              {bulkStatusChanging ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  変更中...
+                </>
+              ) : (
+                '変更する'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
