@@ -374,7 +374,7 @@ export default function HomePage() {
               求職者と企業を最適にマッチング。Dominoシステムとの連携で、
               より精度の高い人材紹介を実現します。
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-col">
               <Link href="/companies">
                 <Button size="lg" className="flex items-center gap-2">
                   <Building2 className="h-5 w-5" />
