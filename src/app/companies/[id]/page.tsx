@@ -534,7 +534,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                     return (
                       <>
                         {displayStores.map((store) => (
-                          <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg flex-col">
                             <div>
                               <h4 className="font-medium">
                                 {store.name}
@@ -617,7 +617,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                     }
                     
                     return (
-                      <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg flex-col">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium">{job.title}</h4>
