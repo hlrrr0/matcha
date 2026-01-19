@@ -877,13 +877,13 @@ function JobsPageContent() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="employment-fulltime"
-                    checked={employmentTypeFilter.has('正社員')}
+                    checked={employmentTypeFilter.has('full-time')}
                     onCheckedChange={(checked) => {
                       const newFilter = new Set(employmentTypeFilter)
                       if (checked) {
-                        newFilter.add('正社員')
+                        newFilter.add('full-time')
                       } else {
-                        newFilter.delete('正社員')
+                        newFilter.delete('full-time')
                       }
                       setEmploymentTypeFilter(newFilter)
                       updateURLParams({ 
@@ -905,13 +905,13 @@ function JobsPageContent() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="employment-contract"
-                    checked={employmentTypeFilter.has('契約社員')}
+                    checked={employmentTypeFilter.has('contract')}
                     onCheckedChange={(checked) => {
                       const newFilter = new Set(employmentTypeFilter)
                       if (checked) {
-                        newFilter.add('契約社員')
+                        newFilter.add('contract')
                       } else {
-                        newFilter.delete('契約社員')
+                        newFilter.delete('contract')
                       }
                       setEmploymentTypeFilter(newFilter)
                       updateURLParams({ 
@@ -933,13 +933,13 @@ function JobsPageContent() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="employment-parttime"
-                    checked={employmentTypeFilter.has('アルバイト')}
+                    checked={employmentTypeFilter.has('part-time')}
                     onCheckedChange={(checked) => {
                       const newFilter = new Set(employmentTypeFilter)
                       if (checked) {
-                        newFilter.add('アルバイト')
+                        newFilter.add('part-time')
                       } else {
-                        newFilter.delete('アルバイト')
+                        newFilter.delete('part-time')
                       }
                       setEmploymentTypeFilter(newFilter)
                       updateURLParams({ 
