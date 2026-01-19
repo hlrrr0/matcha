@@ -742,7 +742,7 @@ function CompaniesPageContent() {
               
               <div className="flex flex-wrap gap-2">
                 <Button
-                  onClick={() => loadData(true)}
+                  onClick={() => loadCompanies(true)}
                   variant="outline"
                   size="sm"
                   className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
