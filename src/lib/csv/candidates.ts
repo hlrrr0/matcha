@@ -4,6 +4,7 @@ import { createCandidate, updateCandidate, getCandidateByEmail } from '@/lib/fir
 export interface ImportResult {
   success: number
   updated: number
+  skipped: number
   errors: string[]
 }
 
@@ -39,10 +40,16 @@ const formatDateForStorage = (dateStr: string): string => {
   return dateStr
 }
 
-export const importCandidatesFromCSV = async (csvText: string): Promise<ImportResult> => {
+export const importCandidatesFromCSV = async (
+  csvText: string, 
+  options: { skipExisting?: boolean } = {}
+): Promise<ImportResult> => {
+  const { skipExisting = false } = options
+  
   const result: ImportResult = {
     success: 0,
     updated: 0,
+    skipped: 0,
     errors: []
   }
 
@@ -125,15 +132,16 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
         }
 
         // 校舎の変換
-        let campus: Candidate['campus'] = ''
-        if (row['入学校舎']) {
+        let campus: Candidate['campus'] | undefined = undefined
+        if (row['入学校舎'] && row['入学校舎'].trim()) {
           const campusMap: Record<string, Candidate['campus']> = {
             '東京校': 'tokyo',
             '大阪校': 'osaka',
             '淡路校': 'awaji',
-            '福岡校': 'fukuoka'
+            '福岡校': 'fukuoka',
+            '台湾校': 'taiwan'
           }
-          campus = campusMap[row['入学校舎']] || ''
+          campus = campusMap[row['入学校舎'].trim()] || undefined
         }
 
         // 求職者データを構築
@@ -182,10 +190,16 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
         }
 
         if (existingCandidate) {
-          // メールアドレスが一致する既存の求職者を更新
-          console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
-          await updateCandidate(existingCandidate.id, candidateData)
-          result.updated++
+          if (skipExisting) {
+            // スキップモード: 既存データがある場合は更新しない
+            console.log(`⏭️  スキップ: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
+            result.skipped++
+          } else {
+            // メールアドレスが一致する既存の求職者を更新
+            console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
+            await updateCandidate(existingCandidate.id, candidateData)
+            result.updated++
+          }
         } else {
           // 新規作成
           console.log(`✨ 新規: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email || 'メールなし'})`)

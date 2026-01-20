@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
 import {
   Table,
@@ -142,6 +143,7 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
+  const [skipExistingOnImport, setSkipExistingOnImport] = useState(true) // デフォルトでスキップモード
   
   // ページネーション
   const [currentPage, setCurrentPage] = useState(1)
@@ -534,13 +536,18 @@ export default function CandidatesPage() {
     setCsvImporting(true)
     try {
       const text = await file.text()
-      const result = await importCandidatesFromCSV(text)
+      const result = await importCandidatesFromCSV(text, { skipExisting: skipExistingOnImport })
+      
+      const messages = []
+      if (result.success > 0) messages.push(`新規: ${result.success}件`)
+      if (result.updated > 0) messages.push(`更新: ${result.updated}件`)
+      if (result.skipped > 0) messages.push(`スキップ: ${result.skipped}件`)
       
       if (result.errors.length > 0) {
-        toast.error(`インポート完了（エラーあり）\n成功: ${result.success}件、更新: ${result.updated}件\nエラー: ${result.errors.length}件`)
+        toast.error(`インポート完了（エラーあり）\n${messages.join('、')}\nエラー: ${result.errors.length}件`)
         console.error('Import errors:', result.errors)
       } else {
-        toast.success(`CSVインポート完了\n成功: ${result.success}件、更新: ${result.updated}件`)
+        toast.success(`CSVインポート完了\n${messages.join('、')}`)
       }
       
       await loadData()
@@ -783,6 +790,21 @@ export default function CandidatesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* CSVインポートオプション */}
+          <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-md">
+            <Checkbox
+              id="skipExisting"
+              checked={skipExistingOnImport}
+              onCheckedChange={(checked) => setSkipExistingOnImport(checked === true)}
+            />
+            <label 
+              htmlFor="skipExisting" 
+              className="text-sm text-gray-700 cursor-pointer select-none flex-1"
+            >
+              CSVインポート時に既存データをスキップ（メールアドレスが一致する場合）
+            </label>
+          </div>
+          
           <div className="flex gap-4">
             {/* 検索 */}
             <div className="flex-1">
