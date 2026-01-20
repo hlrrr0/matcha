@@ -13,7 +13,7 @@ export interface Candidate {
   phone?: string                                              // 電話番号（任意）
   dateOfBirth?: string                                        // 生年月日（任意）
   enrollmentDate?: string                                     // 入学年月（任意）- 日付型
-  campus?: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | ''     // 入学校舎（任意）- 選択制
+  campus?: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | 'taiwan' | ''     // 入学校舎（任意）- 選択制
   nearestStation?: string                                     // 最寄り駅（任意）
   cookingExperience?: string                                  // 調理経験（任意）
   
@@ -50,5 +50,6 @@ export const campusLabels = {
   tokyo: '東京校',
   osaka: '大阪校',
   awaji: '淡路校',
-  fukuoka: '福岡校'
+  fukuoka: '福岡校',
+  taiwan: '台湾校'
 }

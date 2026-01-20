@@ -37,12 +37,13 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Copy
+  Copy,
+  FolderPlus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate, campusLabels } from '@/types/candidate'
 import { Match } from '@/types/matching'
@@ -60,6 +61,7 @@ import { getJobTitleWithPrefecture, getStoreNameWithPrefecture } from '@/lib/uti
 import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
 import DiagnosisHistoryComparison from '@/components/diagnosis/DiagnosisHistoryComparison'
+import { createGoogleDriveFolder, generateCandidateFolderName } from '@/lib/google-drive'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -175,7 +177,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     jobIds: [] as string[],
     notes: ''
   })
-
+  
+  // Google Drive フォルダー作成用の状態
+  const [creatingFolder, setCreatingFolder] = useState(false)
   // ステータス更新用の状態
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
@@ -772,6 +776,62 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // Google Driveフォルダー作成ハンドラー
+  const handleCreateFolder = async () => {
+    if (!candidate) {
+      toast.error('候補者情報が見つかりません')
+      return
+    }
+
+    if (!candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName) {
+      toast.error('フォルダー作成に必要な情報が不足しています（入社年月、入学校舎、姓、名）')
+      return
+    }
+
+    setCreatingFolder(true)
+    try {
+      // フォルダー名を生成
+      const folderName = generateCandidateFolderName(
+        candidate.enrollmentDate,
+        candidate.campus,
+        candidate.lastName,
+        candidate.firstName
+      )
+
+      // Google Driveにフォルダーを作成
+      const folderUrl = await createGoogleDriveFolder(folderName)
+      
+      if (!folderUrl) {
+        throw new Error('フォルダーの作成に失敗しました')
+      }
+
+      // Firestoreの候補者データを更新
+      const candidateRef = doc(db, 'candidates', candidateId)
+      await updateDoc(candidateRef, {
+        resumeUrl: folderUrl,
+        updatedAt: new Date()
+      })
+
+      // ローカルの状態も更新
+      setCandidate({
+        ...candidate,
+        resumeUrl: folderUrl
+      })
+
+      toast.success('フォルダーを作成しました', {
+        action: {
+          label: '開く',
+          onClick: () => window.open(folderUrl, '_blank')
+        }
+      })
+    } catch (error) {
+      console.error('フォルダー作成エラー:', error)
+      toast.error('フォルダーの作成に失敗しました')
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -1228,13 +1288,32 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">履歴書URL</label>
-                    <p className="mt-1">
+                    <div className="mt-1 flex items-center gap-2">
                       {candidate.resumeUrl ? (
                         <a href={candidate.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                           ファイルを開く
                         </a>
-                      ) : '未登録'}
-                    </p>
+                      ) : (
+                        <>
+                          <span className="text-gray-500">未登録</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCreateFolder}
+                            disabled={creatingFolder || !candidate.enrollmentDate || !candidate.campus}
+                            className="ml-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                          >
+                            <FolderPlus className="h-4 w-4 mr-1.5" />
+                            {creatingFolder ? '作成中...' : 'フォルダーを作成'}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    {!candidate.resumeUrl && (!candidate.enrollmentDate || !candidate.campus) && (
+                      <p className="text-xs text-red-600 mt-1">
+                        ⚠ フォルダー作成には、入社年月・入学校舎が必要です
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1553,13 +1632,16 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         onUpdate={handleStatusUpdate}
         isEditMode={selectedMatch ? ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) : false}
         candidate={candidate ? {
+          id: candidate.id,
           firstName: candidate.firstName,
           lastName: candidate.lastName,
           phone: candidate.phone,
           email: candidate.email,
           resume: candidate.teacherComment, // 先生のコメントを履歴書として使用
           dateOfBirth: candidate.dateOfBirth,
-          resumeUrl: candidate.resumeUrl
+          resumeUrl: candidate.resumeUrl,
+          enrollmentDate: candidate.enrollmentDate,
+          campus: candidate.campus
         } : undefined}
         job={selectedMatch ? jobs.find(j => j.id === selectedMatch.jobId) : undefined}
         company={selectedMatch ? companies.find(c => c.id === jobs.find(j => j.id === selectedMatch.jobId)?.companyId) : undefined}

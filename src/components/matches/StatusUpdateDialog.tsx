@@ -21,8 +21,12 @@ import {
   XCircle,
   AlertCircle,
   Mail,
-  Copy
+  Copy,
+  FolderPlus
 } from 'lucide-react'
+import { createGoogleDriveFolder, generateCandidateFolderName } from '@/lib/google-drive'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 const statusLabels: Record<Match['status'], string> = {
   suggested: '提案済み',
@@ -85,6 +89,7 @@ interface StatusUpdateDialogProps {
   isEditMode?: boolean
   // メール送信用の情報
   candidate?: {
+    id: string
     firstName: string
     lastName: string
     phone?: string
@@ -92,6 +97,8 @@ interface StatusUpdateDialogProps {
     resume?: string
     dateOfBirth?: string
     resumeUrl?: string
+    enrollmentDate?: string
+    campus?: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | 'taiwan' | ''
   }
   job?: {
     title: string
@@ -123,6 +130,7 @@ export function StatusUpdateDialog({
   const [statusNotes, setStatusNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
+  const [creatingFolder, setCreatingFolder] = useState(false)
 
   useEffect(() => {
     if (!match) return
@@ -315,6 +323,62 @@ export function StatusUpdateDialog({
     }
   }
 
+  // Google Driveフォルダー作成ハンドラー
+  const handleCreateFolder = async () => {
+    if (!candidate) {
+      toast.error('候補者情報が見つかりません')
+      return
+    }
+
+    if (!candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName) {
+      toast.error('フォルダー作成に必要な情報が不足しています（入社年月、入学校舎、姓、名）')
+      return
+    }
+
+    setCreatingFolder(true)
+    try {
+      // フォルダー名を生成
+      const folderName = generateCandidateFolderName(
+        candidate.enrollmentDate,
+        candidate.campus,
+        candidate.lastName,
+        candidate.firstName
+      )
+
+      // Google Driveにフォルダーを作成
+      const folderUrl = await createGoogleDriveFolder(folderName)
+      
+      if (!folderUrl) {
+        throw new Error('フォルダーの作成に失敗しました')
+      }
+
+      // Firestoreの候補者データを更新
+      const candidateRef = doc(db, 'candidates', candidate.id)
+      await updateDoc(candidateRef, {
+        resumeUrl: folderUrl,
+        updatedAt: new Date()
+      })
+
+      toast.success('フォルダーを作成しました', {
+        action: {
+          label: '開く',
+          onClick: () => window.open(folderUrl, '_blank')
+        }
+      })
+
+      // ローカルの candidate オブジェクトも更新（再読み込み促進）
+      if (candidate) {
+        candidate.resumeUrl = folderUrl
+      }
+
+    } catch (error) {
+      console.error('フォルダー作成エラー:', error)
+      toast.error('フォルダーの作成に失敗しました')
+    } finally {
+      setCreatingFolder(false)
+    }
+  }
+
   const handleCopyIntroduction = () => {
     if (!candidate || !company) {
       toast.error('候補者または企業情報が不足しています')
@@ -411,6 +475,36 @@ export function StatusUpdateDialog({
               </Badge>
             </div>
           </div>
+
+          {/* Google Driveフォルダー作成（履歴書URLが無い場合） */}
+          {!candidate?.resumeUrl && candidate && (
+            <div className="border border-orange-200 bg-orange-50 rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <Label className="text-sm font-semibold text-orange-900">履歴書フォルダー</Label>
+                  <p className="text-xs text-orange-700 mt-1">
+                    Google Driveに候補者用のフォルダーを作成します
+                  </p>
+                  {(!candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName) && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠ フォルダー作成には、入社年月・入学校舎・姓・名が必要です
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="ml-4 bg-white hover:bg-orange-100 border-orange-300"
+                  onClick={handleCreateFolder}
+                  disabled={creatingFolder || !candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName}
+                >
+                  <FolderPlus className="h-4 w-4 mr-1.5" />
+                  {creatingFolder ? '作成中...' : 'フォルダーを作成'}
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* 次のステータスを選択 */}
           {availableStatuses.length > 0 && (

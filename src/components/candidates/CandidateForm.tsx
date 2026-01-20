@@ -24,7 +24,7 @@ interface CandidateFormData {
   phone: string
   dateOfBirth: string
   enrollmentDate: string
-  campus: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | ''
+  campus: 'tokyo' | 'osaka' | 'awaji' | 'fukuoka' | 'taiwan' | ''
   nearestStation: string
   cookingExperience: string
   
@@ -251,6 +251,7 @@ export default function CandidateForm({
                   <SelectItem value="osaka">大阪校</SelectItem>
                   <SelectItem value="awaji">淡路校</SelectItem>
                   <SelectItem value="fukuoka">福岡校</SelectItem>
+                  <SelectItem value="taiwan">台湾校</SelectItem>
                 </SelectContent>
               </Select>
             </div>
