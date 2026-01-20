@@ -648,13 +648,16 @@ export default function MatchDetailPage() {
                     onUpdate={handleStatusUpdate}
                     isEditMode={false}
                     candidate={candidate ? {
+                      id: candidate.id,
                       firstName: candidate.firstName,
                       lastName: candidate.lastName,
                       phone: candidate.phone,
                       email: candidate.email,
                       resume: candidate.teacherComment,
                       dateOfBirth: candidate.dateOfBirth,
-                      resumeUrl: candidate.resumeUrl
+                      resumeUrl: candidate.resumeUrl,
+                      enrollmentDate: candidate.enrollmentDate,
+                      campus: candidate.campus
                     } : undefined}
                     job={job || undefined}
                     company={company || undefined}
