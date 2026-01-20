@@ -70,7 +70,8 @@ const campusColors = {
   tokyo: 'bg-blue-100 text-blue-800 border-blue-200',
   osaka: 'bg-orange-100 text-orange-800 border-orange-200',
   awaji: 'bg-green-100 text-green-800 border-green-200',
-  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200'
+  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200',
+  taiwan: 'bg-red-100 text-red-800 border-red-200'
 }
 
 // ステータスラベル定義
@@ -1585,13 +1586,16 @@ function ProgressPageContent() {
             candidate={selectedMatch ? (() => {
               const c = candidates.find(cand => cand.id === selectedMatch.candidateId)
               return c ? {
+                id: c.id,
                 firstName: c.firstName,
                 lastName: c.lastName,
                 phone: c.phone,
                 email: c.email,
                 resume: c.teacherComment,
                 dateOfBirth: c.dateOfBirth,
-                resumeUrl: c.resumeUrl
+                resumeUrl: c.resumeUrl,
+                enrollmentDate: c.enrollmentDate,
+                campus: c.campus
               } : undefined
             })() : undefined}
             job={selectedMatch ? jobs.find(j => j.id === selectedMatch.jobId) : undefined}
