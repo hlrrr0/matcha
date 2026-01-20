@@ -191,13 +191,24 @@ export const importCandidatesFromCSV = async (
 
         if (existingCandidate) {
           if (skipExisting) {
-            // スキップモード: 既存データがある場合は更新しない
+            // スキップモード: 既存データがある場合は何もしない
             console.log(`⏭️  スキップ: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
             result.skipped++
           } else {
-            // メールアドレスが一致する既存の求職者を更新
+            // 部分更新モード: CSVに値がある項目だけを更新
+            // 既存データとマージ（CSVの値が優先、空欄の場合は既存値を保持）
+            const updateData: any = {}
+            
+            Object.keys(candidateData).forEach(key => {
+              // CSVに値がある場合のみ更新対象に含める
+              // statusは必須なので常に含める
+              if (key === 'status' || candidateData[key] !== undefined) {
+                updateData[key] = candidateData[key]
+              }
+            })
+            
             console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
-            await updateCandidate(existingCandidate.id, candidateData)
+            await updateCandidate(existingCandidate.id, updateData)
             result.updated++
           }
         } else {

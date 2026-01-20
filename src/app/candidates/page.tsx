@@ -801,7 +801,7 @@ export default function CandidatesPage() {
               htmlFor="skipExisting" 
               className="text-sm text-gray-700 cursor-pointer select-none flex-1"
             >
-              CSVインポート時に既存データをスキップ（メールアドレスが一致する場合）
+              既存データをスキップ（ONの場合、既存データは一切更新されません / OFFの場合、CSVに値がある項目のみ上書き更新されます）
             </label>
           </div>
           
