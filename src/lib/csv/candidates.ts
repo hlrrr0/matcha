@@ -52,7 +52,6 @@ export const importCandidatesFromCSV = async (
   try {
     // ユーザー一覧を取得（メールアドレス→IDの変換用）
     const users = await getUsers()
-    console.log('👥 取得したユーザー数:', users.length)
     
     // CSV解析 - 複数行にわたるフィールドに対応
     const lines = []
@@ -98,8 +97,6 @@ export const importCandidatesFromCSV = async (
 
     // ヘッダー行を解析
     const headers = parseCSVLine(lines[0])
-    console.log('📋 CSV Headers:', headers)
-    console.log('📋 担当者カラムのインデックス:', headers.indexOf('担当者'))
     
     // データ行を処理
     for (let i = 1; i < lines.length; i++) {
@@ -116,8 +113,6 @@ export const importCandidatesFromCSV = async (
         headers.forEach((header, index) => {
           row[header] = values[index] || ''
         })
-        
-        console.log(`📝 行 ${i + 1} - 担当者の値:`, row['担当者'])
         
         // 必須フィールドのチェック
         if (!row['名前（姓）'] || !row['名前（名）']) {
@@ -199,8 +194,6 @@ export const importCandidatesFromCSV = async (
             candidateData[key] = rawCandidateData[key]
           }
         })
-
-        console.log('📦 candidateData.assignedUserId:', candidateData.assignedUserId)
         
         // メールアドレスをキーとして既存の求職者を検索
         let existingCandidate = null
@@ -222,14 +215,10 @@ export const importCandidatesFromCSV = async (
             }
           })
           
-          console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
-          console.log('📝 Update Data:', updateData)
-          console.log('👤 Assigned UserId:', candidateData.assignedUserId)
           await updateCandidate(existingCandidate.id, updateData)
           result.updated++
         } else {
           // 新規作成
-          console.log(`✨ 新規: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email || 'メールなし'})`)
           await createCandidate(candidateData)
           result.success++
         }
