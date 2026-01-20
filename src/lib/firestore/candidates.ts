@@ -192,6 +192,9 @@ export const updateCandidate = async (id: string, candidateData: Partial<Omit<Ca
     if (!id || id.trim() === '') {
       throw new Error('無効な候補者IDです')
     }
+    
+    console.log('🔧 updateCandidate - Input candidateData.assignedUserId:', candidateData.assignedUserId)
+    
     const docRef = doc(db, 'candidates', id)
     const updateData = candidateToFirestore({
       ...candidateData,
@@ -201,6 +204,8 @@ export const updateCandidate = async (id: string, candidateData: Partial<Omit<Ca
     
     // createdAtフィールドを削除（更新時は不要）
     const { createdAt, ...updateDataWithoutCreatedAt } = updateData
+    
+    console.log('🔧 updateCandidate - Final updateData.assignedUserId:', updateDataWithoutCreatedAt.assignedUserId)
     
     await updateDoc(docRef, updateDataWithoutCreatedAt)
   } catch (error) {

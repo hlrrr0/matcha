@@ -143,7 +143,6 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
-  const [skipExistingOnImport, setSkipExistingOnImport] = useState(true) // デフォルトでスキップモード
   
   // ページネーション
   const [currentPage, setCurrentPage] = useState(1)
@@ -536,12 +535,11 @@ export default function CandidatesPage() {
     setCsvImporting(true)
     try {
       const text = await file.text()
-      const result = await importCandidatesFromCSV(text, { skipExisting: skipExistingOnImport })
+      const result = await importCandidatesFromCSV(text)
       
       const messages = []
       if (result.success > 0) messages.push(`新規: ${result.success}件`)
       if (result.updated > 0) messages.push(`更新: ${result.updated}件`)
-      if (result.skipped > 0) messages.push(`スキップ: ${result.skipped}件`)
       
       if (result.errors.length > 0) {
         toast.error(`インポート完了（エラーあり）\n${messages.join('、')}\nエラー: ${result.errors.length}件`)
@@ -790,21 +788,6 @@ export default function CandidatesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* CSVインポートオプション */}
-          <div className="flex items-center gap-2 p-3 bg-orange-50 border border-orange-200 rounded-md">
-            <Checkbox
-              id="skipExisting"
-              checked={skipExistingOnImport}
-              onCheckedChange={(checked) => setSkipExistingOnImport(checked === true)}
-            />
-            <label 
-              htmlFor="skipExisting" 
-              className="text-sm text-gray-700 cursor-pointer select-none flex-1"
-            >
-              既存データをスキップ（ONの場合、既存データは一切更新されません / OFFの場合、CSVに値がある項目のみ上書き更新されます）
-            </label>
-          </div>
-          
           <div className="flex gap-4">
             {/* 検索 */}
             <div className="flex-1">

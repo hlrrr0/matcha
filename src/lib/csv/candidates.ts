@@ -1,10 +1,10 @@
 import { Candidate } from '@/types/candidate'
 import { createCandidate, updateCandidate, getCandidateByEmail } from '@/lib/firestore/candidates'
+import { getUsers } from '@/lib/firestore/users'
 
 export interface ImportResult {
   success: number
   updated: number
-  skipped: number
   errors: string[]
 }
 
@@ -41,19 +41,19 @@ const formatDateForStorage = (dateStr: string): string => {
 }
 
 export const importCandidatesFromCSV = async (
-  csvText: string, 
-  options: { skipExisting?: boolean } = {}
+  csvText: string
 ): Promise<ImportResult> => {
-  const { skipExisting = false } = options
-  
   const result: ImportResult = {
     success: 0,
     updated: 0,
-    skipped: 0,
     errors: []
   }
 
   try {
+    // ユーザー一覧を取得（メールアドレス→IDの変換用）
+    const users = await getUsers()
+    console.log('👥 取得したユーザー数:', users.length)
+    
     // CSV解析 - 複数行にわたるフィールドに対応
     const lines = []
     let currentLine = ''
@@ -98,6 +98,8 @@ export const importCandidatesFromCSV = async (
 
     // ヘッダー行を解析
     const headers = parseCSVLine(lines[0])
+    console.log('📋 CSV Headers:', headers)
+    console.log('📋 担当者カラムのインデックス:', headers.indexOf('担当者'))
     
     // データ行を処理
     for (let i = 1; i < lines.length; i++) {
@@ -114,6 +116,8 @@ export const importCandidatesFromCSV = async (
         headers.forEach((header, index) => {
           row[header] = values[index] || ''
         })
+        
+        console.log(`📝 行 ${i + 1} - 担当者の値:`, row['担当者'])
         
         // 必須フィールドのチェック
         if (!row['名前（姓）'] || !row['名前（名）']) {
@@ -144,6 +148,19 @@ export const importCandidatesFromCSV = async (
           campus = campusMap[row['入学校舎'].trim()] || undefined
         }
 
+        // 担当者のメールアドレスをユーザーIDに変換
+        let assignedUserId: string | undefined = undefined
+        if (row['担当者']?.trim()) {
+          const assignedEmail = row['担当者'].trim()
+          const assignedUser = users.find(u => u.email === assignedEmail)
+          if (assignedUser) {
+            assignedUserId = assignedUser.id
+            console.log(`✅ 担当者変換: ${assignedEmail} → ${assignedUser.displayName} (${assignedUser.id})`)
+          } else {
+            console.warn(`⚠️ 担当者が見つかりません: ${assignedEmail}`)
+          }
+        }
+
         // 求職者データを構築
         // 求職者データを構築（undefinedを含む）
         const rawCandidateData: any = {
@@ -168,7 +185,7 @@ export const importCandidatesFromCSV = async (
           partTimeHope: row['アルバイト希望']?.trim() || undefined,
           applicationFormUrl: row['願書URL']?.trim() || undefined,
           resumeUrl: row['履歴書URL']?.trim() || undefined,
-          assignedTo: row['担当者']?.trim() || undefined,
+          assignedUserId: assignedUserId,
           teacherComment: row['先生からのコメント']?.trim() || undefined,
           personalityScore: row['人物スコア']?.trim() || undefined,
           skillScore: row['スキルスコア']?.trim() || undefined,
@@ -183,6 +200,8 @@ export const importCandidatesFromCSV = async (
           }
         })
 
+        console.log('📦 candidateData.assignedUserId:', candidateData.assignedUserId)
+        
         // メールアドレスをキーとして既存の求職者を検索
         let existingCandidate = null
         if (candidateData.email && candidateData.email.trim()) {
@@ -191,27 +210,23 @@ export const importCandidatesFromCSV = async (
         }
 
         if (existingCandidate) {
-          if (skipExisting) {
-            // スキップモード: 既存データがある場合は何もしない
-            console.log(`⏭️  スキップ: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
-            result.skipped++
-          } else {
-            // 部分更新モード: CSVに値がある項目だけを更新
-            // 既存データとマージ（CSVの値が優先、空欄の場合は既存値を保持）
-            const updateData: any = {}
-            
-            Object.keys(candidateData).forEach(key => {
-              // CSVに値がある場合のみ更新対象に含める
-              // statusは必須なので常に含める
-              if (key === 'status' || candidateData[key] !== undefined) {
-                updateData[key] = candidateData[key]
-              }
-            })
-            
-            console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
-            await updateCandidate(existingCandidate.id, updateData)
-            result.updated++
-          }
+          // 部分更新: CSVに値がある項目だけを更新
+          // 既存データとマージ（CSVの値が優先、空欄の場合は既存値を保持）
+          const updateData: any = {}
+          
+          Object.keys(candidateData).forEach(key => {
+            // CSVに値がある場合のみ更新対象に含める
+            // statusは必須なので常に含める
+            if (key === 'status' || candidateData[key] !== undefined) {
+              updateData[key] = candidateData[key]
+            }
+          })
+          
+          console.log(`🔄 更新: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email})`)
+          console.log('📝 Update Data:', updateData)
+          console.log('👤 Assigned UserId:', candidateData.assignedUserId)
+          await updateCandidate(existingCandidate.id, updateData)
+          result.updated++
         } else {
           // 新規作成
           console.log(`✨ 新規: ${candidateData.lastName} ${candidateData.firstName} (${candidateData.email || 'メールなし'})`)
