@@ -7,6 +7,38 @@ export interface ImportResult {
   errors: string[]
 }
 
+/**
+ * 日付文字列をYYYY-MM-DD形式に変換（タイムゾーンのずれを防ぐ）
+ * @param dateStr 日付文字列（例: "2000-01-15", "2000/01/15", "2025-10"）
+ * @returns YYYY-MM-DD形式の文字列
+ */
+const formatDateForStorage = (dateStr: string): string => {
+  if (!dateStr) return dateStr
+  
+  // すでにYYYY-MM-DD形式の場合はそのまま返す
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr
+  }
+  
+  // YYYY-MM形式（入学年月）の場合はそのまま返す
+  if (/^\d{4}-\d{2}$/.test(dateStr)) {
+    return dateStr
+  }
+  
+  // スラッシュ区切りをハイフン区切りに変換
+  if (/^\d{4}\/\d{2}\/\d{2}$/.test(dateStr)) {
+    return dateStr.replace(/\//g, '-')
+  }
+  
+  // YYYY/MM形式
+  if (/^\d{4}\/\d{2}$/.test(dateStr)) {
+    return dateStr.replace(/\//g, '-')
+  }
+  
+  // その他の形式はそのまま返す
+  return dateStr
+}
+
 export const importCandidatesFromCSV = async (csvText: string): Promise<ImportResult> => {
   const result: ImportResult = {
     success: 0,
@@ -114,8 +146,8 @@ export const importCandidatesFromCSV = async (csvText: string): Promise<ImportRe
           firstNameKana: row['フリガナ（名）']?.trim() || undefined,
           email: row['メールアドレス']?.trim() || undefined,
           phone: row['電話番号']?.trim() || undefined,
-          dateOfBirth: row['生年月日']?.trim() || undefined,
-          enrollmentDate: row['入学年月']?.trim() || undefined,
+          dateOfBirth: row['生年月日']?.trim() ? formatDateForStorage(row['生年月日'].trim()) : undefined,
+          enrollmentDate: row['入学年月']?.trim() ? formatDateForStorage(row['入学年月'].trim()) : undefined,
           campus,
           nearestStation: row['最寄り駅']?.trim() || undefined,
           cookingExperience: row['調理経験']?.trim() || undefined,
