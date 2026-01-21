@@ -298,8 +298,24 @@ interface Company {
 - **[機能仕様](./docs/features)** - 各機能の詳細仕様
 - **[セットアップガイド](./docs/setup)** - 環境構築手順
 - **[アーキテクチャ](./docs/architecture)** - システム設計ドキュメント
+- **[トラブルシューティング](./docs/fixes)** - エラー対応ガイド
 
 詳しくは [docs/README.md](./docs/README.md) をご覧ください。
+
+### トラブルシューティング
+
+API連携でエラーが発生した場合は、以下のドキュメントを参照してください：
+
+- **[API エラー対応ガイド](./docs/fixes/API_ERROR_TROUBLESHOOTING.md)** - 500エラー等の対処方法
+
+診断スクリプトでエラーを確認：
+```bash
+# 本番環境のAPI診断
+node diagnose-api-error.js https://agent-system-ten.vercel.app
+
+# ローカル環境のAPI診断
+node diagnose-api-error.js http://localhost:3000
+```
 
 ## 🔧 スクリプト
 
