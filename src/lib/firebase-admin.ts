@@ -28,8 +28,12 @@ export function initializeAdminApp() {
   }
 
   try {
+    console.log('🔧 Initializing Firebase Admin SDK...')
+    console.log('Environment:', process.env.NODE_ENV)
+    
     // 既存のアプリがあればそれを使用
     if (getApps().length > 0) {
+      console.log('✅ Using existing Firebase Admin app')
       adminApp = getApps()[0]
       adminDb = getFirestore(adminApp)
       return { app: adminApp, db: adminDb }
@@ -39,6 +43,11 @@ export function initializeAdminApp() {
     const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID
     const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL
     const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
+
+    console.log('Environment variables check:')
+    console.log('- FIREBASE_ADMIN_PROJECT_ID:', projectId ? '✅ Set' : '❌ Not set')
+    console.log('- FIREBASE_ADMIN_CLIENT_EMAIL:', clientEmail ? '✅ Set' : '❌ Not set')
+    console.log('- FIREBASE_ADMIN_PRIVATE_KEY:', privateKey ? '✅ Set' : '❌ Not set')
 
     // ローカル開発環境: serviceAccountKey.jsonを使用
     if (process.env.NODE_ENV === 'development') {
@@ -72,17 +81,24 @@ export function initializeAdminApp() {
     }
 
     if (!adminApp) {
-      throw new Error(
+      const errorMsg = 
         'Firebase Admin SDK initialization failed. ' +
         'Please set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, and FIREBASE_ADMIN_PRIVATE_KEY ' +
         'environment variables, or place serviceAccountKey.json in the project root for local development.'
-      )
+      console.error('❌', errorMsg)
+      throw new Error(errorMsg)
     }
 
     adminDb = getFirestore(adminApp)
+    console.log('✅ Firebase Admin SDK initialization complete')
     return { app: adminApp, db: adminDb }
   } catch (error) {
     console.error('❌ Firebase Admin SDK initialization error:', error)
+    if (error instanceof Error) {
+      console.error('❌ Error name:', error.name)
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error stack:', error.stack)
+    }
     throw error
   }
 }
@@ -92,6 +108,7 @@ export function initializeAdminApp() {
  */
 export function getAdminDb(): Firestore {
   if (!adminDb) {
+    console.log('🔄 Firebase Admin DB not initialized, initializing now...')
     const { db } = initializeAdminApp()
     return db
   }

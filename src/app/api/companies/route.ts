@@ -164,7 +164,16 @@ async function handleCompanyCreation(request: NextRequest) {
     )
 
   } catch (error) {
-    console.error('Company creation error:', error)
+    console.error('❌ Company creation error:', error)
+    
+    // エラーの詳細をログに記録
+    if (error instanceof Error) {
+      console.error('Error name:', error.name)
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    } else {
+      console.error('Unknown error type:', typeof error)
+    }
 
     // エラーの種類に応じて適切なレスポンスを返す
     if (error instanceof SyntaxError) {
@@ -175,10 +184,15 @@ async function handleCompanyCreation(request: NextRequest) {
       )
     }
 
+    // 詳細なエラーメッセージを返す（開発時のみ）
+    const errorMessage = error instanceof Error ? error.message : '不明なエラー'
+    const isDevelopment = process.env.NODE_ENV === 'development'
+
     return createErrorResponse(
       'INTERNAL_ERROR',
       '企業データの作成中にエラーが発生しました',
-      500
+      500,
+      isDevelopment ? { errorDetails: errorMessage } : undefined
     )
   }
 }

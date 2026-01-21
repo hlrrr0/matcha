@@ -149,10 +149,16 @@ export async function createCompany(companyData: Omit<Company, 'id' | 'createdAt
   try {
     console.log('📝 [Admin] 新規企業を作成中...', { name: companyData.name, dominoId: companyData.dominoId })
     
+    // Firebase Admin SDKの初期化を確認
+    const db = getAdminFirestore()
+    if (!db) {
+      throw new Error('Firebase Admin Firestoreの初期化に失敗しました')
+    }
+    
     // undefinedフィールドを除去
     const cleanedData = removeUndefinedFields(companyData)
+    console.log('🧹 [Admin] クリーニング済みデータ:', Object.keys(cleanedData))
     
-    const db = getAdminFirestore()
     const docRef = await db.collection('companies').add({
       ...cleanedData,
       createdAt: new Date(),
@@ -163,6 +169,11 @@ export async function createCompany(companyData: Omit<Company, 'id' | 'createdAt
     return docRef.id
   } catch (error) {
     console.error('❌ [Admin] 企業作成エラー:', error)
+    if (error instanceof Error) {
+      console.error('❌ Error name:', error.name)
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error stack:', error.stack)
+    }
     throw error
   }
 }
