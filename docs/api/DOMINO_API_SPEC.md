@@ -1,4 +1,4 @@
-# 人材紹介システム Domino連携API 仕様書
+# MATCHA - Domino連携API 仕様書
 
 ## 目次
 1. [概要](#概要)

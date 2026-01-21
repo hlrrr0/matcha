@@ -368,7 +368,7 @@ export default function HomePage() {
         <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-16 rounded-lg">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              効率的な人材紹介システム
+              MATCHA
             </h2>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               求職者と企業を最適にマッチング。Dominoシステムとの連携で、

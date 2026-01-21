@@ -18,7 +18,7 @@
 - [x] Ensure Documentation is Complete
 
 ## Project Overview
-人材紹介システム - Dominoシステムからの企業データ受信、求職者管理、企業管理、マッチング機能を持つNext.js TypeScriptアプリケーション
+MATCHA - 人材紹介プラットフォーム。Dominoシステムからの企業データ受信、求職者管理、企業管理、マッチング機能を持つNext.js TypeScriptアプリケーション
 
 ## Technology Stack
 - Next.js 14 with TypeScript

@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '求職者アンケート - 人材紹介システム',
+  title: '求職者アンケート - MATCHA',
   description: '就職活動サポートのための求職者アンケート',
   robots: {
     index: false,
