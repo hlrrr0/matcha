@@ -3,11 +3,15 @@
  * /api/companies エンドポイントのエラーを診断
  * 
  * 実行方法:
- * node diagnose-api-error.js <BASE_URL>
+ * node diagnose-api-error.js <BASE_URL> [--skip-duplicate-check]
  * 
  * 例:
  * node diagnose-api-error.js https://agent-system-ten.vercel.app
+ * node diagnose-api-error.js https://agent-system-ten.vercel.app --skip-duplicate-check
  * node diagnose-api-error.js http://localhost:3000
+ * 
+ * オプション:
+ * --skip-duplicate-check: 重複チェックをスキップ（クォータ節約）
  */
 
 // デフォルト認証情報（Domino連携用）
@@ -31,10 +35,13 @@ const TEST_COMPANY = {
   status: 'active'
 }
 
-async function diagnoseAPI(baseUrl) {
+async function diagnoseAPI(baseUrl, skipDuplicateCheck = false) {
   console.log('🔍 API エラー診断開始')
   console.log('='.repeat(60))
   console.log(`対象URL: ${baseUrl}/api/companies`)
+  if (skipDuplicateCheck) {
+    console.log('⚡ 重複チェックスキップモード（クォータ節約）')
+  }
   console.log('='.repeat(60))
   console.log('')
 
@@ -51,6 +58,11 @@ async function diagnoseAPI(baseUrl) {
     'X-API-Key': DEFAULT_AUTH.API_KEY,
     'Authorization': `Bearer ${DEFAULT_AUTH.AUTH_TOKEN}`
   }
+  
+  if (skipDuplicateCheck) {
+    headers['X-Skip-Duplicate-Check'] = 'true'
+  }
+  
   console.log(JSON.stringify(headers, null, 2))
   console.log('')
 
@@ -156,9 +168,11 @@ async function diagnoseAPI(baseUrl) {
 }
 
 // コマンドライン引数からURLを取得
-const baseUrl = process.argv[2] || 'http://localhost:3000'
+const args = process.argv.slice(2)
+const baseUrl = args.find(arg => !arg.startsWith('--')) || 'http://localhost:3000'
+const skipDuplicateCheck = args.includes('--skip-duplicate-check')
 
-diagnoseAPI(baseUrl)
+diagnoseAPI(baseUrl, skipDuplicateCheck)
   .then(() => {
     console.log('')
     console.log('💡 次のステップ:')

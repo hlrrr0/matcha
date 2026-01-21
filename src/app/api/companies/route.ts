@@ -117,37 +117,62 @@ async function handleCompanyCreation(request: NextRequest) {
 
     const dominoData: DominoCompanyData = body
 
-    // 1. Domino IDの重複チェック
-    const existingCompanyByDominoId = await findCompanyByDominoId(dominoData.id)
-    if (existingCompanyByDominoId) {
-      return createErrorResponse(
-        'DUPLICATE_DOMINO_ID',
-        `Domino ID「${dominoData.id}」は既に登録されています`,
-        409,
-        { 
-          existingCompanyId: existingCompanyByDominoId.id,
-          existingCompanyName: existingCompanyByDominoId.name
-        }
-      )
-    }
+    // 重複チェックのスキップオプション（クォータ節約用）
+    const skipDuplicateCheck = request.headers.get('x-skip-duplicate-check') === 'true'
 
-    // 2. 企業名とウェブサイトの完全一致チェック
-    const existingCompanyByNameAndWebsite = await findCompanyByNameAndWebsite(
-      dominoData.name,
-      dominoData.website
-    )
-    if (existingCompanyByNameAndWebsite) {
-      return createErrorResponse(
-        'DUPLICATE_COMPANY',
-        `企業名「${dominoData.name}」${dominoData.website ? `とウェブサイト「${dominoData.website}」` : ''}が一致する企業が既に登録されています`,
-        409,
-        { 
-          existingCompanyId: existingCompanyByNameAndWebsite.id,
-          existingCompanyName: existingCompanyByNameAndWebsite.name,
-          existingWebsite: existingCompanyByNameAndWebsite.website,
-          dominoId: existingCompanyByNameAndWebsite.dominoId
+    if (!skipDuplicateCheck) {
+      // 1. Domino IDの重複チェック
+      try {
+        const existingCompanyByDominoId = await findCompanyByDominoId(dominoData.id)
+        if (existingCompanyByDominoId) {
+          return createErrorResponse(
+            'DUPLICATE_DOMINO_ID',
+            `Domino ID「${dominoData.id}」は既に登録されています`,
+            409,
+            { 
+              existingCompanyId: existingCompanyByDominoId.id,
+              existingCompanyName: existingCompanyByDominoId.name
+            }
+          )
         }
-      )
+      } catch (error: any) {
+        // クォータ超過エラーの場合は警告ログのみ
+        if (error?.code === 8 || error?.message?.includes('RESOURCE_EXHAUSTED')) {
+          console.warn('⚠️ Quota exceeded during duplicate check, skipping...')
+        } else {
+          throw error
+        }
+      }
+
+      // 2. 企業名とウェブサイトの完全一致チェック
+      try {
+        const existingCompanyByNameAndWebsite = await findCompanyByNameAndWebsite(
+          dominoData.name,
+          dominoData.website
+        )
+        if (existingCompanyByNameAndWebsite) {
+          return createErrorResponse(
+            'DUPLICATE_COMPANY',
+            `企業名「${dominoData.name}」${dominoData.website ? `とウェブサイト「${dominoData.website}」` : ''}が一致する企業が既に登録されています`,
+            409,
+            { 
+              existingCompanyId: existingCompanyByNameAndWebsite.id,
+              existingCompanyName: existingCompanyByNameAndWebsite.name,
+              existingWebsite: existingCompanyByNameAndWebsite.website,
+              dominoId: existingCompanyByNameAndWebsite.dominoId
+            }
+          )
+        }
+      } catch (error: any) {
+        // クォータ超過エラーの場合は警告ログのみ
+        if (error?.code === 8 || error?.message?.includes('RESOURCE_EXHAUSTED')) {
+          console.warn('⚠️ Quota exceeded during duplicate check, skipping...')
+        } else {
+          throw error
+        }
+      }
+    } else {
+      console.log('ℹ️ Duplicate check skipped (x-skip-duplicate-check header present)')
     }
     
     // Company型に変換
