@@ -12,8 +12,8 @@ const firebaseConfig = {
   appId: (process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:123456789:web:demo').trim()
 }
 
-// デバッグ用ログ（本番環境でも一時的に有効化）
-if (typeof window !== 'undefined') {
+// デバッグ用ログ（開発環境のみ）
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   console.log('Firebase Config Debug:', {
     apiKey: firebaseConfig.apiKey ? '***CONFIGURED***' : 'MISSING',
     authDomain: firebaseConfig.authDomain,

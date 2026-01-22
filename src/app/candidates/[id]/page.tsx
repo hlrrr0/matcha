@@ -1080,7 +1080,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                           if (match.timeline && match.timeline.length > 0) {
                             // 面接ステータスのタイムラインを日付順にソート（新しい順）
                             const interviewTimelines = match.timeline
-                              .filter(t => t.status === 'interview' && t.eventDate)
+                              .filter((t): t is typeof t & { eventDate: NonNullable<typeof t.eventDate> } => t.status === 'interview' && !!t.eventDate)
                               .sort((a, b) => {
                                 const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
                                 const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
