@@ -1073,17 +1073,39 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          // 面接日時を取得
-                          if (!match.interviewDate) {
-                            return <span className="text-gray-400">-</span>
+                          // timelineから面接日時を取得
+                          let interviewDate: Date | null = null
+                          
+                          // timelineから面接ステータスのeventDateを探す
+                          if (match.timeline && match.timeline.length > 0) {
+                            // 面接ステータスのタイムラインを日付順にソート（新しい順）
+                            const interviewTimelines = match.timeline
+                              .filter(t => t.status === 'interview' && t.eventDate)
+                              .sort((a, b) => {
+                                const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                                const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                                return timeB - timeA
+                              })
+                            
+                            if (interviewTimelines.length > 0) {
+                              const eventDateValue = interviewTimelines[0].eventDate
+                              try {
+                                // Firestore Timestampの場合
+                                if (eventDateValue && typeof eventDateValue === 'object' && 'toDate' in eventDateValue) {
+                                  interviewDate = (eventDateValue as any).toDate()
+                                } else if (eventDateValue instanceof Date) {
+                                  interviewDate = eventDateValue
+                                } else if (typeof eventDateValue === 'string' || typeof eventDateValue === 'number') {
+                                  interviewDate = new Date(eventDateValue)
+                                }
+                              } catch (e) {
+                                console.error('Failed to parse eventDate:', e)
+                              }
+                            }
                           }
                           
-                          const interviewDate = match.interviewDate instanceof Date 
-                            ? match.interviewDate 
-                            : new Date(match.interviewDate)
-                          
                           // 有効な日付かチェック
-                          if (isNaN(interviewDate.getTime())) {
+                          if (!interviewDate || isNaN(interviewDate.getTime())) {
                             return <span className="text-gray-400">-</span>
                           }
                           

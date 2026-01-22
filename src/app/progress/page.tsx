@@ -234,13 +234,25 @@ function ProgressPageContent() {
         
         if (cached) {
           console.log('📦 キャッシュからデータ読み込み')
-          setMatches(cached.matches)
+          // ISO文字列からDateオブジェクトに変換
+          const matchesWithDates = cached.matches.map(match => ({
+            ...match,
+            timeline: match.timeline?.map(t => ({
+              ...t,
+              eventDate: t.eventDate && typeof t.eventDate === 'string' ? new Date(t.eventDate) : t.eventDate
+            })),
+            createdAt: match.createdAt && typeof match.createdAt === 'string' ? new Date(match.createdAt) : match.createdAt,
+            updatedAt: match.updatedAt && typeof match.updatedAt === 'string' ? new Date(match.updatedAt) : match.updatedAt
+          }))
+          
+          setMatches(matchesWithDates)
           setCandidates(cached.candidates)
           setJobs(cached.jobs)
           setCompanies(cached.companies)
           setStores(cached.stores)
           setUsers(cached.users)
           setLoading(false)
+          console.log('✅ キャッシュデータのDate変換完了')
           return
         }
       }
@@ -257,20 +269,8 @@ function ProgressPageContent() {
 
       console.log('📊 データ読み込み完了:')
       console.log('  企業数:', companiesData.length)
-      console.log('  企業担当者設定数:', companiesData.filter(c => c.consultantId).length)
+      console.log('  マッチ数:', matchesData.length)
       console.log('  ユーザー数:', usersData.length)
-      
-      // 企業担当者の詳細
-      const companiesWithAssigned = companiesData.filter(c => c.consultantId)
-      if (companiesWithAssigned.length > 0) {
-        console.log('✅ 担当者が設定されている企業:')
-        companiesWithAssigned.forEach(c => {
-          const user = usersData.find(u => u.id === c.consultantId)
-          console.log(`  - ${c.name} → ${user?.displayName || user?.email || 'ユーザー不明'} (ID: ${c.consultantId})`)
-        })
-      } else {
-        console.log('⚠️ 担当者が設定されている企業が見つかりません')
-      }
 
       setCandidates(candidatesData)
       setJobs(jobsData)
@@ -284,15 +284,6 @@ function ProgressPageContent() {
         const job = jobsData.find(j => j.id === match.jobId)
         const company = companiesData.find(c => c.id === job?.companyId)
         const store = storesData.find(s => s.id === job?.storeId)
-
-        // デバッグ用ログ
-        if (company?.consultantId) {
-          console.log('企業担当者情報:', {
-            companyName: company.name,
-            consultantId: company.consultantId,
-            user: usersData.find(u => u.id === company.consultantId)
-          })
-        }
 
         return {
           ...match,
@@ -317,15 +308,29 @@ function ProgressPageContent() {
       setMatches(matchesWithDetails)
       
       // キャッシュに保存（5分間有効）
-      setCache(cacheKey, {
-        matches: matchesWithDetails,
+      // Firestore TimestampをISO文字列に変換してからキャッシュ
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      const cacheData = {
+        matches: matchesWithDetails.map(match => ({
+          ...match,
+          timeline: match.timeline?.map(t => ({
+            ...t,
+            eventDate: t.eventDate && typeof t.eventDate === 'object' && 'toDate' in t.eventDate 
+              ? t.eventDate.toDate().toISOString() 
+              : t.eventDate
+          })),
+          createdAt: match.createdAt instanceof Date ? match.createdAt.toISOString() : match.createdAt,
+          updatedAt: match.updatedAt instanceof Date ? match.updatedAt.toISOString() : match.updatedAt
+        })),
         candidates: candidatesData,
         jobs: jobsData,
         companies: companiesData,
         stores: storesData,
         users: usersData
-      })
-      console.log('💾 データをキャッシュに保存')
+      }
+      
+      setCache(cacheKey, cacheData)
+      console.log('💾 データをキャッシュに保存（Timestamp変換済み）')
     } catch (error) {
       console.error('データの読み込みエラー:', error)
     } finally {
@@ -1438,17 +1443,40 @@ function ProgressPageContent() {
                           </TableCell>
                           <TableCell>
                             {(() => {
-                              // 面接日時を取得
-                              if (!match.interviewDate) {
-                                return <span className="text-gray-400">-</span>
+                              // timelineから面接日時を取得
+                              let interviewDate: Date | null = null
+                              
+                              // timelineから面接ステータスのeventDateを探す
+                              if (match.timeline && match.timeline.length > 0) {
+                                // 面接ステータスのタイムラインを日付順にソート（新しい順）
+                                const interviewTimelines = match.timeline
+                                  .filter(t => t.status === 'interview' && t.eventDate)
+                                  .sort((a, b) => {
+                                    const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                                    const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                                    return timeB - timeA
+                                  })
+                                
+                                if (interviewTimelines.length > 0) {
+                                  const eventDateValue = interviewTimelines[0].eventDate
+                                  
+                                  try {
+                                    // Firestore Timestampの場合
+                                    if (eventDateValue && typeof eventDateValue === 'object' && 'toDate' in eventDateValue) {
+                                      interviewDate = (eventDateValue as any).toDate()
+                                    } else if (eventDateValue instanceof Date) {
+                                      interviewDate = eventDateValue
+                                    } else if (typeof eventDateValue === 'string' || typeof eventDateValue === 'number') {
+                                      interviewDate = new Date(eventDateValue)
+                                    }
+                                  } catch (e) {
+                                    console.error('面接日時の変換エラー:', e)
+                                  }
+                                }
                               }
                               
-                              const interviewDate = match.interviewDate instanceof Date 
-                                ? match.interviewDate 
-                                : new Date(match.interviewDate)
-                              
                               // 有効な日付かチェック
-                              if (isNaN(interviewDate.getTime())) {
+                              if (!interviewDate || isNaN(interviewDate.getTime())) {
                                 return <span className="text-gray-400">-</span>
                               }
                               
