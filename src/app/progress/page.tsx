@@ -235,9 +235,9 @@ function ProgressPageContent() {
         if (cached) {
           console.log('📦 キャッシュからデータ読み込み')
           // ISO文字列からDateオブジェクトに変換
-          const matchesWithDates = cached.matches.map(match => ({
+          const matchesWithDates = cached.matches.map((match: any) => ({
             ...match,
-            timeline: match.timeline?.map(t => ({
+            timeline: match.timeline?.map((t: any) => ({
               ...t,
               eventDate: t.eventDate && typeof t.eventDate === 'string' ? new Date(t.eventDate) : t.eventDate
             })),
@@ -311,9 +311,9 @@ function ProgressPageContent() {
       // Firestore TimestampをISO文字列に変換してからキャッシュ
       const isDevelopment = process.env.NODE_ENV === 'development'
       const cacheData = {
-        matches: matchesWithDetails.map(match => ({
+        matches: matchesWithDetails.map((match: any) => ({
           ...match,
-          timeline: match.timeline?.map(t => ({
+          timeline: match.timeline?.map((t: any) => ({
             ...t,
             eventDate: t.eventDate && typeof t.eventDate === 'object' && 'toDate' in t.eventDate 
               ? t.eventDate.toDate().toISOString() 
