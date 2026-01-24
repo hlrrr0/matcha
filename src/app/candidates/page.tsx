@@ -266,20 +266,24 @@ export default function CandidatesPage() {
         getUsers()
       ])
       
+      console.log('📊 取得した候補者数:', candidatesData.length)
+      
       // 進捗件数も含めて設定
       setCandidates(candidatesData)
       setStats(statsData)
       setUsers(usersData)
       
       // 進捗データを取得
-      const candidatesWithProgress = await loadProgressCounts(candidatesData)
+      const candidatesWithProgressData = await loadProgressCounts(candidatesData)
+      
+      console.log('📊 進捗データを含む候補者数:', candidatesWithProgressData.length)
       
       // キャッシュに保存（5分間有効）
       setCache(cacheKey, {
         candidates: candidatesData,
         stats: statsData,
         users: usersData,
-        candidatesWithProgress // 進捗データも含める
+        candidatesWithProgress: candidatesWithProgressData // 進捗データも含める
       })
     } catch (error) {
       console.error('Error loading candidates:', error)

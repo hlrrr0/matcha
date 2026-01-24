@@ -72,8 +72,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           await firebaseUser.getIdToken(true) // force refresh
           console.log('✅ トークンをリフレッシュしました')
-        } catch (error) {
-          console.error('❌ トークンのリフレッシュに失敗:', error)
+        } catch (error: any) {
+          // ネットワークエラーは無視（次回の認証時に再試行される）
+          if (error?.code === 'auth/network-request-failed') {
+            console.warn('⚠️ ネットワーク接続エラー（トークンリフレッシュをスキップ）')
+          } else {
+            console.error('❌ トークンのリフレッシュに失敗:', error)
+          }
         }
         
         // ユーザープロファイルを取得または作成

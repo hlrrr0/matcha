@@ -28,8 +28,8 @@ service cloud.firestore {
       // 作成: 認証済みユーザー（自分のドキュメントのみ）
       allow create: if isAuthenticated() && isOwner(userId);
       
-      // 更新: 自分のドキュメントのみ
-      allow update: if isAuthenticated() && isOwner(userId);
+      // 更新: 認証済みユーザーなら誰でも可能（Slack ID設定など管理機能のため）
+      allow update: if isAuthenticated();
       
       // 削除: 自分のドキュメントのみ
       allow delete: if isAuthenticated() && isOwner(userId);

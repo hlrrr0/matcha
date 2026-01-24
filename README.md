@@ -168,15 +168,15 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123def456```
 
 
 
-# Domino API Configuration## Deploy on Vercel
-
+# Domino API Configuration
 DOMINO_API_URL=https://api.domino.example.com
+DOMINO_API_KEY=your_domino_api_key_here
 
-DOMINO_API_KEY=your_domino_api_key_hereThe easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
+# Slack通知設定（任意）
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_ENABLED=true
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
 ### 3. 開発サーバーの起動
 ```bash
@@ -270,10 +270,11 @@ interface Company {
 - 業界別統計
 - パフォーマンスダッシュボード
 
-### コミュニケーション機能
+### コミュニケーション機能 ✅
+- ✅ Slack通知システム（実装済み）
 - 企業・求職者との連絡履歴
 - 面接スケジュール管理
-- 通知システム
+- メール通知システム
 
 ## 🛠️ 開発・貢献
 

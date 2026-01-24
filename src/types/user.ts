@@ -24,6 +24,9 @@ export interface User {
   assignedCandidates?: string[] // candidate IDs
   assignedCompanies?: string[] // company IDs
   
+  // Slack連携
+  slackId?: string // Slack user ID (例: U01234567)
+  
   // メタデータ
   lastLoginAt?: string | Date
 }

@@ -41,6 +41,7 @@ function UserManagementContent() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDisplayName, setEditDisplayName] = useState('')
   const [editPhotoURL, setEditPhotoURL] = useState('')
+  const [editSlackId, setEditSlackId] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -111,6 +112,7 @@ function UserManagementContent() {
     setSelectedUser(user)
     setEditDisplayName(user.displayName || '')
     setEditPhotoURL(user.photoURL || '')
+    setEditSlackId(user.slackId || '')
     setEditDialogOpen(true)
   }
 
@@ -122,13 +124,14 @@ function UserManagementContent() {
       await updateDoc(doc(db, 'users', selectedUser.id), {
         displayName: editDisplayName,
         photoURL: editPhotoURL,
+        slackId: editSlackId || null, // 空文字列の場合はnullにする
         updatedAt: new Date().toISOString()
       })
 
       // ローカル状態を更新
       setUsers(prev => prev.map(user => 
         user.id === selectedUser.id 
-          ? { ...user, displayName: editDisplayName, photoURL: editPhotoURL, updatedAt: new Date().toISOString() }
+          ? { ...user, displayName: editDisplayName, photoURL: editPhotoURL, slackId: editSlackId || undefined, updatedAt: new Date().toISOString() }
           : user
       ))
 
@@ -487,6 +490,20 @@ function UserManagementContent() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 画像のURLを入力してください（任意）
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="slackId">Slack ID</Label>
+              <Input
+                id="slackId"
+                value={editSlackId}
+                onChange={(e) => setEditSlackId(e.target.value)}
+                placeholder="U01234567"
+                disabled={saving}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                進捗通知を受け取るためのSlackユーザーID（任意）
               </p>
             </div>
           </div>

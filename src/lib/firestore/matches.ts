@@ -549,6 +549,26 @@ export const updateMatchStatus = async (
         // 候補者ステータスの更新失敗はエラーにせず警告のみ
       }
     }
+
+    // Slack通知を送信（非同期で実行、エラーは無視）
+    console.log('🔔 Slack通知を送信します - ステータス:', status)
+    
+    // API route経由で通知を送信（firebase-adminをクライアント側にバンドルしないため）
+    fetch('/api/slack/notify-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        matchId: match.id,
+        candidateId: match.candidateId,
+        jobId: match.jobId,
+        companyId: match.companyId,
+        status,
+        eventDate: eventDate ? (typeof eventDate === 'string' ? eventDate : eventDate.toISOString()) : undefined,
+        notes
+      })
+    }).catch(error => {
+      console.error('⚠️ Slack通知の送信に失敗しました:', error)
+    })
     
     if (DEBUG) console.log('✅ ステータス更新完了')
   } catch (error) {
