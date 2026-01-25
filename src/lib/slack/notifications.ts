@@ -8,11 +8,18 @@ import { WebClient } from '@slack/web-api'
 // Slack通知が有効かどうか
 const isSlackEnabled = process.env.SLACK_ENABLED === 'true'
 const slackBotToken = process.env.SLACK_BOT_TOKEN
+const slackCandidateBotToken = process.env.SLACK_CANDIDATE_BOT_TOKEN
 
-// Slackクライアントの初期化
+// Slackクライアントの初期化（進捗通知用）
 let slackClient: WebClient | null = null
 if (isSlackEnabled && slackBotToken) {
   slackClient = new WebClient(slackBotToken)
+}
+
+// Slackクライアントの初期化（求職者連携用）
+let slackCandidateClient: WebClient | null = null
+if (isSlackEnabled && slackCandidateBotToken) {
+  slackCandidateClient = new WebClient(slackCandidateBotToken)
 }
 
 /**
@@ -287,5 +294,136 @@ export async function getSlackIdByEmail(email: string): Promise<string | null> {
   } catch (error) {
     console.error('[Slack] ユーザー検索失敗:', error)
     return null
+  }
+}
+
+/**
+ * スレッドURLを生成
+ * @param channelId SlackチャンネルID
+ * @param messageTs メッセージタイムスタンプ
+ * @returns スレッドURL
+ */
+export function generateSlackThreadUrl(channelId: string, messageTs: string): string {
+  const workspaceDomain = process.env.SLACK_WORKSPACE_DOMAIN || 'your-workspace'
+  
+  // メッセージタイムスタンプから小数点を削除（例: 1769340801.064719 → 1769340801064719）
+  const messageTsFormatted = messageTs.replace('.', '')
+  
+  // Slackの直接URLを生成
+  // 形式: https://{workspace}.slack.com/archives/{channel_id}/p{message_ts_without_dot}
+  return `https://${workspaceDomain}.slack.com/archives/${channelId}/p${messageTsFormatted}`
+}
+
+interface SendCandidateParentMessageParams {
+  candidateName: string      // 求職者氏名
+  campus?: string            // 入学校舎
+  age?: number               // 年齢
+  enrollmentDate?: string    // 入学年月
+  channelId: string          // 送信先チャンネルID
+}
+
+interface SendCandidateParentMessageResult {
+  success: boolean
+  channelId?: string
+  messageTs?: string
+  threadUrl?: string
+  error?: string
+}
+
+/**
+ * 求職者の親メッセージをSlackチャンネルに送信
+ * @param params 送信パラメータ
+ * @returns 送信結果（スレッドURL含む）
+ */
+export async function sendCandidateParentMessage(
+  params: SendCandidateParentMessageParams
+): Promise<SendCandidateParentMessageResult> {
+  // Slack Candidate Bot（求職者連携用）が無効の場合
+  if (!isSlackEnabled || !slackCandidateClient) {
+    console.log('[Slack] 求職者連携Bot（SLACK_CANDIDATE_BOT_TOKEN）が無効です')
+    return {
+      success: false,
+      error: 'Slack求職者連携Botが有効になっていません。SLACK_CANDIDATE_BOT_TOKENを設定してください。'
+    }
+  }
+
+  try {
+    // メッセージテキストの構築
+    let messageText = params.candidateName
+    
+    const additionalInfo: string[] = []
+    if (params.campus) {
+      const campusLabels: Record<string, string> = {
+        tokyo: '東京校',
+        osaka: '大阪校',
+        awaji: '淡路校',
+        fukuoka: '福岡校',
+        taiwan: '台湾校'
+      }
+      additionalInfo.push(campusLabels[params.campus] || params.campus)
+    }
+    if (params.age) {
+      additionalInfo.push(`${params.age}歳`)
+    }
+    if (params.enrollmentDate) {
+      additionalInfo.push(params.enrollmentDate)
+    }
+    
+    if (additionalInfo.length > 0) {
+      messageText += `（${additionalInfo.join('・')}）`
+    }
+
+    // Slackに親メッセージを投稿（求職者連携用クライアントを使用）
+    console.log('[Slack] 親メッセージ送信開始:', {
+      channel: params.channelId,
+      text: messageText
+    })
+    
+    const result = await slackCandidateClient.chat.postMessage({
+      channel: params.channelId,
+      text: messageText
+    })
+
+    if (!result.ok || !result.ts) {
+      throw new Error('Slackメッセージの送信に失敗しました')
+    }
+
+    // スレッドURLを生成
+    const threadUrl = generateSlackThreadUrl(params.channelId, result.ts)
+
+    console.log('[Slack] 親メッセージ送信成功:', {
+      channel: params.channelId,
+      ts: result.ts,
+      threadUrl
+    })
+
+    return {
+      success: true,
+      channelId: params.channelId,
+      messageTs: result.ts,
+      threadUrl
+    }
+  } catch (error: any) {
+    console.error('[Slack] 親メッセージ送信失敗:', {
+      error: error.message,
+      code: error.code,
+      data: error.data
+    })
+    
+    // Slackエラーを分かりやすいメッセージに変換
+    let errorMessage = error.message || 'Slackメッセージの送信に失敗しました'
+    
+    if (error.data?.error === 'not_in_channel') {
+      errorMessage = 'Slack Botがチャンネルのメンバーではありません。チャンネルで `/invite @Bot名` を実行してBotを招待してください。'
+    } else if (error.data?.error === 'channel_not_found') {
+      errorMessage = '指定されたチャンネルが見つかりません。チャンネルIDを確認してください。'
+    } else if (error.data?.error === 'invalid_auth' || error.data?.error === 'not_authed') {
+      errorMessage = 'Slack認証に失敗しました。SLACK_BOT_TOKENを確認してください。'
+    }
+    
+    return {
+      success: false,
+      error: errorMessage
+    }
   }
 }

@@ -184,6 +184,8 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   // ステータス更新用の状態
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
+  // Slack送信用の状態
+  const [sendingSlack, setSendingSlack] = useState(false)
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -833,6 +835,60 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // Slack送信ハンドラー
+  const handleSendToSlack = async () => {
+    if (!candidate) {
+      toast.error('候補者情報が見つかりません')
+      return
+    }
+
+    // 既に送信済みかチェック
+    if (candidate.slackThreadUrl) {
+      if (!confirm('既にSlackスレッドが存在します。再送信しますか？')) {
+        return
+      }
+    }
+
+    setSendingSlack(true)
+    try {
+      const response = await fetch('/api/slack/send-candidate-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          candidateId: candidateId
+        })
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Slack送信に失敗しました')
+      }
+
+      // ローカルの状態も更新
+      setCandidate({
+        ...candidate,
+        slackChannelId: result.channelId,
+        slackMessageTs: result.messageTs,
+        slackThreadUrl: result.threadUrl
+      })
+
+      toast.success('Slackに送信しました', {
+        action: {
+          label: 'スレッドを開く',
+          onClick: () => window.open(result.threadUrl, '_blank')
+        }
+      })
+    } catch (error: any) {
+      console.error('Slack送信エラー:', error)
+      toast.error(error.message || 'Slack送信に失敗しました')
+    } finally {
+      setSendingSlack(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -892,6 +948,37 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                 <span className="hidden sm:inline">診断結果</span>
               </Button>
             </Link>
+          )}
+          {candidate.slackThreadUrl ? (
+            <Button
+              onClick={() => window.open(candidate.slackThreadUrl!, '_blank')}
+              variant="outline"
+              size="sm"
+              className="text-purple-600 border-purple-200 hover:bg-purple-50"
+            >
+              <MessageSquare className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Slackスレッド</span>
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSendToSlack}
+              disabled={sendingSlack}
+              variant="outline"
+              size="sm"
+              className="text-purple-600 border-purple-200 hover:bg-purple-50"
+            >
+              {sendingSlack ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  <span className="hidden sm:inline">送信中...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Slackに送信</span>
+                </>
+              )}
+            </Button>
           )}
           <Button
             onClick={() => setCreateMatchOpen(true)}

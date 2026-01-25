@@ -35,6 +35,11 @@ export interface Candidate {
   interviewMemo?: string                                      // 面談メモ（任意）
   assignedUserId?: string                                     // 担当者ID（任意）
   
+  // Slack連携
+  slackChannelId?: string                                     // SlackチャンネルID（任意）
+  slackMessageTs?: string                                     // Slackメッセージタイムスタンプ（任意）
+  slackThreadUrl?: string                                     // Slackスレッドリンク（任意）
+  
   // システム管理項目
   createdAt: string
   updatedAt: string
