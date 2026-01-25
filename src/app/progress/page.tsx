@@ -316,9 +316,13 @@ function ProgressPageContent() {
           ...match,
           timeline: match.timeline?.map((t: any) => ({
             ...t,
-            eventDate: t.eventDate && typeof t.eventDate === 'object' && 'toDate' in t.eventDate 
-              ? t.eventDate.toDate().toISOString() 
-              : t.eventDate
+            eventDate: t.eventDate 
+              ? (typeof t.eventDate === 'object' && 'toDate' in t.eventDate 
+                  ? t.eventDate.toDate().toISOString()
+                  : t.eventDate instanceof Date
+                    ? t.eventDate.toISOString()
+                    : t.eventDate)
+              : undefined
           })),
           createdAt: match.createdAt instanceof Date ? match.createdAt.toISOString() : match.createdAt,
           updatedAt: match.updatedAt instanceof Date ? match.updatedAt.toISOString() : match.updatedAt
@@ -382,12 +386,14 @@ function ProgressPageContent() {
           
           if (!latestInterview?.eventDate) return false
           
-          const eventDate = latestInterview.eventDate instanceof Date 
+          // 元のDateオブジェクトをコピーして比較用の日付を作成（時刻をクリア）
+          const originalDate = latestInterview.eventDate instanceof Date 
             ? latestInterview.eventDate 
             : new Date(latestInterview.eventDate)
-          eventDate.setHours(0, 0, 0, 0)
+          const dateOnlyForComparison = new Date(originalDate)
+          dateOnlyForComparison.setHours(0, 0, 0, 0)
           
-          return eventDate < now
+          return dateOnlyForComparison < now
         }
         
         return false
@@ -1556,12 +1562,21 @@ function ProgressPageContent() {
                                 return <span className="text-gray-400">-</span>
                               }
                               
+                              // 時刻が00:00かチェック（時刻未入力）
+                              const hasTime = interviewDate.getHours() !== 0 || interviewDate.getMinutes() !== 0
+                              
                               return (
                                 <div className="text-sm">
                                   <div>{interviewDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</div>
-                                  <div className="text-xs text-gray-500">
-                                    {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                                  </div>
+                                  {hasTime ? (
+                                    <div className="text-xs text-gray-500">
+                                      {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  ) : (
+                                    <div className="text-xs text-orange-500">
+                                      時刻未定
+                                    </div>
+                                  )}
                                 </div>
                               )
                             })()}
