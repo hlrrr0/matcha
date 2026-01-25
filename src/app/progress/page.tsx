@@ -152,6 +152,7 @@ function ProgressPageContent() {
   ]))
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  const [showOverdueOnly, setShowOverdueOnly] = useState(false) // 期限切れのみ表示フラグ
   
   // Sort states
   const [sortField, setSortField] = useState<'candidate' | 'job' | 'company' | 'status' | 'interviewDate' | 'updatedAt' | null>(null)
@@ -193,7 +194,7 @@ function ProgressPageContent() {
     filterMatches()
     // フィルター変更時は1ページ目に戻す
     setCurrentPage(1)
-  }, [matches, searchTerm, statusFilter, companyFilter, sortField, sortDirection])
+  }, [matches, searchTerm, statusFilter, companyFilter, sortField, sortDirection, showOverdueOnly])
 
   // ページ変更時のみフィルター再適用
   useEffect(() => {
@@ -353,6 +354,44 @@ function ProgressPageContent() {
     // ステータスフィルター: 選択されたステータスのみ表示
     if (statusFilter.size > 0) {
       filtered = filtered.filter(match => statusFilter.has(match.status))
+    }
+    
+    // 確認待ちフィルター: 日程調整中 + 面接ステータスで日程が過ぎたもの
+    if (showOverdueOnly) {
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      
+      filtered = filtered.filter(match => {
+        // 日程調整が必要なステータス（書類選考通過、面接通過）
+        if (match.status === 'document_passed' || match.status === 'interview_passed') {
+          return true
+        }
+        
+        // 面接ステータスで日程が過ぎたもの
+        if (match.status === 'interview') {
+          // timelineからstatusが'interview'のイベントを探す
+          const interviewEvents = match.timeline?.filter(t => t.status === 'interview') || []
+          
+          // 最新の面接イベントを取得
+          const latestInterview = interviewEvents
+            .sort((a, b) => {
+              const dateA = a.eventDate instanceof Date ? a.eventDate : new Date(a.eventDate || 0)
+              const dateB = b.eventDate instanceof Date ? b.eventDate : new Date(b.eventDate || 0)
+              return dateB.getTime() - dateA.getTime()
+            })[0]
+          
+          if (!latestInterview?.eventDate) return false
+          
+          const eventDate = latestInterview.eventDate instanceof Date 
+            ? latestInterview.eventDate 
+            : new Date(latestInterview.eventDate)
+          eventDate.setHours(0, 0, 0, 0)
+          
+          return eventDate < now
+        }
+        
+        return false
+      })
     }
 
     if (companyFilter !== 'all') {
@@ -1111,6 +1150,7 @@ function ProgressPageContent() {
                       size="sm"
                       className="h-9"
                       onClick={() => {
+                        setShowOverdueOnly(false)
                         setStatusFilter(new Set([
                           'suggested',
                           'applied',
@@ -1133,6 +1173,7 @@ function ProgressPageContent() {
                       size="sm"
                       className="h-9"
                       onClick={() => {
+                        setShowOverdueOnly(false)
                         setStatusFilter(new Set([
                           'applied',
                           'document_screening',
@@ -1151,13 +1192,11 @@ function ProgressPageContent() {
                       size="sm"
                       className="h-9"
                       onClick={() => {
-                        setStatusFilter(new Set([
-                          'document_passed',
-                          'interview_passed'
-                        ]))
+                        setShowOverdueOnly(true)
+                        setStatusFilter(new Set(['document_passed', 'interview_passed', 'interview']))
                       }}
                     >
-                      日程調整中
+                      確認待ち
                     </Button>
                   </div>
                 </div>
@@ -1340,10 +1379,47 @@ function ProgressPageContent() {
                         const candidate = candidates.find(c => c.id === match.candidateId)
                         const age = candidate?.dateOfBirth ? calculateAge(candidate.dateOfBirth) : null
                         
+                        // 面接日程をチェック
+                        let isInterviewOverdue = false
+                        if (match.status === 'interview' && match.timeline && match.timeline.length > 0) {
+                          const interviewTimelines = match.timeline
+                            .filter(t => t.status === 'interview' && t.eventDate)
+                            .sort((a, b) => {
+                              const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+                              const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+                              return timeB - timeA
+                            })
+                          
+                          if (interviewTimelines.length > 0) {
+                            const eventDateValue = interviewTimelines[0].eventDate
+                            let interviewDate: Date | null = null
+                            
+                            try {
+                              if (eventDateValue && typeof eventDateValue === 'object' && 'toDate' in eventDateValue) {
+                                interviewDate = (eventDateValue as any).toDate()
+                              } else if (eventDateValue instanceof Date) {
+                                interviewDate = eventDateValue
+                              } else if (typeof eventDateValue === 'string' || typeof eventDateValue === 'number') {
+                                interviewDate = new Date(eventDateValue)
+                              }
+                              
+                              // 面接日時が過去かチェック
+                              if (interviewDate && !isNaN(interviewDate.getTime())) {
+                                const now = new Date()
+                                isInterviewOverdue = interviewDate < now
+                              }
+                            } catch (e) {
+                              console.error('面接日時の変換エラー:', e)
+                            }
+                          }
+                        }
+                        
                         // 背景色の設定
                         let rowBgClass = ""
-                        if (match.status === 'offer_accepted') {
-                          rowBgClass = "bg-red-50 hover:bg-red-100"
+                        if (isInterviewOverdue) {
+                          rowBgClass = "bg-red-100 hover:bg-red-200"
+                        } else if (match.status === 'offer_accepted') {
+                          rowBgClass = "bg-blue-50 hover:bg-blue-100"
                         } else if (match.status === 'rejected' || match.status === 'withdrawn') {
                           rowBgClass = "bg-gray-100 hover:bg-gray-200"
                         }
