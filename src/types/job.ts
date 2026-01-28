@@ -44,6 +44,9 @@ export interface Job {
   // ステータス
   status: 'draft' | 'active' | 'closed'  // 求人ステータス
   
+  // タグ情報
+  tags?: string[]                         // タグ配列（任意）
+  
   // キャリア診断マッチング用データ（任意）
   matchingData?: {
     // ワークライフバランス関連
