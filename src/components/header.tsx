@@ -185,9 +185,9 @@ export default function Header() {
                       <span>MATCHA</span>
                     </SheetTitle>
                   </SheetHeader>
-                  <nav className="flex justify-between items-center gap-4 mt-8">
+                  <nav className="flex flex-col gap-2 mt-8 overflow-y-auto max-h-[calc(100vh-120px)]">
                     {/* ユーザー情報 */}
-                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg mb-4">
                       <User className="h-4 w-4 text-gray-600" />
                       <span className="text-sm text-gray-600">{user.displayName || user.email}</span>
                     </div>

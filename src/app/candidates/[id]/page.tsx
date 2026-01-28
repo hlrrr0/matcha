@@ -779,6 +779,60 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 提案中の求人をまとめてコピー
+  const copySuggestedJobs = async () => {
+    try {
+      // 提案済み（suggested）のマッチを取得
+      const suggestedMatches = matches.filter(m => m.status === 'suggested')
+      
+      if (suggestedMatches.length === 0) {
+        toast.error('提案中の求人がありません')
+        return
+      }
+
+      // 各求人の情報を収集
+      const jobInfos: string[] = []
+      for (const match of suggestedMatches) {
+        const job = jobs.find(j => j.id === match.jobId)
+        if (!job) continue
+
+        // 店舗名を取得
+        let storeNames = ''
+        if (job.storeIds && job.storeIds.length > 0) {
+          const jobStores = stores.filter(s => job.storeIds?.includes(s.id))
+          storeNames = jobStores.map(s => s.name).join('、')
+        } else if (job.storeId) {
+          const store = stores.find(s => s.id === job.storeId)
+          storeNames = store?.name || ''
+        }
+
+        // おすすめポイントを取得
+        const recommendedPoints = job.recommendedPoints || ''
+
+        // 公開URL
+        const publicUrl = `${window.location.origin}/public/jobs/${match.jobId}`
+
+        // 求人情報のテキストを作成
+        let jobInfo = `【店舗名】${storeNames}`
+        if (recommendedPoints.trim()) {
+          jobInfo += `\n【おすすめポイント】\n${recommendedPoints}`
+        }
+        jobInfo += `\n${publicUrl}`
+        
+        jobInfos.push(jobInfo)
+      }
+
+      // 全ての求人情報を結合
+      const copyText = jobInfos.join('\n\n---\n\n')
+
+      await navigator.clipboard.writeText(copyText)
+      toast.success(`提案中の求人 ${suggestedMatches.length}件をコピーしました`)
+    } catch (error) {
+      console.error('クリップボードへのコピーに失敗しました:', error)
+      toast.error('クリップボードへのコピーに失敗しました')
+    }
+  }
+
   // Google Driveフォルダー作成ハンドラー
   const handleCreateFolder = async () => {
     if (!candidate) {
@@ -1017,6 +1071,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                   {matches.length}件
                 </Badge>
                 {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
+                {matches.filter(m => m.status === 'suggested').length > 0 && (
+                  <Button
+                    onClick={copySuggestedJobs}
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    提案中をコピー ({matches.filter(m => m.status === 'suggested').length})
+                  </Button>
+                )}
                 {selectedMatchIds.size > 0 && (
                   <Button
                     onClick={handleBulkWithdraw}

@@ -139,16 +139,14 @@ function ProgressPageContent() {
   const [itemsPerPage, setItemsPerPage] = useState(50)
   const [totalItems, setTotalItems] = useState(0)
   
-  // デフォルトで「辞退」と「不合格」を除外
+  // デフォルトで「進捗中」のみ表示
   const [statusFilter, setStatusFilter] = useState<Set<Match['status']>>(new Set([
-    'suggested', 
     'applied', 
     'document_screening', 
     'document_passed', 
     'interview', 
     'interview_passed', 
-    'offer', 
-    'offer_accepted'
+    'offer'
   ]))
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
