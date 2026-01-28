@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +29,7 @@ export default function JobForm({
 }: JobFormProps) {
   const [companies, setCompanies] = useState<Company[]>([])
   const [stores, setStores] = useState<Store[]>([])
+  const [jobs, setJobs] = useState<Job[]>([])
   const [filteredStores, setFilteredStores] = useState<Store[]>([])
   const [storeSearchTerm, setStoreSearchTerm] = useState('')
   const [loadingData, setLoadingData] = useState(true)
@@ -142,6 +143,15 @@ export default function JobForm({
         } as Store))
         
         setStores(storesData)
+
+        // 求人一覧を取得（店舗に紐づく求人数をカウントするため）
+        const jobsSnapshot = await getDocs(collection(db, 'jobs'))
+        const jobsData = jobsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Job))
+        
+        setJobs(jobsData)
       } catch (error) {
         console.error('データの取得に失敗しました:', error)
       } finally {
@@ -195,6 +205,81 @@ export default function JobForm({
       setFilteredStores([])
     }
   }, [formData.companyId, stores, storeSearchTerm])
+
+  // 都道府県の地理的順序（北から南）
+  const prefectureOrder = [
+    '北海道',
+    '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県',
+    '三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+    '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県',
+    '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県',
+    '沖縄県',
+    '都道府県未設定'
+  ]
+
+  // 各店舗に紐づく求人数をカウント
+  const jobCountByStore = useMemo(() => {
+    const countMap: Record<string, number> = {}
+    jobs.forEach(job => {
+      const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+      storeIds.forEach(storeId => {
+        if (storeId) {
+          countMap[storeId] = (countMap[storeId] || 0) + 1
+        }
+      })
+    })
+    return countMap
+  }, [jobs])
+
+  // 都道府県ごとにグルーピング
+  const storesByPrefecture = useMemo(() => {
+    const grouped: Record<string, typeof filteredStores> = {}
+    filteredStores.forEach(store => {
+      const prefecture = store.prefecture || '都道府県未設定'
+      if (!grouped[prefecture]) {
+        grouped[prefecture] = []
+      }
+      grouped[prefecture].push(store)
+    })
+    return grouped
+  }, [filteredStores])
+
+  // 都道府県の一括選択ハンドラー
+  const handlePrefectureToggle = (prefecture: string, checked: boolean) => {
+    const prefectureStores = storesByPrefecture[prefecture] || []
+    const prefectureStoreIds = prefectureStores.map(s => s.id)
+    const currentStoreIds = formData.storeIds || []
+    
+    if (checked) {
+      // 都道府県の全店舗を追加（重複を除外）
+      const newStoreIds = [...new Set([...currentStoreIds, ...prefectureStoreIds])]
+      handleChange('storeIds', newStoreIds)
+    } else {
+      // 都道府県の全店舗を削除
+      const newStoreIds = currentStoreIds.filter(id => !prefectureStoreIds.includes(id))
+      handleChange('storeIds', newStoreIds)
+    }
+  }
+
+  // 都道府県の選択状態を判定
+  const isPrefectureSelected = (prefecture: string) => {
+    const prefectureStores = storesByPrefecture[prefecture] || []
+    const prefectureStoreIds = prefectureStores.map(s => s.id)
+    const currentStoreIds = formData.storeIds || []
+    return prefectureStoreIds.every(id => currentStoreIds.includes(id))
+  }
+
+  // 都道府県が部分的に選択されているか判定
+  const isPrefecturePartiallySelected = (prefecture: string) => {
+    const prefectureStores = storesByPrefecture[prefecture] || []
+    const prefectureStoreIds = prefectureStores.map(s => s.id)
+    const currentStoreIds = formData.storeIds || []
+    const selectedCount = prefectureStoreIds.filter(id => currentStoreIds.includes(id)).length
+    return selectedCount > 0 && selectedCount < prefectureStoreIds.length
+  }
 
   // 企業・店舗データから自動的にマッチングデータを設定
   useEffect(() => {
@@ -636,7 +721,7 @@ export default function JobForm({
                   </div>
                 )}
                 
-                <div className="space-y-2 mt-2 border rounded-md p-3 max-h-48 overflow-y-auto">
+                <div className="space-y-3 mt-2 border rounded-md p-3 max-h-96 overflow-y-auto">
                   {filteredStores.length === 0 ? (
                     <p className="text-sm text-gray-500">
                       {formData.companyId && formData.companyId !== '' 
@@ -644,28 +729,67 @@ export default function JobForm({
                         : '企業を選択すると店舗が表示されます'}
                     </p>
                   ) : (
-                    filteredStores.map((store) => (
-                      <div key={store.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`store-${store.id}`}
-                          checked={formData.storeIds?.includes(store.id) || false}
-                          onCheckedChange={(checked) => {
-                            const currentStoreIds = formData.storeIds || []
-                            if (checked) {
-                              handleChange('storeIds', [...currentStoreIds, store.id])
-                            } else {
-                              handleChange('storeIds', currentStoreIds.filter(id => id !== store.id))
-                            }
-                          }}
-                        />
-                        <Label htmlFor={`store-${store.id}`} className="text-sm font-normal cursor-pointer">
-                          {store.name}
-                          {store.address && (
-                            <span className="ml-2 text-xs text-gray-500">({store.address})</span>
-                          )}
-                        </Label>
-                      </div>
-                    ))
+                    Object.entries(storesByPrefecture)
+                      .sort(([a], [b]) => {
+                        const indexA = prefectureOrder.indexOf(a)
+                        const indexB = prefectureOrder.indexOf(b)
+                        // 両方が順序リストにある場合は順序で比較
+                        if (indexA !== -1 && indexB !== -1) {
+                          return indexA - indexB
+                        }
+                        // 片方だけが順序リストにある場合は、リストにあるものを優先
+                        if (indexA !== -1) return -1
+                        if (indexB !== -1) return 1
+                        // どちらもリストにない場合はあいうえお順
+                        return a.localeCompare(b, 'ja')
+                      })
+                      .map(([prefecture, prefectureStores]) => (
+                        <div key={prefecture} className="space-y-2">
+                          {/* 都道府県ヘッダー（一括選択） */}
+                          <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded">
+                            <Checkbox
+                              id={`prefecture-${prefecture}`}
+                              checked={isPrefectureSelected(prefecture)}
+                              onCheckedChange={(checked) => handlePrefectureToggle(prefecture, checked as boolean)}
+                              className={isPrefecturePartiallySelected(prefecture) ? 'data-[state=checked]:bg-gray-400' : ''}
+                            />
+                            <Label htmlFor={`prefecture-${prefecture}`} className="text-sm font-semibold cursor-pointer flex-1">
+                              {prefecture} ({prefectureStores.length}店舗)
+                            </Label>
+                          </div>
+                          
+                          {/* 都道府県内の店舗リスト */}
+                          <div className="ml-6 space-y-2">
+                            {prefectureStores.map((store) => (
+                              <div key={store.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`store-${store.id}`}
+                                  checked={formData.storeIds?.includes(store.id) || false}
+                                  onCheckedChange={(checked) => {
+                                    const currentStoreIds = formData.storeIds || []
+                                    if (checked) {
+                                      handleChange('storeIds', [...currentStoreIds, store.id])
+                                    } else {
+                                      handleChange('storeIds', currentStoreIds.filter(id => id !== store.id))
+                                    }
+                                  }}
+                                />
+                                <Label htmlFor={`store-${store.id}`} className="text-sm font-normal cursor-pointer">
+                                  {store.name}
+                                  {store.address && (
+                                    <span className="ml-2 text-xs text-gray-500">({store.address})</span>
+                                  )}
+                                  {jobCountByStore[store.id] > 0 ? (
+                                    <span className="ml-2 text-xs text-blue-600 font-medium">- ({jobCountByStore[store.id]}件)</span>
+                                  ) : (
+                                    <span className="ml-2 text-xs text-red-600 font-medium">- (0件)</span>
+                                  )}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
                   )}
                 </div>
                 {formData.storeIds && formData.storeIds.length > 0 && (

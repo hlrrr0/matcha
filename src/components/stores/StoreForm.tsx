@@ -502,6 +502,24 @@ export default function StoreForm({
                 </Label>
               </div>
               
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="exception-overseas"
+                  checked={formData.tabelogUrlException === '海外'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      handleChange('tabelogUrlException', '海外')
+                      handleChange('tabelogUrlExceptionOther', '')
+                    } else {
+                      handleChange('tabelogUrlException', '')
+                    }
+                  }}
+                />
+                <Label htmlFor="exception-overseas" className="font-normal cursor-pointer">
+                  海外
+                </Label>
+              </div>
+              
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox

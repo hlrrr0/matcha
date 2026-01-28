@@ -26,9 +26,19 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command"
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
-import { 
+import {
   Briefcase, 
   Plus, 
   Search, 
@@ -45,7 +55,9 @@ import {
   User as UserIcon,
   ChevronDown,
   Map,
-  List
+  List,
+  Check,
+  ChevronsUpDown
 } from 'lucide-react'
 import { Job, jobStatusLabels } from '@/types/job'
 import { getJobs, deleteJob, updateJob } from '@/lib/firestore/jobs'
@@ -130,6 +142,12 @@ function JobsPageContent() {
   // 企業条件フィルター
   const [housingSupportFilter, setHousingSupportFilter] = useState<string>('all')
   const [independenceSupportFilter, setIndependenceSupportFilter] = useState<string>('all')
+  
+  // 食べログURL例外理由フィルター
+  const [tabelogExceptionFilter, setTabelogExceptionFilter] = useState<string>('all')
+  
+  // タグフィルター（複数選択）
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
 
   // ソート状態
   const [sortBy, setSortBy] = useState<'title' | 'companyName' | 'storeName' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
@@ -564,7 +582,28 @@ function JobsPageContent() {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions
+      // 食べログURL例外理由フィルター（複数店舗対応）
+      let matchesTabelogException = true
+      if (tabelogExceptionFilter !== 'all') {
+        if (storeIds.length > 0) {
+          // いずれかの店舗が条件に一致すればOK
+          matchesTabelogException = storeIds.some(storeId => {
+            const s = stores.find(st => st.id === storeId)
+            return s && s.tabelogUrlException === tabelogExceptionFilter
+          })
+        } else {
+          // 店舗が紐付いていない場合はマッチしない
+          matchesTabelogException = false
+        }
+      }
+
+      // タグフィルター（複数選択）
+      let matchesTag = true
+      if (tagFilter.size > 0) {
+        matchesTag = job.tags ? job.tags.some(tag => tagFilter.has(tag)) : false
+      }
+
+      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions && matchesTabelogException && matchesTag
     }).sort((a, b) => {
       let aValue: any
       let bValue: any
@@ -607,7 +646,7 @@ function JobsPageContent() {
     })
   }, [jobs, stores, companies, searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter, 
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
-      housingSupportFilter, independenceSupportFilter, sortBy, sortOrder])
+      housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter, sortBy, sortOrder])
 
   // ページネーション処理
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage)
@@ -627,7 +666,7 @@ function JobsPageContent() {
     handlePageChange(1)
   }, [searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter,
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax,
-      reservationSystemFilter, housingSupportFilter, independenceSupportFilter])
+      reservationSystemFilter, housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -1150,6 +1189,168 @@ function JobsPageContent() {
                       }}
                     >
                       企業条件をクリア
+                    </Button>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+            
+            {/* その他フィルター */}
+            <AccordionItem value="other-filters">
+              <AccordionTrigger className="text-sm font-medium">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  その他の条件で絞り込み
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                  {/* 食べログURL例外理由 */}
+                  <div>
+                    <Label htmlFor="tabelog-exception-filter" className="text-sm font-medium mb-2 block">食べログURL例外理由</Label>
+                    <Select value={tabelogExceptionFilter} onValueChange={setTabelogExceptionFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="例外理由" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">すべて</SelectItem>
+                        <SelectItem value="旅館">旅館</SelectItem>
+                        <SelectItem value="新店舗">新店舗</SelectItem>
+                        <SelectItem value="海外">海外</SelectItem>
+                        <SelectItem value="その他">その他</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* タグ検索（複数選択） */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">タグで検索</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between"
+                        >
+                          {tagFilter.size > 0 
+                            ? `${tagFilter.size}件選択中` 
+                            : "タグを選択..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => {
+                                const newSet = new Set(tagFilter)
+                                if (newSet.has('ミシュラン獲得店')) {
+                                  newSet.delete('ミシュラン獲得店')
+                                } else {
+                                  newSet.add('ミシュラン獲得店')
+                                }
+                                setTagFilter(newSet)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={tagFilter.has('ミシュラン獲得店')}
+                                className="mr-2"
+                              />
+                              ミシュラン獲得店
+                            </CommandItem>
+                            <CommandItem
+                              onSelect={() => {
+                                const newSet = new Set(tagFilter)
+                                if (newSet.has('ミシュランビブグルマン獲得店')) {
+                                  newSet.delete('ミシュランビブグルマン獲得店')
+                                } else {
+                                  newSet.add('ミシュランビブグルマン獲得店')
+                                }
+                                setTagFilter(newSet)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={tagFilter.has('ミシュランビブグルマン獲得店')}
+                                className="mr-2"
+                              />
+                              ミシュランビブグルマン獲得店
+                            </CommandItem>
+                            <CommandItem
+                              onSelect={() => {
+                                const newSet = new Set(tagFilter)
+                                if (newSet.has('食べログ100名店掲載店')) {
+                                  newSet.delete('食べログ100名店掲載店')
+                                } else {
+                                  newSet.add('食べログ100名店掲載店')
+                                }
+                                setTagFilter(newSet)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={tagFilter.has('食べログ100名店掲載店')}
+                                className="mr-2"
+                              />
+                              食べログ100名店掲載店
+                            </CommandItem>
+                            <CommandItem
+                              onSelect={() => {
+                                const newSet = new Set(tagFilter)
+                                if (newSet.has('食べログアワード獲得店')) {
+                                  newSet.delete('食べログアワード獲得店')
+                                } else {
+                                  newSet.add('食べログアワード獲得店')
+                                }
+                                setTagFilter(newSet)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={tagFilter.has('食べログアワード獲得店')}
+                                className="mr-2"
+                              />
+                              食べログアワード獲得店
+                            </CommandItem>
+                            <CommandItem
+                              onSelect={() => {
+                                const newSet = new Set(tagFilter)
+                                if (newSet.has('ゴ・エ・ミヨ掲載店')) {
+                                  newSet.delete('ゴ・エ・ミヨ掲載店')
+                                } else {
+                                  newSet.add('ゴ・エ・ミヨ掲載店')
+                                }
+                                setTagFilter(newSet)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={tagFilter.has('ゴ・エ・ミヨ掲載店')}
+                                className="mr-2"
+                              />
+                              ゴ・エ・ミヨ掲載店
+                            </CommandItem>
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* クリアボタン */}
+                {(tabelogExceptionFilter !== 'all' || tagFilter.size > 0) && (
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setTabelogExceptionFilter('all')
+                        setTagFilter(new Set())
+                      }}
+                    >
+                      その他条件をクリア
                     </Button>
                   </div>
                 )}

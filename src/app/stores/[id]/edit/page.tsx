@@ -9,7 +9,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Store as StoreType } from '@/types/store'
 import { checkStoreByTabelogUrl } from '@/lib/firestore/stores'
+import { geocodeAddress } from '@/lib/google-maps'
 import StoreForm from '@/components/stores/StoreForm'
+import { toast } from 'sonner'
 
 interface EditStorePageProps {
   params: Promise<{
@@ -77,17 +79,35 @@ export default function EditStorePage({ params }: EditStorePageProps) {
         }
       }
 
+      // 位置情報が取得されていない場合、住所から自動取得を試みる
+      if ((!data.latitude || !data.longitude) && data.address) {
+        toast.info('位置情報を取得中...')
+        try {
+          const coordinates = await geocodeAddress(data.address)
+          if (coordinates) {
+            data.latitude = coordinates.lat
+            data.longitude = coordinates.lng
+            toast.success('位置情報を取得しました')
+          } else {
+            toast.warning('位置情報の取得に失敗しました。手動で設定してください。')
+          }
+        } catch (error) {
+          console.error('位置情報の取得エラー:', error)
+          toast.warning('位置情報の取得に失敗しました。手動で設定してください。')
+        }
+      }
+
       const updateData = {
         ...data,
         updatedAt: new Date()
       }
       
       await updateDoc(doc(db, 'stores', storeId), updateData)
-      alert('店舗情報が正常に更新されました')
+      toast.success('店舗情報が正常に更新されました')
       router.push(`/stores/${storeId}`)
     } catch (error) {
       console.error('店舗の更新に失敗しました:', error)
-      alert('店舗の更新に失敗しました。もう一度お試しください。')
+      toast.error('店舗の更新に失敗しました。もう一度お試しください。')
     } finally {
       setSaving(false)
     }

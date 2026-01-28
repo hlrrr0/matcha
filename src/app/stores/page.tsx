@@ -27,7 +27,9 @@ import {
   Download,
   Upload,
   FileText,
-  User as UserIcon
+  User as UserIcon,
+  Map,
+  List
 } from 'lucide-react'
 import { Store, statusLabels } from '@/types/store'
 import { getStores, deleteStore } from '@/lib/firestore/stores'
@@ -39,6 +41,10 @@ import { User } from '@/types/user'
 import { Job } from '@/types/job'
 import { importStoresFromCSV, generateStoresCSVTemplate } from '@/lib/csv/stores'
 import { toast } from 'sonner'
+import { StoreMapView } from '@/components/maps/StoreMapView'
+import { geocodeAddress } from '@/lib/google-maps'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 const statusColors = {
   active: 'bg-green-100 text-green-800',
@@ -72,6 +78,9 @@ function StoresPageContent() {
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
+  // 表示モード切り替え
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
+  
   // 店舗データの入力率チェック対象フィールド
   const storeFields = [
     'name', 'address', 'nearestStation', 'unitPriceLunch', 'unitPriceDinner',
@@ -95,6 +104,7 @@ function StoresPageContent() {
   const [statusFilter, setStatusFilter] = useState<Store['status'] | 'all'>('all')
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [jobFilter, setJobFilter] = useState<'all' | 'with-jobs' | 'without-jobs'>('all')
+  const [locationFilter, setLocationFilter] = useState<'all' | 'with-location' | 'without-location'>('all')
   
   // ページネーション状態（URLパラメータから初期化）
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
@@ -107,6 +117,10 @@ function StoresPageContent() {
   // 複数選択・削除状態
   const [selectedStores, setSelectedStores] = useState<string[]>([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  
+  // 一括位置情報取得状態
+  const [bulkGeocoding, setBulkGeocoding] = useState(false)
+  const [geocodingProgress, setGeocodingProgress] = useState({ current: 0, total: 0 })
 
   // ソートハンドラー関数
   const handleSort = (column: typeof sortBy) => {
@@ -278,6 +292,87 @@ function StoresPageContent() {
     }
   }
 
+  // 一括位置情報取得
+  const handleBulkGeocode = async () => {
+    // 住所があり、位置情報がない店舗を抽出
+    const storesWithoutLocation = stores.filter(store => 
+      store.address && (!store.latitude || !store.longitude)
+    )
+
+    if (storesWithoutLocation.length === 0) {
+      toast.info('位置情報が必要な店舗はありません')
+      return
+    }
+
+    const confirmMessage = `${storesWithoutLocation.length}件の店舗の位置情報を取得しますか？`
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    setBulkGeocoding(true)
+    setGeocodingProgress({ current: 0, total: storesWithoutLocation.length })
+
+    let successCount = 0
+    let failedCount = 0
+    const failedStores: string[] = []
+
+    try {
+      for (let i = 0; i < storesWithoutLocation.length; i++) {
+        const store = storesWithoutLocation[i]
+        setGeocodingProgress({ current: i + 1, total: storesWithoutLocation.length })
+
+        try {
+          if (store.address) {
+            const coordinates = await geocodeAddress(store.address)
+            
+            if (coordinates) {
+              // Firestoreを更新
+              const storeRef = doc(db, 'stores', store.id)
+              await updateDoc(storeRef, {
+                latitude: coordinates.lat,
+                longitude: coordinates.lng,
+                updatedAt: new Date()
+              })
+              successCount++
+              console.log(`✅ ${store.name}: 位置情報取得成功`)
+            } else {
+              failedCount++
+              failedStores.push(store.name)
+              console.warn(`⚠️ ${store.name}: 位置情報が見つかりませんでした`)
+            }
+          }
+          
+          // APIレート制限対策で少し待機（200ms）
+          await new Promise(resolve => setTimeout(resolve, 200))
+        } catch (error) {
+          failedCount++
+          failedStores.push(store.name)
+          console.error(`❌ ${store.name}: エラー`, error)
+        }
+      }
+
+      // 結果を表示
+      if (successCount > 0) {
+        toast.success(`${successCount}件の位置情報を取得しました`)
+      }
+      
+      if (failedCount > 0) {
+        toast.warning(`${failedCount}件の取得に失敗しました`, {
+          description: failedStores.slice(0, 5).join(', ') + (failedStores.length > 5 ? '...' : '')
+        })
+      }
+
+      // データを再読み込み
+      await loadData()
+    } catch (error) {
+      console.error('一括位置情報取得エラー:', error)
+      toast.error('位置情報の取得に失敗しました')
+    } finally {
+      setBulkGeocoding(false)
+      setGeocodingProgress({ current: 0, total: 0 })
+    }
+  }
+
   // 選択された店舗のCSV出力
   const exportSelectedStoresCSV = () => {
     if (selectedStores.length === 0) {
@@ -434,7 +529,14 @@ function StoresPageContent() {
       (jobFilter === 'with-jobs' && jobCount > 0) ||
       (jobFilter === 'without-jobs' && jobCount === 0)
 
-    return matchesSearch && matchesStatus && matchesCompany && matchesJobFilter
+    // 位置情報の有無によるフィルタリング
+    const hasLocation = !!(store.latitude && store.longitude)
+    const matchesLocationFilter =
+      locationFilter === 'all' ||
+      (locationFilter === 'with-location' && hasLocation) ||
+      (locationFilter === 'without-location' && !hasLocation)
+
+    return matchesSearch && matchesStatus && matchesCompany && matchesJobFilter && matchesLocationFilter
   }).sort((a, b) => {
     let aValue: any
     let bValue: any
@@ -485,7 +587,7 @@ function StoresPageContent() {
     }
     setCurrentPage(1)
     handlePageChange(1)
-  }, [searchTerm, statusFilter, companyFilter, jobFilter])
+  }, [searchTerm, statusFilter, companyFilter, jobFilter, locationFilter])
 
   const getStatusBadge = (status: Store['status']) => {
     const color = statusColors[status] || 'bg-gray-100 text-gray-800'
@@ -586,6 +688,28 @@ function StoresPageContent() {
                 <span className="hidden sm:inline">更新</span>
               </Button>
               <Button
+                onClick={handleBulkGeocode}
+                variant="outline"
+                size="sm"
+                disabled={bulkGeocoding}
+                className="bg-white text-green-600 hover:bg-green-50 border-white flex items-center gap-1 text-xs sm:text-sm"
+                title="住所から位置情報を一括取得"
+              >
+                {bulkGeocoding ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                    <span className="hidden sm:inline">取得中 {geocodingProgress.current}/{geocodingProgress.total}</span>
+                    <span className="sm:hidden">取得中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Map className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">位置情報取得</span>
+                    <span className="sm:hidden">位置情報</span>
+                  </>
+                )}
+              </Button>
+              <Button
                 onClick={downloadCSVTemplate}
                 variant="outline"
                 size="sm"
@@ -648,6 +772,32 @@ function StoresPageContent() {
           </div>
         </div>
       </div>
+
+      {/* 表示モード切り替えタブ */}
+      <div className="mb-6 flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setViewMode('list')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'border-b-2 border-green-500 text-green-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <List className="h-4 w-4 inline mr-2" />
+          リスト表示
+        </button>
+        <button
+          onClick={() => setViewMode('map')}
+          className={`px-6 py-3 font-medium transition-colors ${
+            viewMode === 'map'
+              ? 'border-b-2 border-green-500 text-green-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Map className="h-4 w-4 inline mr-2" />
+          マップ表示
+        </button>
+      </div>
       
       {/* 検索・フィルター */}
       <Card className="mb-6">
@@ -658,9 +808,9 @@ function StoresPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {/* 検索 */}
-            <div>
+            <div className="xl:col-span-2">
               <Label htmlFor="store-search">店舗名・企業名・住所</Label>
               <Input
                 id="store-search"
@@ -701,6 +851,21 @@ function StoresPageContent() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 位置情報フィルター */}
+            <div>
+              <Label htmlFor="location-filter">位置情報</Label>
+              <Select value={locationFilter} onValueChange={(value: 'all' | 'with-location' | 'without-location') => setLocationFilter(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="位置情報" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="with-location">あり</SelectItem>
+                  <SelectItem value="without-location">なし</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* ソート選択 */}
             <div>
@@ -731,7 +896,22 @@ function StoresPageContent() {
         </CardContent>
       </Card>
 
+      {/* マップ表示 */}
+      {viewMode === 'map' && (
+        <div className="mb-6">
+          {console.log('Rendering StoreMapView, viewMode:', viewMode, 'stores:', filteredAndSortedStores.length)}
+          <StoreMapView 
+            stores={filteredAndSortedStores} 
+            companies={companies}
+            onStoreClick={(storeId) => {
+              console.log('Store clicked:', storeId)
+            }}
+          />
+        </div>
+      )}
+
       {/* 店舗リスト */}
+      {viewMode === 'list' && (
       <Card>
         <CardHeader>
           <CardTitle>店舗リスト ({filteredAndSortedStores.length}件)</CardTitle>
@@ -993,6 +1173,7 @@ function StoresPageContent() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

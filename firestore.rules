@@ -108,6 +108,18 @@ service cloud.firestore {
     }
     
     // ========================================
+    // 応募情報
+    // ========================================
+    
+    match /applications/{applicationId} {
+      // 読み取り: 認証済みユーザーのみ
+      allow read: if isAuthenticated();
+      
+      // 作成・更新・削除: 認証済みユーザーのみ
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // ========================================
     // キャリア診断
     // ========================================
     
