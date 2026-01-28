@@ -899,7 +899,6 @@ function StoresPageContent() {
       {/* マップ表示 */}
       {viewMode === 'map' && (
         <div className="mb-6">
-          {console.log('Rendering StoreMapView, viewMode:', viewMode, 'stores:', filteredAndSortedStores.length)}
           <StoreMapView 
             stores={filteredAndSortedStores} 
             companies={companies}
