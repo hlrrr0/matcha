@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, MapPin, Briefcase, Search } from 'lucide-react'
+import { Eye, MapPin, Briefcase, Search, Navigation, Train, Car, Footprints, X } from 'lucide-react'
 import Link from 'next/link'
 
 interface JobMapViewProps {
@@ -27,17 +27,34 @@ interface JobWithLocation extends Job {
   displayTitle?: string // 複数店舗の場合に店舗名を含めたタイトル
 }
 
+type TravelMode = 'TRANSIT' | 'DRIVING' | 'WALKING'
+
+interface RouteInfo {
+  duration: string
+  distance: string
+  steps: google.maps.DirectionsStep[]
+  transitDetails?: any[]
+}
+
 export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const googleMapRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedJob, setSelectedJob] = useState<JobWithLocation | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
+  
+  // 経路検索機能
+  const [startLocation, setStartLocation] = useState('')
+  const [travelMode, setTravelMode] = useState<TravelMode>('TRANSIT')
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null)
+  const [calculatingRoute, setCalculatingRoute] = useState(false)
+  const [showRoutePanel, setShowRoutePanel] = useState(false)
 
   // 求人データに店舗・企業・位置情報を結合
   // 複数店舗の場合は各店舗ごとに展開
@@ -123,6 +140,112 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
     }
   }
 
+  // 現在地を取得
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          
+          // 逆ジオコーディングで住所を取得
+          const geocoder = new google.maps.Geocoder()
+          geocoder.geocode(
+            { location: { lat, lng } },
+            (results, status) => {
+              if (status === google.maps.GeocoderStatus.OK && results && results.length > 0) {
+                setStartLocation(results[0].formatted_address)
+              } else {
+                setStartLocation(`${lat}, ${lng}`)
+              }
+            }
+          )
+        },
+        (error) => {
+          console.error('現在地取得エラー:', error)
+          alert('現在地の取得に失敗しました。ブラウザの位置情報設定を確認してください。')
+        }
+      )
+    } else {
+      alert('このブラウザは位置情報をサポートしていません。')
+    }
+  }
+
+  // 経路を計算
+  const handleCalculateRoute = async () => {
+    if (!startLocation.trim() || !selectedJob || !googleMapRef.current) {
+      alert('出発地と目的地の求人を選択してください。')
+      return
+    }
+
+    setCalculatingRoute(true)
+    setRouteInfo(null)
+
+    try {
+      const directionsService = new google.maps.DirectionsService()
+      
+      const destination = `${selectedJob.latitude},${selectedJob.longitude}`
+      
+      const request: google.maps.DirectionsRequest = {
+        origin: startLocation,
+        destination,
+        travelMode: google.maps.TravelMode[travelMode],
+        unitSystem: google.maps.UnitSystem.METRIC,
+      }
+
+      const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
+        directionsService.route(request, (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK && result) {
+            resolve(result)
+          } else {
+            reject(new Error(`経路の計算に失敗しました: ${status}`))
+          }
+        })
+      })
+
+      // 経路を地図上に表示
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setDirections(result)
+      }
+
+      // 経路情報を抽出
+      const route = result.routes[0]
+      const leg = route.legs[0]
+      
+      const transitDetails = leg.steps
+        .filter(step => step.travel_mode === 'TRANSIT')
+        .map(step => ({
+          instructions: step.instructions,
+          transit: step.transit
+        }))
+
+      setRouteInfo({
+        duration: leg.duration?.text || '',
+        distance: leg.distance?.text || '',
+        steps: leg.steps,
+        transitDetails: transitDetails.length > 0 ? transitDetails : undefined
+      })
+      
+      setShowRoutePanel(true)
+
+    } catch (error) {
+      console.error('経路計算エラー:', error)
+      alert(error instanceof Error ? error.message : '経路の計算に失敗しました')
+    } finally {
+      setCalculatingRoute(false)
+    }
+  }
+
+  // 経路をクリア
+  const handleClearRoute = () => {
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setDirections({ routes: [] } as any)
+    }
+    setRouteInfo(null)
+    setShowRoutePanel(false)
+    setStartLocation('')
+  }
+
   useEffect(() => {
     const initMap = async () => {
       try {
@@ -152,6 +275,17 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
 
         // InfoWindow を作成
         infoWindowRef.current = new google.maps.InfoWindow()
+        
+        // DirectionsRenderer を初期化
+        directionsRendererRef.current = new google.maps.DirectionsRenderer({
+          map,
+          suppressMarkers: false,
+          polylineOptions: {
+            strokeColor: '#7c3aed',
+            strokeWeight: 5,
+            strokeOpacity: 0.7
+          }
+        })
 
         // マーカーを配置
         createMarkers(map)
@@ -213,13 +347,6 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
       // マーカークリック時の処理
       marker.addListener('click', () => {
         setSelectedJob(job)
-        
-        // InfoWindow を表示
-        if (infoWindowRef.current) {
-          const content = createInfoWindowContent(job)
-          infoWindowRef.current.setContent(content)
-          infoWindowRef.current.open(map, marker)
-        }
 
         // コールバック実行
         if (onJobClick) {
@@ -308,7 +435,7 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
       )}
       
       {/* 検索窓 */}
-      <div className="absolute top-4 right-4 z-10 w-80">
+      <div className="absolute top-4 right-4 z-10 w-80 space-y-2">
         <form onSubmit={handleSearch} className="flex gap-2">
           <Input
             ref={searchInputRef}
@@ -331,6 +458,99 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
             )}
           </Button>
         </form>
+        
+        {/* 経路検索パネル */}
+        {selectedJob && (
+          <div className="bg-white rounded-lg shadow-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Navigation className="h-4 w-4 text-purple-600" />
+              <span className="font-semibold text-sm">経路検索</span>
+            </div>
+            
+            {/* 出発地入力 */}
+            <div className="space-y-2 mb-3">
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="出発地を入力"
+                  value={startLocation}
+                  onChange={(e) => setStartLocation(e.target.value)}
+                  className="flex-1 text-sm"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGetCurrentLocation}
+                  title="現在地を取得"
+                >
+                  <Navigation className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            {/* 移動手段選択 */}
+            <div className="flex gap-2 mb-3">
+              <Button
+                type="button"
+                size="sm"
+                variant={travelMode === 'TRANSIT' ? 'default' : 'outline'}
+                onClick={() => setTravelMode('TRANSIT')}
+                className={travelMode === 'TRANSIT' ? 'bg-purple-600' : ''}
+              >
+                <Train className="h-4 w-4 mr-1" />
+                電車
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={travelMode === 'DRIVING' ? 'default' : 'outline'}
+                onClick={() => setTravelMode('DRIVING')}
+                className={travelMode === 'DRIVING' ? 'bg-purple-600' : ''}
+              >
+                <Car className="h-4 w-4 mr-1" />
+                車
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={travelMode === 'WALKING' ? 'default' : 'outline'}
+                onClick={() => setTravelMode('WALKING')}
+                className={travelMode === 'WALKING' ? 'bg-purple-600' : ''}
+              >
+                <Footprints className="h-4 w-4 mr-1" />
+                徒歩
+              </Button>
+            </div>
+            
+            {/* 経路計算ボタン */}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCalculateRoute}
+                disabled={!startLocation.trim() || calculatingRoute}
+                className="flex-1 bg-purple-600 hover:bg-purple-700"
+              >
+                {calculatingRoute ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  '経路を検索'
+                )}
+              </Button>
+              {routeInfo && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleClearRoute}
+                >
+                  クリア
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       
       <div ref={mapRef} className="w-full h-full rounded-lg shadow-lg" />
@@ -398,6 +618,87 @@ export function JobMapView({ jobs, stores, companies, onJobClick }: JobMapViewPr
                 詳細を見る
               </Button>
             </Link>
+          </div>
+        </div>
+      )}
+      
+      {/* 経路情報パネル */}
+      {showRoutePanel && routeInfo && (
+        <div className="absolute top-4 left-4 bg-white rounded-lg shadow-xl p-4 z-20 max-w-sm max-h-[500px] overflow-y-auto">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Navigation className="h-5 w-5 text-purple-600" />
+              <h3 className="font-bold text-lg">経路情報</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowRoutePanel(false)}
+              className="h-6 w-6 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {/* 移動手段アイコン */}
+          <div className="flex items-center gap-2 mb-4 p-3 bg-purple-50 rounded-lg">
+            {travelMode === 'TRANSIT' && <Train className="h-5 w-5 text-purple-600" />}
+            {travelMode === 'DRIVING' && <Car className="h-5 w-5 text-purple-600" />}
+            {travelMode === 'WALKING' && <Footprints className="h-5 w-5 text-purple-600" />}
+            <div>
+              <div className="font-semibold text-purple-900">
+                {travelMode === 'TRANSIT' && '電車'}
+                {travelMode === 'DRIVING' && '車'}
+                {travelMode === 'WALKING' && '徒歩'}
+              </div>
+              <div className="text-sm text-purple-700">
+                {routeInfo.duration} • {routeInfo.distance}
+              </div>
+            </div>
+          </div>
+          
+          {/* 電車の乗り換え情報 */}
+          {travelMode === 'TRANSIT' && routeInfo.transitDetails && routeInfo.transitDetails.length > 0 && (
+            <div className="mb-4">
+              <h4 className="font-semibold text-sm mb-2">乗り換え情報</h4>
+              <div className="space-y-2">
+                {routeInfo.transitDetails.map((detail, index) => {
+                  const transit = detail.transit
+                  return (
+                    <div key={index} className="p-2 bg-gray-50 rounded text-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Train className="h-4 w-4 text-blue-600" />
+                        <span className="font-semibold">{transit?.line?.name || '路線'}</span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-6">
+                        <div>{transit?.departure_stop?.name} → {transit?.arrival_stop?.name}</div>
+                        <div className="text-gray-500">
+                          {transit?.num_stops ? `${transit.num_stops}駅` : ''}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* 詳細ステップ */}
+          <div>
+            <h4 className="font-semibold text-sm mb-2">詳細ルート</h4>
+            <div className="space-y-2">
+              {routeInfo.steps.map((step, index) => (
+                <div key={index} className="text-xs text-gray-600 pb-2 border-b last:border-b-0">
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: step.instructions }} 
+                    className="leading-relaxed"
+                  />
+                  <div className="text-gray-500 mt-1">
+                    {step.distance?.text} • {step.duration?.text}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
