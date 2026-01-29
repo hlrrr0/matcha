@@ -31,7 +31,9 @@ import {
   AlertCircle,
   Target,
   FileText,
-  Trash2
+  Trash2,
+  Search,
+  Copy
 } from 'lucide-react'
 import { Match, MatchTimeline } from '@/types/matching'
 import { Candidate } from '@/types/candidate'
@@ -41,8 +43,8 @@ import { Store } from '@/types/store'
 import { User } from '@/types/user'
 import { getMatch, updateMatchStatus } from '@/lib/firestore/matches'
 import { getCandidate } from '@/lib/firestore/candidates'
-import { getJob } from '@/lib/firestore/jobs'
-import { getCompany } from '@/lib/firestore/companies'
+import { getJob, getJobs } from '@/lib/firestore/jobs'
+import { getCompany, getCompanies } from '@/lib/firestore/companies'
 import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 import { useAuth } from '@/contexts/AuthContext'
@@ -139,8 +141,17 @@ export default function MatchDetailPage() {
   const [job, setJob] = useState<Job | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
   const [store, setStore] = useState<Store | null>(null)
+  const [jobStores, setJobStores] = useState<Store[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // 求人変更用の状態
+  const [allJobs, setAllJobs] = useState<Job[]>([])
+  const [allCompanies, setAllCompanies] = useState<Company[]>([])
+  const [allStores, setAllStores] = useState<Store[]>([])
+  const [jobSelectOpen, setJobSelectOpen] = useState(false)
+  const [jobSearchTerm, setJobSearchTerm] = useState('')
+  const [selectedJobId, setSelectedJobId] = useState<string>('')
 
   // ステータス更新モーダル
   const [statusUpdateOpen, setStatusUpdateOpen] = useState(false)
@@ -151,6 +162,7 @@ export default function MatchDetailPage() {
   const [editNotes, setEditNotes] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
+  const [editJobId, setEditJobId] = useState('')
 
   // タイムライン編集モーダル
   const [timelineEditOpen, setTimelineEditOpen] = useState(false)
@@ -186,23 +198,38 @@ export default function MatchDetailPage() {
       setMatch(matchData)
 
       // 関連データを並行して取得
-      const [candidateData, jobData, companyData, usersData, storesData] = await Promise.all([
+      const [candidateData, jobData, companyData, usersData, storesData, allJobsData, allCompaniesData] = await Promise.all([
         getCandidate(matchData.candidateId),
         getJob(matchData.jobId),
         getCompany(matchData.companyId),
         getUsers(),
-        getStores()
+        getStores(),
+        getJobs(),
+        getCompanies()
       ])
 
       setCandidate(candidateData)
       setJob(jobData)
       setCompany(companyData)
       setUsers(usersData)
+      setAllJobs(allJobsData)
+      setAllCompanies(allCompaniesData)
+      setAllStores(storesData)
       
-      // 求人に紐づく店舗を取得
-      if (jobData?.storeId) {
+      // 求人に紐づく店舗を取得（複数店舗対応）
+      if (jobData?.storeIds && jobData.storeIds.length > 0) {
+        const stores = storesData.filter(s => jobData.storeIds.includes(s.id))
+        setJobStores(stores)
+        // 最初の店舗をメイン店舗として設定（後方互換性のため）
+        setStore(stores[0] || null)
+      } else if (jobData?.storeId) {
+        // 旧形式のstoreIdに対応
         const storeData = storesData.find(s => s.id === jobData.storeId)
         setStore(storeData || null)
+        setJobStores(storeData ? [storeData] : [])
+      } else {
+        setStore(null)
+        setJobStores([])
       }
     } catch (error) {
       console.error('Error loading match data:', error)
@@ -241,6 +268,7 @@ export default function MatchDetailPage() {
     
     setEditScore(match.score.toString())
     setEditNotes(match.notes || '')
+    setEditJobId(match.jobId)
     
     // 入社予定日の初期化
     if (match.startDate) {
@@ -282,6 +310,15 @@ export default function MatchDetailPage() {
       const scoreNum = parseInt(editScore)
       if (!isNaN(scoreNum) && scoreNum >= 0 && scoreNum <= 100) {
         updateData.score = scoreNum
+      }
+      
+      // 求人IDの更新（変更されている場合）
+      if (editJobId && editJobId !== match.jobId) {
+        const selectedJob = allJobs.find(j => j.id === editJobId)
+        if (selectedJob) {
+          updateData.jobId = editJobId
+          updateData.companyId = selectedJob.companyId
+        }
       }
 
       // 入社予定日の更新
@@ -452,6 +489,37 @@ export default function MatchDetailPage() {
     } catch (error: any) {
       console.error('Error deleting timeline:', error)
       toast.error(error.message || '進捗の削除に失敗しました')
+    }
+  }
+
+  // StatusUpdateDialog用の進捗削除ハンドラー
+  const handleProgressDelete = async () => {
+    if (!match) return
+
+    try {
+      // 最新の進捗のみ削除可能かチェック
+      if (!match.timeline || match.timeline.length === 0) {
+        throw new Error('削除できる進捗がありません')
+      }
+
+      const sortedTimeline = [...match.timeline].sort((a, b) => {
+        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+        return timeA - timeB
+      })
+
+      const latestTimelineId = sortedTimeline[sortedTimeline.length - 1]?.id
+      if (!latestTimelineId) {
+        throw new Error('削除できる進捗がありません')
+      }
+
+      const { deleteLatestTimelineItem } = await import('@/lib/firestore/matches')
+      await deleteLatestTimelineItem(match.id, latestTimelineId)
+
+      loadMatchData() // データを再読み込み
+    } catch (error: any) {
+      console.error('進捗削除エラー:', error)
+      throw error
     }
   }
 
@@ -646,6 +714,7 @@ export default function MatchDetailPage() {
                     match={match}
                     candidateName={candidate ? `${candidate.lastName} ${candidate.firstName}` : ''}
                     onUpdate={handleStatusUpdate}
+                    onDelete={handleProgressDelete}
                     isEditMode={false}
                     candidate={candidate ? {
                       id: candidate.id,
@@ -749,12 +818,15 @@ export default function MatchDetailPage() {
                                 {company.name}
                               </div>
                             )}
-                            {store && (
+                            {jobStores.length > 0 && (
                               <div className="text-sm text-gray-600">
-                                {store.name}
-                                {store.prefecture && (
-                                  <span className="ml-2">【{store.prefecture}】</span>
-                                )}
+                                {jobStores.map((s, idx) => (
+                                  <span key={s.id}>
+                                    {s.name}
+                                    {s.prefecture && ` 【${s.prefecture}】`}
+                                    {idx < jobStores.length - 1 && ', '}
+                                  </span>
+                                ))}
                               </div>
                             )}
                             <div className="text-sm text-gray-600 mt-1">
@@ -1135,6 +1207,42 @@ export default function MatchDetailPage() {
                 </p>
               </div>
 
+              {/* 求人選択 */}
+              <div className="space-y-2">
+                <Label>求人</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1 p-3 bg-gray-50 rounded-md border border-gray-200">
+                    {editJobId && allJobs.length > 0 ? (
+                      <div>
+                        <div className="font-medium text-sm">
+                          {allJobs.find(j => j.id === editJobId)?.title || '不明な求人'}
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {allCompanies.find(c => c.id === allJobs.find(j => j.id === editJobId)?.companyId)?.name || '企業名不明'}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">求人を選択してください</div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedJobId(editJobId)
+                      setJobSelectOpen(true)
+                    }}
+                    className="border-orange-200 text-orange-600 hover:bg-orange-50"
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    求人変更
+                  </Button>
+                </div>
+                <p className="text-xs text-orange-600">
+                  ⚠ 求人を変更すると企業も自動的に変更されます
+                </p>
+              </div>
+
               {/* 入社予定日入力 */}
               <div className="space-y-2">
                 <Label htmlFor="editStartDate">入社予定日</Label>
@@ -1312,6 +1420,143 @@ export default function MatchDetailPage() {
                   更新
                 </Button>
               </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 求人選択モーダル */}
+        <Dialog open={jobSelectOpen} onOpenChange={setJobSelectOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="text-orange-800">求人を選択</DialogTitle>
+              <DialogDescription>
+                この進捗に紐づける求人を選択してください
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* 検索バー */}
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="求人名、企業名、店舗名で検索..."
+                    value={jobSearchTerm}
+                    onChange={(e) => setJobSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              {/* 求人リスト */}
+              <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                {allJobs
+                  .filter(job => {
+                    const company = allCompanies.find(c => c.id === job.companyId)
+                    const jobStores = job.storeIds && job.storeIds.length > 0
+                      ? allStores.filter(s => job.storeIds?.includes(s.id))
+                      : job.storeId
+                      ? [allStores.find(s => s.id === job.storeId)].filter(Boolean)
+                      : []
+                    const storeNames = jobStores.map(s => s?.name || '').join(' ')
+                    const searchText = `${job.title} ${company?.name || ''} ${storeNames}`.toLowerCase()
+                    return searchText.includes(jobSearchTerm.toLowerCase())
+                  })
+                  .map((job) => {
+                    const company = allCompanies.find(c => c.id === job.companyId)
+                    const jobStores = job.storeIds && job.storeIds.length > 0
+                      ? allStores.filter(s => job.storeIds?.includes(s.id))
+                      : job.storeId
+                      ? [allStores.find(s => s.id === job.storeId)].filter(Boolean)
+                      : []
+                    const isSelected = selectedJobId === job.id
+
+                    return (
+                      <div
+                        key={job.id}
+                        className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
+                          isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+                        }`}
+                        onClick={() => setSelectedJobId(job.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-lg">{job.title}</h4>
+                            <p className="text-gray-600 text-sm mt-1">
+                              {company?.name || '企業名不明'}
+                              {jobStores.length > 0 && (
+                                <span className="ml-2">
+                                  - {jobStores.map(s => s?.name).filter(Boolean).join(', ')}
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge 
+                                variant={job.status === 'active' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {job.status === 'draft' && '下書き'}
+                                {job.status === 'active' && '募集中'}
+                                {job.status === 'closed' && '募集終了'}
+                              </Badge>
+                              {job.employmentType && (
+                                <span className="text-xs text-gray-500">
+                                  {job.employmentType}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle className="h-5 w-5 text-orange-500 mt-1 flex-shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                
+                {allJobs.filter(job => {
+                  const company = allCompanies.find(c => c.id === job.companyId)
+                  const jobStores = job.storeIds && job.storeIds.length > 0
+                    ? allStores.filter(s => job.storeIds?.includes(s.id))
+                    : job.storeId
+                    ? [allStores.find(s => s.id === job.storeId)].filter(Boolean)
+                    : []
+                  const storeNames = jobStores.map(s => s?.name || '').join(' ')
+                  const searchText = `${job.title} ${company?.name || ''} ${storeNames}`.toLowerCase()
+                  return searchText.includes(jobSearchTerm.toLowerCase())
+                }).length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    {jobSearchTerm ? (
+                      '検索条件に一致する求人が見つかりません'
+                    ) : (
+                      '求人がありません'
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setJobSelectOpen(false)
+                  setJobSearchTerm('')
+                }}
+              >
+                キャンセル
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditJobId(selectedJobId)
+                  setJobSelectOpen(false)
+                  setJobSearchTerm('')
+                }}
+                disabled={!selectedJobId}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                決定
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

@@ -22,7 +22,8 @@ import {
   AlertCircle,
   Mail,
   Copy,
-  FolderPlus
+  FolderPlus,
+  Trash2
 } from 'lucide-react'
 import { createGoogleDriveFolder, generateCandidateFolderName } from '@/lib/google-drive'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -86,6 +87,7 @@ interface StatusUpdateDialogProps {
   match: Match | null
   candidateName?: string
   onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date, endDate?: Date) => Promise<void>
+  onDelete?: () => Promise<void>  // 進捗削除用のコールバック
   isEditMode?: boolean
   // メール送信用の情報
   candidate?: {
@@ -116,6 +118,7 @@ export function StatusUpdateDialog({
   match,
   candidateName,
   onUpdate,
+  onDelete,
   isEditMode = false,
   candidate,
   job,
@@ -131,6 +134,40 @@ export function StatusUpdateDialog({
   const [submitting, setSubmitting] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
   const [creatingFolder, setCreatingFolder] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // 最新のタイムラインアイテムかチェック
+  const isLatestTimeline = (): boolean => {
+    if (!match?.timeline || match.timeline.length === 0) return false
+    
+    const sortedTimeline = [...match.timeline].sort((a, b) => {
+      const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+      const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+      return timeA - timeB
+    })
+    
+    return sortedTimeline.length > 0
+  }
+
+  const handleDelete = async () => {
+    if (!onDelete || !match) return
+
+    if (!confirm('この進捗を削除しますか？\nステータスが前の状態に戻ります。')) {
+      return
+    }
+
+    try {
+      setDeleting(true)
+      await onDelete()
+      toast.success('進捗を削除しました')
+      onOpenChange(false)
+    } catch (error: any) {
+      console.error('Error deleting progress:', error)
+      toast.error(error.message || '進捗の削除に失敗しました')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   useEffect(() => {
     if (!match) return
@@ -609,11 +646,24 @@ export function StatusUpdateDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={submitting || sendingEmail}
+            disabled={submitting || sendingEmail || deleting}
             className="order-1 sm:order-none sm:mr-auto"
           >
             キャンセル
           </Button>
+          
+          {/* 削除ボタン（編集モード、削除ハンドラーがあり、最新の進捗のみ） */}
+          {isEditMode && onDelete && isLatestTimeline() && (
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={submitting || sendingEmail || deleting}
+              className="order-2 sm:order-none sm:mr-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? '削除中...' : 'この進捗を削除'}
+            </Button>
+          )}
           
           {/* 「応募済み」→「書類選考中」の場合のみ、紹介文コピーとメール送信ボタンを表示 */}
           {match?.status === 'applied' && 
@@ -625,7 +675,7 @@ export function StatusUpdateDialog({
               <Button
                 variant="outline"
                 onClick={handleCopyIntroduction}
-                disabled={submitting || sendingEmail}
+                disabled={submitting || sendingEmail || deleting}
                 className="order-3 sm:order-none !border-green-600 !text-green-600 hover:!bg-green-50"
               >
                 <Copy className="h-4 w-4 mr-2" />
@@ -634,7 +684,7 @@ export function StatusUpdateDialog({
               <Button
                 variant="outline"
                 onClick={handleSendEmail}
-                disabled={submitting || sendingEmail || !company.email}
+                disabled={submitting || sendingEmail || deleting || !company.email}
                 className={`order-4 sm:order-none ${company.email 
                   ? "!border-blue-600 !text-blue-600 hover:!bg-blue-50" 
                   : "!border-gray-300 !text-gray-400 cursor-not-allowed"
@@ -649,8 +699,8 @@ export function StatusUpdateDialog({
           
           <Button
             onClick={handleSubmit}
-            disabled={submitting || sendingEmail}
-            className="order-2 sm:order-none bg-orange-600 hover:bg-orange-700 text-white"
+            disabled={submitting || sendingEmail || deleting}
+            className="order-5 sm:order-none bg-orange-600 hover:bg-orange-700 text-white"
           >
             {submitting ? '更新中...' : '更新'}
           </Button>

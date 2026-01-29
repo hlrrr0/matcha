@@ -551,6 +551,36 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     setStatusUpdateOpen(true)
   }
 
+  const handleProgressDelete = async () => {
+    if (!selectedMatch) return
+
+    try {
+      // 最新の進捗のみ削除可能かチェック
+      if (!selectedMatch.timeline || selectedMatch.timeline.length === 0) {
+        throw new Error('削除できる進捗がありません')
+      }
+
+      const sortedTimeline = [...selectedMatch.timeline].sort((a, b) => {
+        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+        return timeA - timeB
+      })
+
+      const latestTimelineId = sortedTimeline[sortedTimeline.length - 1]?.id
+      if (!latestTimelineId) {
+        throw new Error('削除できる進捗がありません')
+      }
+
+      const { deleteLatestTimelineItem } = await import('@/lib/firestore/matches')
+      await deleteLatestTimelineItem(selectedMatch.id, latestTimelineId)
+
+      await loadMatches() // データを再読み込み
+    } catch (error: any) {
+      console.error('進捗削除エラー:', error)
+      throw error
+    }
+  }
+
   const handleStatusUpdate = async (status: Match['status'], notes: string, eventDateTime?: Date) => {
     if (!selectedMatch || !user?.uid) return
 
@@ -1805,6 +1835,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         match={selectedMatch}
         candidateName={selectedMatch?.candidateName || `${candidate?.lastName} ${candidate?.firstName}`}
         onUpdate={handleStatusUpdate}
+        onDelete={handleProgressDelete}
         isEditMode={selectedMatch ? ['offer_accepted', 'withdrawn', 'rejected'].includes(selectedMatch.status) : false}
         candidate={candidate ? {
           id: candidate.id,

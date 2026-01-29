@@ -282,7 +282,14 @@ function ProgressPageContent() {
         const candidate = candidatesData.find(c => c.id === match.candidateId)
         const job = jobsData.find(j => j.id === match.jobId)
         const company = companiesData.find(c => c.id === job?.companyId)
-        const store = storesData.find(s => s.id === job?.storeId)
+        
+        // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
+        let store: Store | undefined
+        if (job?.storeIds && job.storeIds.length > 0) {
+          store = storesData.find(s => s.id === job.storeIds[0])
+        } else if (job?.storeId) {
+          store = storesData.find(s => s.id === job.storeId)
+        }
 
         return {
           ...match,
@@ -580,7 +587,14 @@ function ProgressPageContent() {
         const candidate = candidates.find(c => c.id === selectedMatch.candidateId)
         const job = jobs.find(j => j.id === selectedMatch.jobId)
         const company = companies.find(c => c.id === job?.companyId)
-        const store = stores.find(s => s.id === job?.storeId)
+        
+        // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
+        let store: Store | undefined
+        if (job?.storeIds && job.storeIds.length > 0) {
+          store = stores.find(s => s.id === job.storeIds[0])
+        } else if (job?.storeId) {
+          store = stores.find(s => s.id === job.storeId)
+        }
         
         if (candidate && company) {
           const candidateName = `${candidate.lastName} ${candidate.firstName}`
@@ -653,7 +667,14 @@ function ProgressPageContent() {
           const candidate = candidates.find(c => c.id === match.candidateId)
           const job = jobs.find(j => j.id === match.jobId)
           const company = companies.find(c => c.id === job?.companyId)
-          const store = stores.find(s => s.id === job?.storeId)
+          
+          // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
+          let store: Store | undefined
+          if (job?.storeIds && job.storeIds.length > 0) {
+            store = stores.find(s => s.id === job.storeIds[0])
+          } else if (job?.storeId) {
+            store = stores.find(s => s.id === job.storeId)
+          }
           
           if (candidate && company) {
             const candidateName = `${candidate.lastName} ${candidate.firstName}`
@@ -1029,7 +1050,15 @@ function ProgressPageContent() {
                             {newMatchData.jobIds.map((jobId) => {
                               const job = jobs.find(j => j.id === jobId)
                               const company = companies.find(c => c.id === job?.companyId)
-                              const store = stores.find(s => s.id === job?.storeId)
+                              
+                              // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
+                              let store: Store | undefined
+                              if (job?.storeIds && job.storeIds.length > 0) {
+                                store = stores.find(s => s.id === job.storeIds[0])
+                              } else if (job?.storeId) {
+                                store = stores.find(s => s.id === job.storeId)
+                              }
+                              
                               return (
                                 <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
                                   <div className="flex-1 min-w-0">
@@ -2080,7 +2109,15 @@ function ProgressPageContent() {
                   <div className="space-y-2 p-4">
                     {getFilteredJobs().map((job) => {
                       const company = companies.find(c => c.id === job.companyId)
-                      const store = stores.find(s => s.id === job.storeId)
+                      
+                      // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
+                      let store: Store | undefined
+                      if (job.storeIds && job.storeIds.length > 0) {
+                        store = stores.find(s => s.id === job.storeIds[0])
+                      } else if (job.storeId) {
+                        store = stores.find(s => s.id === job.storeId)
+                      }
+                      
                       const isSelected = newMatchData.jobIds.includes(job.id)
                       
                       return (
