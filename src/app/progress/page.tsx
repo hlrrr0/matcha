@@ -286,7 +286,7 @@ function ProgressPageContent() {
         // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
         let store: Store | undefined
         if (job?.storeIds && job.storeIds.length > 0) {
-          store = storesData.find(s => s.id === job.storeIds[0])
+          store = storesData.find(s => s.id === job.storeIds?.[0])
         } else if (job?.storeId) {
           store = storesData.find(s => s.id === job.storeId)
         }
@@ -591,7 +591,7 @@ function ProgressPageContent() {
         // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
         let store: Store | undefined
         if (job?.storeIds && job.storeIds.length > 0) {
-          store = stores.find(s => s.id === job.storeIds[0])
+          store = stores.find(s => s.id === job.storeIds?.[0])
         } else if (job?.storeId) {
           store = stores.find(s => s.id === job.storeId)
         }
@@ -671,7 +671,7 @@ function ProgressPageContent() {
           // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
           let store: Store | undefined
           if (job?.storeIds && job.storeIds.length > 0) {
-            store = stores.find(s => s.id === job.storeIds[0])
+            store = stores.find(s => s.id === job.storeIds?.[0])
           } else if (job?.storeId) {
             store = stores.find(s => s.id === job.storeId)
           }
@@ -1054,7 +1054,7 @@ function ProgressPageContent() {
                               // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
                               let store: Store | undefined
                               if (job?.storeIds && job.storeIds.length > 0) {
-                                store = stores.find(s => s.id === job.storeIds[0])
+                                store = stores.find(s => s.id === job.storeIds?.[0])
                               } else if (job?.storeId) {
                                 store = stores.find(s => s.id === job.storeId)
                               }
@@ -2113,7 +2113,7 @@ function ProgressPageContent() {
                       // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
                       let store: Store | undefined
                       if (job.storeIds && job.storeIds.length > 0) {
-                        store = stores.find(s => s.id === job.storeIds[0])
+                        store = stores.find(s => s.id === job.storeIds?.[0])
                       } else if (job.storeId) {
                         store = stores.find(s => s.id === job.storeId)
                       }
