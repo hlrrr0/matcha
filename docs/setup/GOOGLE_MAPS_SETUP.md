@@ -30,6 +30,8 @@
    - 「APIとサービス」→「ライブラリ」から以下を検索して有効化:
      - **Maps JavaScript API** ✅
      - **Geocoding API** ✅
+     - **Directions API** ✅ (経路検索機能用)
+     - **Places API** (オプション)
 
 ## 2. 環境変数に設定
 
@@ -66,7 +68,19 @@ npm run geocode-stores
 - 🟢 **緑**: 募集中（active）
 - ⚪ **灰色**: 下書き（draft）
 - 🔴 **赤**: 募集終了（closed）
+### 経路検索機能
 
+1. マップ上のマーカー（店舗または求人）をクリック
+2. 右上に表示される経路検索パネルで以下を設定:
+   - 出発地を入力（または📍ボタンで現在地を取得）
+   - 移動手段を選択（🚃電車/🚗車/🚶徒歩）
+3. 「経路を検索」ボタンをクリック
+4. 左上に経路情報パネルが表示され、マップ上に経路が描画されます
+
+**電車モードの場合:**
+- 路線名、乗車駅、降車駅
+- 停車駅数
+- 所要時間と距離
 ## 5. 料金について
 
 Google Maps JavaScript API は無料枠があります:
@@ -86,13 +100,26 @@ Google Maps JavaScript API は無料枠があります:
 ### エラー: "RefererNotAllowedMapError"
 → Google Cloud Console でHTTPリファラーの制限を確認してください
 
+### エラー: "Directions Service: You're calling a legacy API"
+→ Google Cloud Console で **Directions API** を有効化してください:
+1. https://console.cloud.google.com/apis/library/directions-backend.googleapis.com にアクセス
+2. 「有効にする」ボタンをクリック
+3. APIキーの制限設定で「Directions API」を追加
+
 ### マーカーが表示されない
 → 店舗データに緯度経度（latitude, longitude）が設定されているか確認してください
 
+### 経路が表示されない
+→ 以下を確認してください:
+- Directions APIが有効化されているか
+- 出発地と目的地が正しく入力されているか
+- APIキーの制限設定で「Directions API」が許可されているか
+
 ## 今後の機能拡張案
 
-- [ ] 店舗作成/編集時に住所から自動的に緯度経度を取得
+- [x] 店舗作成/編集時に住所から自動的に緯度経度を取得
+- [x] 経路検索機能（電車/車/徒歩）
 - [ ] エリアで絞り込み（マップの表示範囲で自動フィルタ）
 - [ ] マーカークラスタリング（多数の求人がある場合）
-- [ ] ルート検索機能
 - [ ] 店舗一覧ページにもマップ表示を追加
+- [ ] 複数の経路オプションを表示（最速ルート、最安ルート等）
