@@ -304,8 +304,26 @@ function ProgressPageContent() {
         }
       })
 
-      // 更新日の降順にソート
+      // 求職者ごとの最新更新日時を計算
+      const candidateLatestUpdates = new Map<string, number>()
+      matchesWithDetails.forEach(match => {
+        const currentLatest = candidateLatestUpdates.get(match.candidateId) || 0
+        const matchTime = match.updatedAt instanceof Date ? match.updatedAt.getTime() : new Date(match.updatedAt || 0).getTime()
+        if (matchTime > currentLatest) {
+          candidateLatestUpdates.set(match.candidateId, matchTime)
+        }
+      })
+
+      // ソート：求職者の最新更新日時の降順 + 同じ求職者内では進捗の更新日時の降順
       matchesWithDetails.sort((a, b) => {
+        // まず求職者の最新更新日時で比較
+        const candidateLatestA = candidateLatestUpdates.get(a.candidateId) || 0
+        const candidateLatestB = candidateLatestUpdates.get(b.candidateId) || 0
+        if (candidateLatestA !== candidateLatestB) {
+          return candidateLatestB - candidateLatestA
+        }
+        
+        // 同じ求職者の場合は進捗の更新日時で比較
         const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt || 0)
         const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt || 0)
         return dateB.getTime() - dateA.getTime()
