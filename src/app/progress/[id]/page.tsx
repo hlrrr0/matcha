@@ -218,7 +218,7 @@ export default function MatchDetailPage() {
       
       // 求人に紐づく店舗を取得（複数店舗対応）
       if (jobData?.storeIds && jobData.storeIds.length > 0) {
-        const stores = storesData.filter(s => jobData.storeIds.includes(s.id))
+        const stores = storesData.filter(s => jobData.storeIds?.includes(s.id))
         setJobStores(stores)
         // 最初の店舗をメイン店舗として設定（後方互換性のため）
         setStore(stores[0] || null)
