@@ -163,48 +163,43 @@ export function StoreMapView({ stores, companies, onStoreClick }: StoreMapViewPr
       return
     }
 
+    // 電車モードの場合は Google Maps で開く
+    if (travelMode === 'TRANSIT') {
+      const destination = selectedStore.address 
+        ? selectedStore.address
+        : selectedStore.name 
+        ? `${selectedStore.name}, 日本`
+        : `${selectedStore.latitude},${selectedStore.longitude}`
+      
+      const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLocation)}&destination=${encodeURIComponent(destination)}&travelmode=transit&hl=ja`
+      
+      if (window.confirm('電車での経路検索は Google マップで開きます。よろしいですか？')) {
+        window.open(googleMapsUrl, '_blank')
+      }
+      return
+    }
+
     setCalculatingRoute(true)
     setRouteInfo(null)
 
     try {
       const directionsService = new google.maps.DirectionsService()
       
-      // 目的地を住所優先で指定（TRANSITモードは座標だけだと失敗しやすい）
+      // 目的地を住所優先で指定
       const destination = selectedStore.address 
         ? selectedStore.address  // 住所がある場合は住所を使用
         : selectedStore.name 
         ? `${selectedStore.name}, 日本`  // 店舗名がある場合は店舗名を使用
         : `${selectedStore.latitude},${selectedStore.longitude}`  // 最終手段として座標
       
-      // TRANSITモード用のdepartureTimeを設定（深夜は翌朝に設定）
-      const getDepartureTime = () => {
-        const now = new Date()
-        const hour = now.getHours()
-        
-        // 深夜（0時〜5時）の場合は、同日〆6時に設定
-        if (hour >= 0 && hour < 6) {
-          const morning = new Date(now)
-          morning.setHours(6, 0, 0, 0)
-          return morning
-        }
-        return now
-      }
-      
       const request: google.maps.DirectionsRequest = {
         origin: startLocation,
         destination,
         travelMode: google.maps.TravelMode[travelMode],
         unitSystem: google.maps.UnitSystem.METRIC,
-        region: 'JP',  // 日本での検索を明示
-        language: 'ja',  // 日本語で検索
-        provideRouteAlternatives: true,  // 複数のルートを取得
-        ...(travelMode === 'TRANSIT' && {
-          transitOptions: {
-            departureTime: getDepartureTime(),  // 深夜対応の出発時刻
-            modes: [google.maps.TransitMode.TRAIN, google.maps.TransitMode.BUS],  // 電車とバスを使用
-            routingPreference: google.maps.TransitRoutePreference.FEWER_TRANSFERS  // 乗り換え少な目優先
-          }
-        })
+        region: 'JP',
+        language: 'ja',
+        provideRouteAlternatives: true
       }
 
       console.log('経路検索リクエスト:', {
@@ -215,15 +210,6 @@ export function StoreMapView({ stores, companies, onStoreClick }: StoreMapViewPr
           coordinates: `${selectedStore.latitude},${selectedStore.longitude}`
         }
       })
-      
-      // transitOptionsの詳細を確認
-      if (travelMode === 'TRANSIT' && request.transitOptions) {
-        console.log('transitOptions詳細:', {
-          departureTime: request.transitOptions.departureTime,
-          modes: request.transitOptions.modes,
-          routingPreference: request.transitOptions.routingPreference
-        })
-      }
 
       const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
         directionsService.route(request, (result, status) => {
@@ -237,7 +223,17 @@ export function StoreMapView({ stores, companies, onStoreClick }: StoreMapViewPr
                 const hour = new Date().getHours()
                 const isLateNight = hour >= 1 && hour < 5
                 const nightMessage = isLateNight ? '\n\n※ 深夜は電車が運行していないため、翌朝6時以降の経路を検索しています。' : ''
-                errorMessage = `公共交通機関（電車・バス）での経路が見つかりませんでした。${nightMessage}\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\n▼ 以下をお試しください：\n・ 🚗 「車」モードで経路を検索\n・ 🚶 「徒歩」モードで距離を確認\n・ 出発地をより具体的に入力（例: “渋谷駅”）`
+                
+                // Google Mapsで開くURLを生成
+                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLocation)}&destination=${encodeURIComponent(destination)}&travelmode=transit`
+                
+                errorMessage = `公共交通機関（電車・バス）での経路が見つかりませんでした。${nightMessage}\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\nGoogle Mapsで経路を確認できます：`
+                
+                // エラー表示後にGoogle Mapsで開くか確認
+                if (confirm(errorMessage + '\n\nGoogle Mapsで開きますか？')) {
+                  window.open(googleMapsUrl, '_blank')
+                }
+                return // エラーをthrowせずにreturn
               } else if (travelMode === 'DRIVING') {
                 errorMessage = `車での経路が見つかりませんでした。\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\n住所を正確に入力するか、別の移動手段を試してください。`
               } else {
