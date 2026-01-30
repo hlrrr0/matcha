@@ -219,25 +219,10 @@ export function StoreMapView({ stores, companies, onStoreClick }: StoreMapViewPr
             // エラーの詳細情報
             let errorMessage = '経路が見つかりませんでした。'
             if (status === 'ZERO_RESULTS') {
-              if (travelMode === 'TRANSIT') {
-                const hour = new Date().getHours()
-                const isLateNight = hour >= 1 && hour < 5
-                const nightMessage = isLateNight ? '\n\n※ 深夜は電車が運行していないため、翌朝6時以降の経路を検索しています。' : ''
-                
-                // Google Mapsで開くURLを生成
-                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startLocation)}&destination=${encodeURIComponent(destination)}&travelmode=transit`
-                
-                errorMessage = `公共交通機関（電車・バス）での経路が見つかりませんでした。${nightMessage}\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\nGoogle Mapsで経路を確認できます：`
-                
-                // エラー表示後にGoogle Mapsで開くか確認
-                if (confirm(errorMessage + '\n\nGoogle Mapsで開きますか？')) {
-                  window.open(googleMapsUrl, '_blank')
-                }
-                return // エラーをthrowせずにreturn
-              } else if (travelMode === 'DRIVING') {
+              if (travelMode === 'DRIVING') {
                 errorMessage = `車での経路が見つかりませんでした。\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\n住所を正確に入力するか、別の移動手段を試してください。`
               } else {
-                errorMessage = `徒歩での経路が見つかりませんでした。\n\n出発地: ${startLocation}\n目疄地: ${selectedStore.name}\n\n住所を正確に入力するか、別の移動手段を試してください。`
+                errorMessage = `徒歩での経路が見つかりませんでした。\n\n出発地: ${startLocation}\n目的地: ${selectedStore.name}\n\n住所を正確に入力するか、別の移動手段を試してください。`
               }
             } else if (status === 'NOT_FOUND') {
               errorMessage = '出発地または目的地が見つかりませんでした。住所を確認してください。'
