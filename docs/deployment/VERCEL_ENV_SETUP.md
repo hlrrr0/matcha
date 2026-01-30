@@ -13,7 +13,7 @@ FirebaseのAPIキーエラーは、Vercelのプロダクション環境で環境
 5. 以下の環境変数を追加：
 
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyD6pa5Qi9vumPncVNhc3fr3IzC9TON_YsA
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=agent-system-23630.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=agent-system-23630
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=agent-system-23630.appspot.com

@@ -1,15 +1,15 @@
 // 不整合データをクリーンアップするスクリプト
+require('dotenv').config({ path: '.env.local' });
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, getDocs, doc, getDoc } = require('firebase/firestore');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCtUxqKOhcJg6tC2ZnDTrOa0v9m0Uh7CgQ",
-  authDomain: "agent-system-23630.firebaseapp.com",
-  projectId: "agent-system-23630",
-  storageBucket: "agent-system-23630.firebasestorage.app",
-  messagingSenderId: "644508977654",
-  appId: "1:644508977654:web:6e5fde7bcadc5b92a78b8f",
-  measurementId: "G-TX7Q4JWV7M"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
