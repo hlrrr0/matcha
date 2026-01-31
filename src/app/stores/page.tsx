@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Pagination } from '@/components/ui/pagination'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
@@ -1092,17 +1093,37 @@ function StoresPageContent() {
                       })()}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserIcon className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-700">
-                          {(() => {
-                            const company = getCompany(store.companyId)
-                            if (!company?.consultantId) return '-'
-                            const user = users.find(u => u.id === company.consultantId)
-                            return user?.displayName || user?.email || '不明'
-                          })()}
-                        </span>
-                      </div>
+                      {(() => {
+                        const company = getCompany(store.companyId)
+                        if (!company?.consultantId) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <UserIcon className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-400">-</span>
+                            </div>
+                          )
+                        }
+                        const user = users.find(u => u.id === company.consultantId)
+                        if (!user) {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <UserIcon className="h-4 w-4 text-gray-400" />
+                              <span className="text-sm text-gray-400">不明</span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={user.photoURL} />
+                              <AvatarFallback className="text-xs">
+                                {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{user.displayName || user.email}</span>
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell>{getStatusBadge(store.status)}</TableCell>
                     <TableCell>

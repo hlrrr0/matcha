@@ -141,6 +141,7 @@ const matchFromFirestore = (doc: any): Match => {
       acceptedDate: data.acceptedDate?.toDate ? data.acceptedDate.toDate() : (data.acceptedDate ? safeCreateDate(data.acceptedDate) : undefined),
       rejectedDate: data.rejectedDate?.toDate ? data.rejectedDate.toDate() : (data.rejectedDate ? safeCreateDate(data.rejectedDate) : undefined),
       startDate: data.startDate?.toDate ? data.startDate.toDate() : (data.startDate ? safeCreateDate(data.startDate) : undefined),
+      endDate: data.endDate?.toDate ? data.endDate.toDate() : (data.endDate ? safeCreateDate(data.endDate) : undefined),
       // 必須フィールドのデフォルト値
       candidateId: data.candidateId || '',
       jobId: data.jobId || '',
@@ -271,6 +272,14 @@ export const updateMatch = async (id: string, matchData: Partial<Omit<Match, 'id
     const updateFields: any = {
       ...matchData,
       updatedAt: Timestamp.fromDate(new Date())
+    }
+    
+    // startDateとendDateを安全に変換
+    if (matchData.startDate !== undefined) {
+      updateFields.startDate = matchData.startDate ? Timestamp.fromDate(safeCreateDate(matchData.startDate)) : null
+    }
+    if (matchData.endDate !== undefined) {
+      updateFields.endDate = matchData.endDate ? Timestamp.fromDate(safeCreateDate(matchData.endDate)) : null
     }
     
     // 日付フィールドを安全に変換

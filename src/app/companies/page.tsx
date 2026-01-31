@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Pagination } from '@/components/ui/pagination'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
 import { 
   Building2, 
@@ -317,6 +318,24 @@ function CompaniesPageContent() {
     }
     
     return '-'
+  }
+
+  // 担当者のユーザー情報を取得する関数
+  const getAssignedUser = (company: Company): UserType | null => {
+    // まずassignedToフィールドをチェック（Dominoから来るデータ）
+    const assignedTo = (company as any).assignedTo
+    if (assignedTo) {
+      const user = users.find(u => u.id === assignedTo)
+      if (user) return user
+    }
+    
+    // 次にconsultantIdをチェック
+    if (company.consultantId) {
+      const user = users.find(u => u.id === company.consultantId)
+      if (user) return user
+    }
+    
+    return null
   }
 
   // 一括選択関連の関数
@@ -1098,12 +1117,27 @@ function CompaniesPageContent() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-700">
-                              {getAssignedToDisplayName(company)}
-                            </span>
-                          </div>
+                          {(() => {
+                            const assignedUser = getAssignedUser(company)
+                            return assignedUser ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={assignedUser.photoURL} />
+                                  <AvatarFallback className="text-xs">
+                                    {assignedUser.displayName?.charAt(0) || assignedUser.email?.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{assignedUser.displayName || assignedUser.email}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm text-gray-400">
+                                  {getAssignedToDisplayName(company)}
+                                </span>
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell>
                           <button

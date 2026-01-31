@@ -54,6 +54,7 @@ import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
+import { toast } from 'sonner'
 
 interface MatchWithDetails extends Match {
   candidateName?: string
@@ -181,6 +182,10 @@ function ProgressPageContent() {
   })
   const [jobSearchTerm, setJobSearchTerm] = useState('')
   const [candidateSearchTerm, setCandidateSearchTerm] = useState('')
+  
+  // インライン編集用の状態
+  const [editingDateField, setEditingDateField] = useState<{ matchId: string, field: 'startDate' | 'endDate' } | null>(null)
+  const [editingDateValue, setEditingDateValue] = useState('')
 
   useEffect(() => {
     if (user) {
@@ -779,6 +784,50 @@ function ProgressPageContent() {
     
     const allSameStatus = selectedMatches.every(m => m.status === firstStatus)
     return allSameStatus ? firstStatus : null
+  }
+
+  // インライン編集の開始
+  const handleStartDateEdit = (matchId: string, field: 'startDate' | 'endDate', currentValue?: string | Date) => {
+    setEditingDateField({ matchId, field })
+    if (currentValue) {
+      const dateObj = new Date(currentValue)
+      if (!isNaN(dateObj.getTime())) {
+        setEditingDateValue(dateObj.toISOString().split('T')[0])
+      } else {
+        setEditingDateValue('')
+      }
+    } else {
+      setEditingDateValue('')
+    }
+  }
+
+  // インライン編集の保存
+  const handleSaveDateEdit = async (matchId: string, field: 'startDate' | 'endDate') => {
+    try {
+      const { updateMatch } = await import('@/lib/firestore/matches')
+      const updateData: any = {}
+      
+      if (editingDateValue) {
+        updateData[field] = new Date(editingDateValue)
+      } else {
+        updateData[field] = null
+      }
+      
+      await updateMatch(matchId, updateData)
+      toast.success(`${field === 'startDate' ? '入社日' : '退職日'}を更新しました`)
+      setEditingDateField(null)
+      setEditingDateValue('')
+      loadData(true) // データを再読み込み
+    } catch (error) {
+      console.error('Error updating date:', error)
+      toast.error(`${field === 'startDate' ? '入社日' : '退職日'}の更新に失敗しました`)
+    }
+  }
+
+  // インライン編集のキャンセル
+  const handleCancelDateEdit = () => {
+    setEditingDateField(null)
+    setEditingDateValue('')
   }
 
   // 一括ステータス更新を開く
@@ -1981,8 +2030,21 @@ function ProgressPageContent() {
                         const candidate = candidates.find(c => c.id === match.candidateId)
                         const assignedUser = users.find(u => u.id === match.candidateAssignedUserId)
                         
+                        // 入社日が過ぎているかチェック
+                        const isStartDatePassed = match.startDate && new Date(match.startDate) < new Date()
+                        // 退職日が入っているかチェック
+                        const hasEndDate = !!match.endDate
+                        
+                        // スタイルの決定（退職日優先）
+                        let rowClassName = ''
+                        if (hasEndDate) {
+                          rowClassName = 'bg-red-50 hover:bg-red-100'
+                        } else if (isStartDatePassed) {
+                          rowClassName = 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }
+                        
                         return (
-                          <TableRow key={match.id}>
+                          <TableRow key={match.id} className={rowClassName}>
                             <TableCell className="font-medium">
                               <Link 
                                 href={`/candidates/${match.candidateId}`}
@@ -2024,23 +2086,102 @@ function ProgressPageContent() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {match.startDate ? (
+                              {editingDateField?.matchId === match.id && editingDateField?.field === 'startDate' ? (
                                 <div className="flex items-center gap-1">
-                                  <Calendar className="h-4 w-4 text-gray-400" />
-                                  {new Date(match.startDate).toLocaleDateString('ja-JP')}
+                                  <Input
+                                    type="date"
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
+                                    className="h-8 w-36"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleSaveDateEdit(match.id, 'startDate')
+                                      } else if (e.key === 'Escape') {
+                                        handleCancelDateEdit()
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleSaveDateEdit(match.id, 'startDate')}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleCancelDateEdit}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <XCircle className="h-4 w-4 text-gray-600" />
+                                  </Button>
                                 </div>
                               ) : (
-                                <span className="text-gray-400">未設定</span>
+                                <div 
+                                  className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                                  onClick={() => handleStartDateEdit(match.id, 'startDate', match.startDate)}
+                                >
+                                  <Calendar className="h-4 w-4 text-gray-400" />
+                                  {match.startDate ? (
+                                    new Date(match.startDate).toLocaleDateString('ja-JP')
+                                  ) : (
+                                    <span className="text-gray-400">未設定</span>
+                                  )}
+                                  <Edit className="h-3 w-3 text-gray-400 ml-1" />
+                                </div>
                               )}
                             </TableCell>
                             <TableCell>
-                              {match.endDate ? (
+                              {editingDateField?.matchId === match.id && editingDateField?.field === 'endDate' ? (
                                 <div className="flex items-center gap-1">
-                                  <Calendar className="h-4 w-4 text-gray-400" />
-                                  {new Date(match.endDate).toLocaleDateString('ja-JP')}
+                                  <Input
+                                    type="date"
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
+                                    className="h-8 w-36"
+                                    autoFocus
+                                    min={match.startDate ? new Date(match.startDate).toISOString().split('T')[0] : undefined}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleSaveDateEdit(match.id, 'endDate')
+                                      } else if (e.key === 'Escape') {
+                                        handleCancelDateEdit()
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleSaveDateEdit(match.id, 'endDate')}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleCancelDateEdit}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <XCircle className="h-4 w-4 text-gray-600" />
+                                  </Button>
                                 </div>
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <div 
+                                  className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
+                                  onClick={() => handleStartDateEdit(match.id, 'endDate', match.endDate)}
+                                >
+                                  <Calendar className="h-4 w-4 text-gray-400" />
+                                  {match.endDate ? (
+                                    new Date(match.endDate).toLocaleDateString('ja-JP')
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                  <Edit className="h-3 w-3 text-gray-400 ml-1" />
+                                </div>
                               )}
                             </TableCell>
                             <TableCell>
