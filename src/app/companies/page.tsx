@@ -40,9 +40,11 @@ import {
 import { Company } from '@/types/company'
 import { Store as StoreType } from '@/types/store'
 import { User as UserType } from '@/types/user'
+import { Job } from '@/types/job'
 import { getCompanies, deleteCompany, deleteMultipleCompanies } from '@/lib/firestore/companies'
 import { getStoresByCompany } from '@/lib/firestore/stores'
 import { getActiveUsers } from '@/lib/firestore/users'
+import { getJobsByCompany } from '@/lib/firestore/jobs'
 import { importCompaniesFromCSV, generateCompaniesCSVTemplate } from '@/lib/csv/companies'
 import { toast } from 'sonner'
 
@@ -129,6 +131,9 @@ function CompaniesPageContent() {
   
   // 店舗数キャッシュ
   const [storeCounts, setStoreCounts] = useState<Record<string, number>>({})
+  
+  // 企業ごとの求人フラグ集約
+  const [companyJobFlags, setCompanyJobFlags] = useState<Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>>({})
 
   useEffect(() => {
     loadCompanies()
@@ -231,6 +236,30 @@ function CompaniesPageContent() {
       }, {} as Record<string, number>)
       
       setStoreCounts(storeCountsMap)
+      
+      // 各企業の求人フラグを集約
+      const jobFlagsPromises = data.map(async (company) => {
+        try {
+          const jobs = await getJobsByCompany(company.id)
+          const flags = {
+            highDemand: jobs.some(j => j.flags?.highDemand),
+            provenTrack: jobs.some(j => j.flags?.provenTrack),
+            weakRelationship: jobs.some(j => j.flags?.weakRelationship)
+          }
+          return { companyId: company.id, flags }
+        } catch (error) {
+          console.error(`❌ 企業「${company.name}」の求人フラグ取得エラー:`, error)
+          return { companyId: company.id, flags: { highDemand: false, provenTrack: false, weakRelationship: false } }
+        }
+      })
+      
+      const jobFlagsResults = await Promise.all(jobFlagsPromises)
+      const jobFlagsMap = jobFlagsResults.reduce((acc, { companyId, flags }) => {
+        acc[companyId] = flags
+        return acc
+      }, {} as Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>)
+      
+      setCompanyJobFlags(jobFlagsMap)
       
       // キャッシュに保存（5分間有効）
       setCache(cacheKey, {
@@ -1036,7 +1065,17 @@ function CompaniesPageContent() {
                         )}
                         <TableCell className="font-medium">
                           <Link href={`/companies/${company.id}`} className="hover:text-blue-600 hover:underline">
-                            <div className="font-semibold">{company.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{company.name}</span>
+                              {/* フラグアイコン表示 */}
+                              {companyJobFlags[company.id] && (companyJobFlags[company.id].highDemand || companyJobFlags[company.id].provenTrack || companyJobFlags[company.id].weakRelationship) && (
+                                <span className="flex gap-1">
+                                  {companyJobFlags[company.id].highDemand && <span title="ニーズ高の求人あり">🔥</span>}
+                                  {companyJobFlags[company.id].provenTrack && <span title="実績ありの求人あり">🎉</span>}
+                                  {companyJobFlags[company.id].weakRelationship && <span title="関係薄めの求人あり">💧</span>}
+                                </span>
+                              )}
+                            </div>
                             {/* タグ表示 */}
                             {(company.tags?.overseasExpansion || company.tags?.hasFisheryCompany) && (
                               <div className="flex flex-wrap gap-1 mt-1">

@@ -47,6 +47,13 @@ export interface Job {
   // タグ情報
   tags?: string[]                         // タグ配列（任意）
   
+  // フラグ情報
+  flags?: {
+    highDemand?: boolean                  // 🔥ニーズ高
+    provenTrack?: boolean                 // 🎉実績あり
+    weakRelationship?: boolean            // 💧関係薄め
+  }
+  
   // キャリア診断マッチング用データ（任意）
   matchingData?: {
     // ワークライフバランス関連

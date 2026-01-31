@@ -79,6 +79,9 @@ function StoresPageContent() {
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
   
+  // 店舗ごとの求人フラグ集約
+  const [storeJobFlags, setStoreJobFlags] = useState<Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>>({})
+  
   // 表示モード切り替え
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   
@@ -182,6 +185,20 @@ function StoresPageContent() {
       setCompanies(companiesData)
       setUsers(usersData)
       setJobs(jobsData)
+      
+      // 各店舗の求人フラグを集約
+      const flagsMap: Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }> = {}
+      storesData.forEach(store => {
+        const storeJobs = jobsData.filter(job => 
+          job.storeId === store.id || job.storeIds?.includes(store.id)
+        )
+        flagsMap[store.id] = {
+          highDemand: storeJobs.some(j => j.flags?.highDemand),
+          provenTrack: storeJobs.some(j => j.flags?.provenTrack),
+          weakRelationship: storeJobs.some(j => j.flags?.weakRelationship)
+        }
+      })
+      setStoreJobFlags(flagsMap)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -995,11 +1012,19 @@ function StoresPageContent() {
                       <div className="font-semibold">
                         <Link 
                           href={`/stores/${store.id}?returnPage=${currentPage}&search=${encodeURIComponent(searchTerm)}&status=${statusFilter}&company=${companyFilter}`}
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                          className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-2"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {store.name}
+                          <span>{store.name}</span>
+                          {/* フラグアイコン表示 */}
+                          {storeJobFlags[store.id] && (storeJobFlags[store.id].highDemand || storeJobFlags[store.id].provenTrack || storeJobFlags[store.id].weakRelationship) && (
+                            <span className="flex gap-1">
+                              {storeJobFlags[store.id].highDemand && <span title="ニーズ高の求人あり">🔥</span>}
+                              {storeJobFlags[store.id].provenTrack && <span title="実績ありの求人あり">🎉</span>}
+                              {storeJobFlags[store.id].weakRelationship && <span title="関係薄めの求人あり">💧</span>}
+                            </span>
+                          )}
                         </Link>
                         {store.prefecture && (
                           <span className="ml-2 text-gray-500 font-normal">【{store.prefecture}】</span>
@@ -1046,7 +1071,7 @@ function StoresPageContent() {
                     ) : (
                       <span className="text-gray-500">企業情報なし</span>
                     )}</TableCell>
-                    <TableCell className="max-w-xs truncate">{store.address}</TableCell>
+                    <TableCell className="max-w-[10rem] truncate">{store.address}</TableCell>
                     <TableCell>
                       {(() => {
                         const rate = calculateCompletionRate(store)

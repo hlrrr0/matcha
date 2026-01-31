@@ -149,6 +149,9 @@ function JobsPageContent() {
   
   // タグフィルター（複数選択）
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
+  
+  // フラグフィルター（複数選択）
+  const [flagFilter, setFlagFilter] = useState<Set<'highDemand' | 'provenTrack' | 'weakRelationship'>>(new Set())
 
   // ソート状態
   const [sortBy, setSortBy] = useState<'title' | 'companyName' | 'storeName' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
@@ -604,7 +607,13 @@ function JobsPageContent() {
         matchesTag = job.tags ? job.tags.some(tag => tagFilter.has(tag)) : false
       }
 
-      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions && matchesTabelogException && matchesTag
+      // フラグフィルター（複数選択）
+      let matchesFlag = true
+      if (flagFilter.size > 0) {
+        matchesFlag = Array.from(flagFilter).some(flag => job.flags?.[flag] === true)
+      }
+
+      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions && matchesTabelogException && matchesTag && matchesFlag
     }).sort((a, b) => {
       let aValue: any
       let bValue: any
@@ -647,7 +656,7 @@ function JobsPageContent() {
     })
   }, [jobs, stores, companies, searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter, 
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax, reservationSystemFilter,
-      housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter, sortBy, sortOrder])
+      housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter, flagFilter, sortBy, sortOrder])
 
   // ページネーション処理
   const totalPages = Math.ceil(filteredJobs.length / itemsPerPage)
@@ -667,7 +676,7 @@ function JobsPageContent() {
     handlePageChange(1)
   }, [searchTerm, statusFilter, Array.from(employmentTypeFilter).join(','), consultantFilter, ageLimitFilter,
       unitPriceLunchMin, unitPriceLunchMax, unitPriceDinnerMin, unitPriceDinnerMax,
-      reservationSystemFilter, housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter])
+      reservationSystemFilter, housingSupportFilter, independenceSupportFilter, tabelogExceptionFilter, tagFilter, flagFilter])
 
   // isAllSelectedをuseMemoで計算（filteredJobsに依存）
   const isAllSelectedCalculated = useMemo(() => {
@@ -1038,6 +1047,61 @@ function JobsPageContent() {
                   <SelectItem value="none">年齢上限なし</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            {/* フラグフィルター */}
+            <div className="col-span-2">
+              <Label>フラグ</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant={flagFilter.has('highDemand') ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    const newFilter = new Set(flagFilter)
+                    if (newFilter.has('highDemand')) {
+                      newFilter.delete('highDemand')
+                    } else {
+                      newFilter.add('highDemand')
+                    }
+                    setFlagFilter(newFilter)
+                  }}
+                >
+                  🔥ニーズ高
+                </Button>
+                <Button
+                  type="button"
+                  variant={flagFilter.has('provenTrack') ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    const newFilter = new Set(flagFilter)
+                    if (newFilter.has('provenTrack')) {
+                      newFilter.delete('provenTrack')
+                    } else {
+                      newFilter.add('provenTrack')
+                    }
+                    setFlagFilter(newFilter)
+                  }}
+                >
+                  🎉実績あり
+                </Button>
+                <Button
+                  type="button"
+                  variant={flagFilter.has('weakRelationship') ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => {
+                    const newFilter = new Set(flagFilter)
+                    if (newFilter.has('weakRelationship')) {
+                      newFilter.delete('weakRelationship')
+                    } else {
+                      newFilter.add('weakRelationship')
+                    }
+                    setFlagFilter(newFilter)
+                  }}
+                >
+                  💧関係薄め
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -1448,9 +1512,10 @@ function JobsPageContent() {
                 {paginatedJobs.map((job) => {
                   const company = getCompany(job.companyId)
                   const isFreeOnly = company?.contractType === 'free_only'
+                  const isClosed = job.status === 'closed'
                   
                   return (
-                    <TableRow key={job.id} className={isFreeOnly ? 'bg-gray-100' : ''}>
+                    <TableRow key={job.id} className={isClosed ? 'bg-gray-300' : (isFreeOnly ? 'bg-gray-100' : '')}>
                       {isAdmin && (
                         <TableCell>
                           <Checkbox
@@ -1462,10 +1527,17 @@ function JobsPageContent() {
                       <TableCell>{getStatusBadge(job.status)}</TableCell>
                       <TableCell className="font-medium">
                         <Link href={`/jobs/${job.id}`} className="hover:text-purple-600 transition-colors">
-                          <div className="font-semibold hover:underline">{job.title}</div>
-                          {/* <div className="text-sm text-gray-500 truncate max-w-xs">
-                            {job.jobDescription || '詳細未入力'}
-                          </div> */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold hover:underline">{job.title}</span>
+                            {/* フラグアイコン表示 */}
+                            {job.flags && (job.flags.highDemand || job.flags.provenTrack || job.flags.weakRelationship) && (
+                              <span className="flex gap-1">
+                                {job.flags.highDemand && <span title="ニーズ高">🔥</span>}
+                                {job.flags.provenTrack && <span title="実績あり">🎉</span>}
+                                {job.flags.weakRelationship && <span title="関係薄め">💧</span>}
+                              </span>
+                            )}
+                          </div>
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -1499,7 +1571,7 @@ function JobsPageContent() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm text-gray-600 max-w-xs truncate">
+                        <div className="text-sm text-gray-600 max-w-[10rem] truncate">
                           {getAddress(job)}
                         </div>
                       </TableCell>

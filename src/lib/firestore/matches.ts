@@ -557,6 +557,28 @@ export const updateMatchStatus = async (
         console.error('⚠️ 候補者ステータスの更新に失敗しました:', candidateError)
         // 候補者ステータスの更新失敗はエラーにせず警告のみ
       }
+
+      // 求人に「実績あり」フラグを自動設定
+      try {
+        if (DEBUG) console.log('🎉 内定承諾のため求人に「実績あり」フラグを設定します')
+        const jobDocRef = doc(db, 'jobs', match.jobId)
+        const jobSnapshot = await getDoc(jobDocRef)
+        
+        if (jobSnapshot.exists()) {
+          const currentFlags = jobSnapshot.data().flags || {}
+          await updateDoc(jobDocRef, {
+            flags: {
+              ...currentFlags,
+              provenTrack: true
+            },
+            updatedAt: new Date()
+          })
+          if (DEBUG) console.log('✅ 求人に「実績あり」フラグを設定しました')
+        }
+      } catch (jobError) {
+        console.error('⚠️ 求人フラグの更新に失敗しました:', jobError)
+        // 求人フラグの更新失敗はエラーにせず警告のみ
+      }
     }
 
     // Slack通知を送信（非同期で実行、エラーは無視）

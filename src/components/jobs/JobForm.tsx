@@ -678,6 +678,58 @@ export default function JobForm({
               </SelectContent>
             </Select>
           </div>
+          
+          {/* フラグ設定 */}
+          <div>
+            <Label>求人フラグ</Label>
+            <div className="space-y-2 mt-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="flag-highDemand"
+                  checked={formData.flags?.highDemand || false}
+                  onChange={(e) => handleChange('flags', {
+                    ...formData.flags,
+                    highDemand: e.target.checked
+                  })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="flag-highDemand" className="cursor-pointer font-normal">
+                  🔥ニーズ高
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="flag-provenTrack"
+                  checked={formData.flags?.provenTrack || false}
+                  onChange={(e) => handleChange('flags', {
+                    ...formData.flags,
+                    provenTrack: e.target.checked
+                  })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="flag-provenTrack" className="cursor-pointer font-normal">
+                  🎉実績あり
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="flag-weakRelationship"
+                  checked={formData.flags?.weakRelationship || false}
+                  onChange={(e) => handleChange('flags', {
+                    ...formData.flags,
+                    weakRelationship: e.target.checked
+                  })}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="flag-weakRelationship" className="cursor-pointer font-normal">
+                  💧関係薄め
+                </Label>
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <Label htmlFor="companyId">
