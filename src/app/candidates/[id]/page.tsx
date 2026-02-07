@@ -828,12 +828,27 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
         // 店舗名を取得
         let storeNames = ''
+        let priceInfo = ''
         if (job.storeIds && job.storeIds.length > 0) {
           const jobStores = stores.filter(s => job.storeIds?.includes(s.id))
           storeNames = jobStores.map(s => s.name).join('、')
+          
+          // 複数店舗の場合は、最初の店舗の客単価を表示
+          if (jobStores.length > 0 && (jobStores[0].unitPriceLunch || jobStores[0].unitPriceDinner)) {
+            const lunch = jobStores[0].unitPriceLunch ? `昼: ¥${jobStores[0].unitPriceLunch.toLocaleString()}` : ''
+            const dinner = jobStores[0].unitPriceDinner ? `夜: ¥${jobStores[0].unitPriceDinner.toLocaleString()}` : ''
+            priceInfo = [lunch, dinner].filter(p => p).join(' / ')
+          }
         } else if (job.storeId) {
           const store = stores.find(s => s.id === job.storeId)
           storeNames = store?.name || ''
+          
+          // 客単価情報を取得
+          if (store && (store.unitPriceLunch || store.unitPriceDinner)) {
+            const lunch = store.unitPriceLunch ? `昼: ¥${store.unitPriceLunch.toLocaleString()}` : ''
+            const dinner = store.unitPriceDinner ? `夜: ¥${store.unitPriceDinner.toLocaleString()}` : ''
+            priceInfo = [lunch, dinner].filter(p => p).join(' / ')
+          }
         }
 
         // おすすめポイントを取得
@@ -844,6 +859,9 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
 
         // 求人情報のテキストを作成
         let jobInfo = `【店舗名】${storeNames}`
+        if (priceInfo) {
+          jobInfo += `\n【客単価】${priceInfo}`
+        }
         if (recommendedPoints.trim()) {
           jobInfo += `\n【おすすめポイント】\n${recommendedPoints}`
         }
