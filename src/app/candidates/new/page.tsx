@@ -17,6 +17,10 @@ export default function NewCandidatePage() {
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [formData, setFormData] = useState<CandidateFormData>({
+    // 出自管理
+    sourceType: 'inshokujin_univ',
+    sourceDetail: '',
+    
     // 基本情報（必須）
     status: 'active',
     lastName: '',
@@ -90,9 +94,15 @@ export default function NewCandidatePage() {
 
       // undefinedや空文字列のフィールドを除外してデータを準備
       const candidateData: any = {
+        sourceType: formData.sourceType,
         status: formData.status,
         lastName: formData.lastName,
         firstName: formData.firstName
+      }
+
+      // sourceDetailは任意フィールド
+      if (formData.sourceDetail && formData.sourceDetail.trim()) {
+        candidateData.sourceDetail = formData.sourceDetail
       }
 
       // 任意フィールドは値がある場合のみ含める

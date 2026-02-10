@@ -3,6 +3,10 @@
 export interface Job {
   id: string
   
+  // 公開範囲管理
+  visibilityType: 'all' | 'school_only' | 'specific_sources'  // 公開範囲（必須）
+  allowedSources?: string[]               // 表示を許可するsourceType（visibilityType='specific_sources'の場合に使用）
+  
   // 関連ID
   companyId: string                       // 企業ID
   storeIds?: string[]                     // 店舗ID配列（任意・複数店舗対応）
@@ -99,6 +103,12 @@ export const jobStatusLabels = {
   'active': '募集中',
   'closed': '募集終了'
 }
+
+export const visibilityTypeLabels = {
+  'all': '全体公開',
+  'school_only': '学校限定',
+  'specific_sources': '指定ソース'
+} as const
 
 export const employmentTypeLabels = {
   'full-time': '正社員',

@@ -8,10 +8,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Save, RefreshCw } from 'lucide-react'
-import { Candidate } from '@/types/candidate'
+import { Candidate, sourceTypeLabels } from '@/types/candidate'
 import { User } from '@/types/user'
 
 interface CandidateFormData {
+  // 出自管理
+  sourceType: 'inshokujin_univ' | 'mid_career' | 'referral' | 'overseas'
+  sourceDetail?: string
+  
   // 基本情報（必須）
   status: 'active' | 'inactive' | 'hired'
   lastName: string
@@ -102,6 +106,38 @@ export default function CandidateForm({
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="sourceType">
+              求職者区分 <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.sourceType}
+              onValueChange={(value) => handleInputChange('sourceType', value)}
+              disabled={loading}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inshokujin_univ">飲食人大学</SelectItem>
+                <SelectItem value="mid_career">中途人材</SelectItem>
+                <SelectItem value="referral">紹介・リファラル</SelectItem>
+                <SelectItem value="overseas">海外人材</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="sourceDetail">
+              詳細（学校名・紹介元など）
+            </Label>
+            <Input
+              id="sourceDetail"
+              value={formData.sourceDetail || ''}
+              onChange={(e) => handleInputChange('sourceDetail', e.target.value)}
+              disabled={loading}
+              placeholder="例: 東京校 2024年入学、紹介会社名、等"
+            />
+          </div>
           <div>
             <Label htmlFor="status">
               ステータス <span className="text-red-500">*</span>
@@ -226,35 +262,39 @@ export default function CandidateForm({
                 disabled={loading}
               />
             </div>
-            <div>
-              <Label htmlFor="enrollmentDate">入学年月</Label>
-              <Input
-                id="enrollmentDate"
-                type="month"
-                value={formData.enrollmentDate}
-                onChange={(e) => handleInputChange('enrollmentDate', e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <Label htmlFor="campus">入学校舎</Label>
-              <Select
-                value={formData.campus}
-                onValueChange={(value) => handleInputChange('campus', value)}
-                disabled={loading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="校舎を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tokyo">東京校</SelectItem>
-                  <SelectItem value="osaka">大阪校</SelectItem>
-                  <SelectItem value="awaji">淡路校</SelectItem>
-                  <SelectItem value="fukuoka">福岡校</SelectItem>
-                  <SelectItem value="taiwan">台湾校</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {formData.sourceType === 'inshokujin_univ' && (
+              <>
+                <div>
+                  <Label htmlFor="enrollmentDate">入学年月</Label>
+                  <Input
+                    id="enrollmentDate"
+                    type="month"
+                    value={formData.enrollmentDate}
+                    onChange={(e) => handleInputChange('enrollmentDate', e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="campus">入学校舎</Label>
+                  <Select
+                    value={formData.campus}
+                    onValueChange={(value) => handleInputChange('campus', value)}
+                    disabled={loading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="校舎を選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tokyo">東京校</SelectItem>
+                      <SelectItem value="osaka">大阪校</SelectItem>
+                      <SelectItem value="awaji">淡路校</SelectItem>
+                      <SelectItem value="fukuoka">福岡校</SelectItem>
+                      <SelectItem value="taiwan">台湾校</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -351,16 +391,18 @@ export default function CandidateForm({
             />
           </div>
 
-          <div>
-            <Label htmlFor="partTimeHope">在校中のアルバイト希望</Label>
-            <Textarea
-              id="partTimeHope"
-              value={formData.partTimeHope}
-              onChange={(e) => handleInputChange('partTimeHope', e.target.value)}
-              disabled={loading}
-              rows={2}
-            />
-          </div>
+          {formData.sourceType === 'inshokujin_univ' && (
+            <div>
+              <Label htmlFor="partTimeHope">在校中のアルバイト希望</Label>
+              <Textarea
+                id="partTimeHope"
+                value={formData.partTimeHope}
+                onChange={(e) => handleInputChange('partTimeHope', e.target.value)}
+                disabled={loading}
+                rows={2}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -371,16 +413,18 @@ export default function CandidateForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="applicationFormUrl">願書URL</Label>
-              <Input
-                id="applicationFormUrl"
-                type="url"
-                value={formData.applicationFormUrl}
-                onChange={(e) => handleInputChange('applicationFormUrl', e.target.value)}
-                disabled={loading}
-              />
-            </div>
+            {formData.sourceType === 'inshokujin_univ' && (
+              <div>
+                <Label htmlFor="applicationFormUrl">願書URL</Label>
+                <Input
+                  id="applicationFormUrl"
+                  type="url"
+                  value={formData.applicationFormUrl}
+                  onChange={(e) => handleInputChange('applicationFormUrl', e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="resumeUrl">履歴書URL</Label>
               <Input

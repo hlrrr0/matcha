@@ -50,6 +50,8 @@ function NewJobPageContent() {
         companyId: data.companyId,
         storeIds: data.storeIds,
         storeId: data.storeId,
+        visibilityType: data.visibilityType || 'all',
+        allowedSources: data.allowedSources,
         title: data.title,
         businessType: data.businessType,
         employmentType: data.employmentType,

@@ -37,7 +37,7 @@ import {
   ArrowDown,
   Briefcase
 } from 'lucide-react'
-import { Candidate, candidateStatusLabels, campusLabels } from '@/types/candidate'
+import { Candidate, candidateStatusLabels, campusLabels, sourceTypeLabels } from '@/types/candidate'
 import { getCandidates, getCandidateStats } from '@/lib/firestore/candidates'
 import { getMatchesByCandidate } from '@/lib/firestore/matches'
 import { getUsers } from '@/lib/firestore/users'
@@ -154,8 +154,15 @@ export default function CandidatesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('active') // デフォルトを「アクティブ」に設定
   const [campusFilter, setCampusFilter] = useState<string>('all')
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all')  // 追加
   const [enrollmentMonthFilter, setEnrollmentMonthFilter] = useState<string>('all')
   const [uniqueEnrollmentMonths, setUniqueEnrollmentMonths] = useState<string[]>([])
+
+  // 求職者区分ごとの件数を計算
+  const getSourceTypeCount = (sourceType: string) => {
+    if (sourceType === 'all') return candidates.length
+    return candidates.filter(c => c.sourceType === sourceType).length
+  }
 
   // ソート状態（デフォルト: 進捗更新日降順）
   const [sortBy, setSortBy] = useState<'name' | 'campus' | 'enrollmentDate' | 'status' | 'createdAt' | 'updatedAt'>('updatedAt')
@@ -180,11 +187,13 @@ export default function CandidatesPage() {
     const s = params.get('search') || ''
     const st = params.get('status') || 'active' // デフォルトを「active」に
     const cp = params.get('campus') || 'all'
+    const src = params.get('sourceType') || 'all'  // 追加
     const en = params.get('enrollment') || 'all'
 
     setSearchTerm(s)
     setStatusFilter(st)
     setCampusFilter(cp)
+    setSourceTypeFilter(src)  // 追加
     setEnrollmentMonthFilter(en)
   }, [])
 
@@ -197,7 +206,7 @@ export default function CandidatesPage() {
     updateURLParams()
     // フィルター変更時は1ページ目に戻す
     setCurrentPage(1)
-  }, [candidatesWithProgress, searchTerm, statusFilter, campusFilter, enrollmentMonthFilter, sortBy, sortOrder])
+  }, [candidatesWithProgress, searchTerm, statusFilter, campusFilter, sourceTypeFilter, enrollmentMonthFilter, sortBy, sortOrder])
 
   // ページ変更時のみフィルター再適用
   useEffect(() => {
@@ -223,6 +232,7 @@ export default function CandidatesPage() {
     if (searchTerm) params.set('search', searchTerm)
     if (statusFilter !== 'all') params.set('status', statusFilter)
     if (campusFilter !== 'all') params.set('campus', campusFilter)
+    if (sourceTypeFilter !== 'all') params.set('sourceType', sourceTypeFilter)
     if (enrollmentMonthFilter !== 'all') params.set('enrollment', enrollmentMonthFilter)
     
     const queryString = params.toString()
@@ -411,6 +421,11 @@ export default function CandidatesPage() {
     // ステータスフィルタ
     if (statusFilter !== 'all') {
       filtered = filtered.filter(candidate => candidate.status === statusFilter)
+    }
+
+    // 求職者区分フィルタ（追加）
+    if (sourceTypeFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.sourceType === sourceTypeFilter)
     }
 
     // 校舎フィルタ
@@ -783,6 +798,85 @@ export default function CandidatesPage() {
         </div>
       )}
 
+      {/* 求職者区分フィルタタブ */}
+      <div className="mb-4 flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => {
+            setSourceTypeFilter('all')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'all')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'all'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          すべて ({getSourceTypeCount('all')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('inshokujin_univ')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'inshokujin_univ')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'inshokujin_univ'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          🎓 飲食人大学 ({getSourceTypeCount('inshokujin_univ')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('mid_career')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'mid_career')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'mid_career'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          中途人材 ({getSourceTypeCount('mid_career')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('referral')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'referral')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'referral'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          紹介・リファラル ({getSourceTypeCount('referral')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('overseas')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'overseas')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'overseas'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          海外人材 ({getSourceTypeCount('overseas')})
+        </button>
+      </div>
+
       {/* 検索・フィルタ */}
       <Card className="mb-6">
         <CardHeader>
@@ -919,6 +1013,7 @@ export default function CandidatesPage() {
                     </Button>
                   </div>
                 </TableHead>
+                <TableHead>求職者区分</TableHead>
                 <TableHead>担当者</TableHead>
                 <TableHead>
                   <Button
@@ -987,6 +1082,19 @@ export default function CandidatesPage() {
                         <div className="text-sm text-gray-500">校舎未登録</div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs font-medium"
+                    >
+                      {sourceTypeLabels[candidate.sourceType]}
+                    </Badge>
+                    {candidate.sourceDetail && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {candidate.sourceDetail}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">

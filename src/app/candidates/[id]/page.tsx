@@ -45,7 +45,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Candidate, campusLabels } from '@/types/candidate'
+import { Candidate, campusLabels, sourceTypeLabels } from '@/types/candidate'
 import { Match } from '@/types/matching'
 import { getMatchesByCandidate, createMatch, updateMatchStatus } from '@/lib/firestore/matches'
 import { getJob, getJobs } from '@/lib/firestore/jobs'
@@ -888,23 +888,40 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       return
     }
 
-    if (!candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName) {
-      toast.error('フォルダー作成に必要な情報が不足しています（入社年月、入学校舎、姓、名）')
-      return
+    // 飲食人大学の場合は既存のロジック
+    if (candidate.sourceType === 'inshokujin_univ') {
+      if (!candidate.enrollmentDate || !candidate.campus || !candidate.lastName || !candidate.firstName) {
+        toast.error('フォルダー作成に必要な情報が不足しています（入社年月、入学校舎、姓、名）')
+        return
+      }
+    } else {
+      // その他の区分は姓名のみ必須
+      if (!candidate.lastName || !candidate.firstName) {
+        toast.error('フォルダー作成に必要な情報が不足しています（姓、名）')
+        return
+      }
     }
 
     setCreatingFolder(true)
     try {
-      // フォルダー名を生成
-      const folderName = generateCandidateFolderName(
-        candidate.enrollmentDate,
-        candidate.campus,
-        candidate.lastName,
-        candidate.firstName
-      )
+      let folderUrl: string | null = null
 
-      // Google Driveにフォルダーを作成
-      const folderUrl = await createGoogleDriveFolder(folderName)
+      if (candidate.sourceType === 'inshokujin_univ') {
+        // 飲食人大学：既存のフォルダー名生成ロジックを使用
+        const folderName = generateCandidateFolderName(
+          candidate.enrollmentDate!,
+          candidate.campus!,
+          candidate.lastName,
+          candidate.firstName
+        )
+        folderUrl = await createGoogleDriveFolder(folderName)
+      } else {
+        // その他の区分：区分名フォルダー内に作成
+        const sourceTypeName = sourceTypeLabels[candidate.sourceType || 'mid_career']
+        const candidateFolderName = `${candidate.lastName}${candidate.firstName}`
+        const fullFolderPath = `${sourceTypeName}/${candidateFolderName}`
+        folderUrl = await createGoogleDriveFolder(fullFolderPath)
+      }
       
       if (!folderUrl) {
         throw new Error('フォルダーの作成に失敗しました')
@@ -926,7 +943,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       toast.success('フォルダーを作成しました', {
         action: {
           label: '開く',
-          onClick: () => window.open(folderUrl, '_blank')
+          onClick: () => window.open(folderUrl!, '_blank')
         }
       })
     } catch (error) {
@@ -1441,6 +1458,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
+                  <label className="text-sm font-medium text-gray-500">求職者区分</label>
+                  <div className="mt-1">
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-medium">
+                      {sourceTypeLabels[candidate.sourceType || 'inshokujin_univ']}
+                    </Badge>
+                    {candidate.sourceDetail && (
+                      <span className="ml-2 text-sm text-gray-600">({candidate.sourceDetail})</span>
+                    )}
+                  </div>
+                </div>
+                <div>
                   <label className="text-sm font-medium text-gray-500">氏名</label>
                   <p className="text-lg">{candidate.lastName}　{candidate.firstName}<br></br>（{candidate.lastNameKana} {candidate.firstNameKana}）</p>
                 </div>
@@ -1523,7 +1551,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                             size="sm"
                             variant="outline"
                             onClick={handleCreateFolder}
-                            disabled={creatingFolder || !candidate.enrollmentDate || !candidate.campus}
+                            disabled={creatingFolder || !candidate.lastName || !candidate.firstName || (candidate.sourceType === 'inshokujin_univ' && (!candidate.enrollmentDate || !candidate.campus))}
                             className="ml-2 text-orange-600 border-orange-300 hover:bg-orange-50"
                           >
                             <FolderPlus className="h-4 w-4 mr-1.5" />
@@ -1532,9 +1560,14 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                         </>
                       )}
                     </div>
-                    {!candidate.resumeUrl && (!candidate.enrollmentDate || !candidate.campus) && (
+                    {!candidate.resumeUrl && !candidate.lastName && (
                       <p className="text-xs text-red-600 mt-1">
-                        ⚠ フォルダー作成には、入社年月・入学校舎が必要です
+                        ⚠ フォルダー作成には、姓名が必要です
+                      </p>
+                    )}
+                    {!candidate.resumeUrl && candidate.sourceType === 'inshokujin_univ' && (!candidate.enrollmentDate || !candidate.campus) && (
+                      <p className="text-xs text-red-600 mt-1">
+                        ⚠ 飲食人大学のフォルダー作成には、入学年月・入学校舎が必要です
                       </p>
                     )}
                   </div>

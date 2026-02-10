@@ -77,6 +77,8 @@ const candidateFromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): Candi
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || Date.now()),
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt || Date.now()),
       // 必須フィールドのデフォルト値を確保
+      sourceType: data.sourceType || 'inshokujin_univ',  // 既存データは飲食人大学として扱う
+      sourceDetail: data.sourceDetail,
       firstName: data.firstName || '',
       lastName: data.lastName || '',
       firstNameKana: data.firstNameKana || '',
@@ -96,6 +98,7 @@ const candidateFromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): Candi
     // エラーでも基本的な構造を返す
     return {
       id: doc.id,
+      sourceType: 'inshokujin_univ' as const,
       firstName: 'データエラー',
       lastName: '',
       firstNameKana: '',

@@ -28,6 +28,8 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
   const [candidateId, setCandidateId] = useState<string>('')
   const [users, setUsers] = useState<User[]>([])
   const [formData, setFormData] = useState<CandidateFormData>({
+    sourceType: 'inshokujin_univ',
+    sourceDetail: '',
     status: 'active',
     lastName: '',
     firstName: '',
@@ -121,6 +123,8 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
           }
           
           setFormData({
+            sourceType: candidateData.sourceType || 'inshokujin_univ',
+            sourceDetail: candidateData.sourceDetail || '',
             status: candidateData.status || 'active',
             lastName: candidateData.lastName || '',
             firstName: candidateData.firstName || '',
@@ -184,10 +188,16 @@ export default function EditCandidatePage({ params }: EditCandidatePageProps) {
 
       // undefinedや空文字列のフィールドを除外してデータを準備
       const updateData: any = {
+        sourceType: formData.sourceType,
         status: formData.status,
         lastName: formData.lastName,
         firstName: formData.firstName,
         updatedAt: new Date()
+      }
+
+      // sourceDetailは任意フィールド
+      if (formData.sourceDetail && formData.sourceDetail.trim()) {
+        updateData.sourceDetail = formData.sourceDetail
       }
 
       // 任意フィールドは値がある場合のみ含める

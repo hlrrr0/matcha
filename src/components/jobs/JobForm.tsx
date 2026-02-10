@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Save, Loader2, Copy, Check, Search, Sparkles } from 'lucide-react'
-import { Job } from '@/types/job'
+import { Job, visibilityTypeLabels } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
+import { sourceTypeLabels } from '@/types/candidate'
 import { authenticatedPost } from '@/lib/api-client'
 
 interface JobFormProps {
@@ -39,6 +40,8 @@ export default function JobForm({
   const [formData, setFormData] = useState<Partial<Job>>({
     companyId: '',
     storeIds: [],
+    visibilityType: 'all',  // 追加
+    allowedSources: [],     // 追加
     title: '',
     businessType: '',
     employmentType: '',
@@ -71,6 +74,8 @@ export default function JobForm({
       setFormData({
         companyId: initialData.companyId || '',
         storeIds: storeIds,
+        visibilityType: initialData.visibilityType || 'all',
+        allowedSources: initialData.allowedSources || [],
         title: initialData.title || '',
         businessType: initialData.businessType || '',
         employmentType: initialData.employmentType || '',
@@ -678,6 +683,55 @@ export default function JobForm({
               </SelectContent>
             </Select>
           </div>
+          
+          {/* 公開範囲設定 */}
+          <div>
+            <Label htmlFor="visibilityType">
+              公開範囲 <span className="text-red-500">*</span>
+            </Label>
+            <Select 
+              value={formData.visibilityType || 'all'} 
+              onValueChange={(value) => handleChange('visibilityType', value as Job['visibilityType'])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全体公開</SelectItem>
+                <SelectItem value="school_only">🎓 飲食人大学限定</SelectItem>
+                <SelectItem value="specific_sources">指定ソース</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 指定ソースの詳細設定 */}
+          {formData.visibilityType === 'specific_sources' && (
+            <div className="bg-blue-50 p-4 rounded-md space-y-3">
+              <Label>表示対象を選択</Label>
+              <div className="space-y-2">
+                {Object.entries(sourceTypeLabels).map(([key, label]) => (
+                  <div key={key} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`source-${key}`}
+                      checked={formData.allowedSources?.includes(key) || false}
+                      onChange={(e) => {
+                        const currentSources = formData.allowedSources || []
+                        const newSources = e.target.checked
+                          ? [...currentSources, key]
+                          : currentSources.filter(s => s !== key)
+                        handleChange('allowedSources', newSources)
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor={`source-${key}`} className="cursor-pointer font-normal">
+                      {label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* フラグ設定 */}
           <div>

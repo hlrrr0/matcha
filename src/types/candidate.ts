@@ -3,6 +3,10 @@
 export interface Candidate {
   id: string
   
+  // 出自管理（求職者の出どころ）
+  sourceType: 'inshokujin_univ' | 'mid_career' | 'referral' | 'overseas'  // 求職者区分（必須）
+  sourceDetail?: string                                       // 詳細（学校名・紹介元など）（任意）
+  
   // 基本情報
   status: 'active' | 'inactive' | 'hired'  // ステータス（必須）
   lastName: string                                            // 名前（姓）（必須）
@@ -50,6 +54,13 @@ export const candidateStatusLabels = {
   inactive: '非アクティブ',
   hired: '就職決定'
 }
+
+export const sourceTypeLabels = {
+  inshokujin_univ: '飲食人大学',
+  mid_career: '中途人材',
+  referral: '紹介・リファラル',
+  overseas: '海外人材'
+} as const
 
 export const campusLabels = {
   tokyo: '東京校',

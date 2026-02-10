@@ -60,7 +60,7 @@ import {
   Check,
   ChevronsUpDown
 } from 'lucide-react'
-import { Job, jobStatusLabels } from '@/types/job'
+import { Job, jobStatusLabels, visibilityTypeLabels } from '@/types/job'
 import { getJobs, deleteJob, updateJob } from '@/lib/firestore/jobs'
 import { getCompanies } from '@/lib/firestore/companies'
 import { getStores } from '@/lib/firestore/stores'
@@ -68,6 +68,7 @@ import { getUsers } from '@/lib/firestore/users'
 import { Company } from '@/types/company'
 import { Store as StoreType } from '@/types/store'
 import { User } from '@/types/user'
+import { sourceTypeLabels } from '@/types/candidate'
 import { importJobsFromCSV, generateJobsCSVTemplate } from '@/lib/csv/jobs'
 import { toast } from 'sonner'
 import { JobMapView } from '@/components/maps/JobMapView'
@@ -132,6 +133,7 @@ function JobsPageContent() {
   })
   const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
   const [ageLimitFilter, setAgeLimitFilter] = useState<string>(searchParams.get('ageLimit') || 'all')
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>(searchParams.get('sourceType') || 'all')
   
   // 店舗条件フィルター
   const [unitPriceLunchMin, setUnitPriceLunchMin] = useState<string>('')
@@ -483,6 +485,22 @@ function JobsPageContent() {
     router.push(`/jobs?${newParams.toString()}`)
   }
 
+  // 求職者区分ごとの求人件数を計算（デバッグ用）
+  const getSourceTypeCount = (sourceType: string) => {
+    if (sourceType === 'all') return jobs.length
+    
+    return jobs.filter(job => {
+      const visibility = job.visibilityType || 'all'
+      
+      if (visibility === 'all') return true
+      if (visibility === 'school_only') return sourceType === 'inshokujin_univ'
+      if (visibility === 'specific_sources') {
+        return job.allowedSources ? job.allowedSources.includes(sourceType) : false
+      }
+      return false
+    }).length
+  }
+
   // フィルタリングとソートされた求人リストをuseMemoで計算
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
@@ -509,6 +527,23 @@ function JobsPageContent() {
                            (store?.nearestStation && store.nearestStation.toLowerCase().includes(searchTerm.toLowerCase()))
       
       const matchesStatus = statusFilter === 'all' || job.status === statusFilter
+      
+      // 求職者区分フィルター
+      let matchesSourceType = true
+      if (sourceTypeFilter !== 'all') {
+        // visibilityTypeが未設定の場合はデフォルトで'all'として扱う
+        const visibility = job.visibilityType || 'all'
+        
+        if (visibility === 'all') {
+          matchesSourceType = true // 全体公開は常に表示
+        } else if (visibility === 'school_only') {
+          matchesSourceType = sourceTypeFilter === 'inshokujin_univ'
+        } else if (visibility === 'specific_sources') {
+          matchesSourceType = job.allowedSources ? job.allowedSources.includes(sourceTypeFilter) : false
+        } else {
+          matchesSourceType = false
+        }
+      }
       
       // 雇用形態フィルター: 求人の雇用形態（カンマ区切り）のいずれかが、選択されたフィルターに含まれているかチェック
       const matchesEmploymentType = employmentTypeFilter.size === 0 || (() => {
@@ -613,7 +648,7 @@ function JobsPageContent() {
         matchesFlag = Array.from(flagFilter).some(flag => job.flags?.[flag] === true)
       }
 
-      return matchesSearch && matchesStatus && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions && matchesTabelogException && matchesTag && matchesFlag
+      return matchesSearch && matchesStatus && matchesSourceType && matchesEmploymentType && matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions && matchesTabelogException && matchesTag && matchesFlag
     }).sort((a, b) => {
       let aValue: any
       let bValue: any
@@ -846,6 +881,90 @@ function JobsPageContent() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 求職者区分フィルタタブ */}
+      <div className="mb-4 flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => {
+            setSourceTypeFilter('all')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'all')
+            params.set('page', '1')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'all'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          すべて ({getSourceTypeCount('all')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('inshokujin_univ')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'inshokujin_univ')
+            params.set('page', '1')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'inshokujin_univ'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          🎓 飲食人大学 ({getSourceTypeCount('inshokujin_univ')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('mid_career')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'mid_career')
+            params.set('page', '1')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'mid_career'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          中途人材 ({getSourceTypeCount('mid_career')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('referral')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'referral')
+            params.set('page', '1')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'referral'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          紹介・リファラル ({getSourceTypeCount('referral')})
+        </button>
+        <button
+          onClick={() => {
+            setSourceTypeFilter('overseas')
+            const params = new URLSearchParams(window.location.search)
+            params.set('sourceType', 'overseas')
+            params.set('page', '1')
+            router.push(`?${params.toString()}`)
+          }}
+          className={`px-6 py-3 font-medium transition-colors ${
+            sourceTypeFilter === 'overseas'
+              ? 'border-b-2 border-blue-500 text-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          海外人材 ({getSourceTypeCount('overseas')})
+        </button>
       </div>
 
       {/* 表示モード切り替えタブ */}
@@ -1501,6 +1620,7 @@ function JobsPageContent() {
                   </TableHead>
                   <TableHead>住所</TableHead>
                   <TableHead>入力率</TableHead>
+                  <TableHead>公開範囲</TableHead>
                   <TableHead>担当者</TableHead>
                   <TableHead>契約状況</TableHead>
                   <TableHead>雇用形態</TableHead>
@@ -1599,6 +1719,33 @@ function JobsPageContent() {
                               </span>
                             </div>
                           )
+                        })()}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          if (job.visibilityType === 'all') {
+                            return <Badge variant="outline" className="text-xs">全体公開</Badge>
+                          }
+                          if (job.visibilityType === 'school_only') {
+                            return <Badge variant="secondary" className="text-xs">🎓 学校限定</Badge>
+                          }
+                          if (job.visibilityType === 'specific_sources') {
+                            const sources = job.allowedSources || []
+                            if (sources.length === 0) {
+                              return <Badge variant="outline" className="text-xs text-gray-400">指定ソース（未設定）</Badge>
+                            }
+                            const labels = sources.map(s => sourceTypeLabels[s as keyof typeof sourceTypeLabels]).filter(Boolean)
+                            return (
+                              <div className="flex flex-col gap-1">
+                                {labels.map((label, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {label}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )
+                          }
+                          return <Badge variant="outline" className="text-xs text-gray-400">不明</Badge>
                         })()}
                       </TableCell>
                       <TableCell>
