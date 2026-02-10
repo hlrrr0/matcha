@@ -791,8 +791,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       // おすすめポイントを取得
       const recommendedPoints = job.recommendedPoints || ''
 
-      // 公開URL
-      const publicUrl = `${window.location.origin}/public/jobs/${jobId}`
+      // 公開URL（求職者の区分に応じて変更）
+      // sourceTypeがundefinedの場合はデフォルトで飲食人大学として扱う
+      const candidateSourceType = candidate?.sourceType || 'inshokujin_univ'
+      console.log('候補者の区分:', candidateSourceType)
+      const urlPath = candidateSourceType === 'inshokujin_univ' 
+        ? '/public/jobs' 
+        : '/public/sushicareer/jobs'
+      console.log('選択されたURLパス:', urlPath)
+      const publicUrl = `${window.location.origin}${urlPath}/${jobId}`
 
       // コピー用のテキストを作成（おすすめポイントがある場合のみ表示）
       let copyText = `【店舗名】${storeNames}`
@@ -854,8 +861,15 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         // おすすめポイントを取得
         const recommendedPoints = job.recommendedPoints || ''
 
-        // 公開URL
-        const publicUrl = `${window.location.origin}/public/jobs/${match.jobId}`
+        // 公開URL（求職者の区分に応じて変更）
+        // sourceTypeがundefinedの場合はデフォルトで飲食人大学として扱う
+        const candidateSourceType = candidate?.sourceType || 'inshokujin_univ'
+        console.log('候補者の区分 (copySuggestedJobs):', candidateSourceType)
+        const urlPath = candidateSourceType === 'inshokujin_univ' 
+          ? '/public/jobs' 
+          : '/public/sushicareer/jobs'
+        console.log('選択されたURLパス (copySuggestedJobs):', urlPath)
+        const publicUrl = `${window.location.origin}${urlPath}/${match.jobId}`
 
         // 求人情報のテキストを作成
         let jobInfo = `【店舗名】${storeNames}`
