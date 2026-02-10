@@ -81,6 +81,7 @@ export default function CandidateSurveyPage() {
       }
 
       const candidateData = {
+        sourceType: 'inshokujin_univ' as const, // アンケートからの登録は飲食人大学
         status: 'active' as const,
         lastName: formData.lastName,
         firstName: formData.firstName,
