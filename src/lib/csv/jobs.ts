@@ -117,6 +117,8 @@ export const importJobsFromCSV = async (csvText: string): Promise<ImportResult> 
           title: rowData.title.trim(),
           companyId: rowData.companyId.trim(),
           status: (normalizedStatus as 'draft' | 'active' | 'closed') || 'draft',
+          // 公開設定（デフォルト: すべて公開）
+          visibilityType: 'all',
           // オプションフィールド
           storeId: rowData.storeId?.trim(),
           businessType: rowData.businessType?.trim(),
