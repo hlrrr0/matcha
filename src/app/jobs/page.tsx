@@ -1724,22 +1724,35 @@ function JobsPageContent() {
                       <TableCell>
                         {(() => {
                           if (job.visibilityType === 'all') {
-                            return <Badge variant="outline" className="text-xs">全体公開</Badge>
+                            return <Badge variant="outline" className="text-xs bg-green-100 text-green-800 border-green-200">全体公開</Badge>
                           }
                           if (job.visibilityType === 'school_only') {
-                            return <Badge variant="secondary" className="text-xs">🎓 学校限定</Badge>
+                            return <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-200">🎓 学校限定</Badge>
                           }
                           if (job.visibilityType === 'specific_sources') {
                             const sources = job.allowedSources || []
                             if (sources.length === 0) {
                               return <Badge variant="outline" className="text-xs text-gray-400">指定ソース（未設定）</Badge>
                             }
-                            const labels = sources.map(s => sourceTypeLabels[s as keyof typeof sourceTypeLabels]).filter(Boolean)
+                            const labels = sources.map(s => ({
+                              label: sourceTypeLabels[s as keyof typeof sourceTypeLabels],
+                              type: s
+                            })).filter(item => item.label)
                             return (
                               <div className="flex flex-col gap-1">
-                                {labels.map((label, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {label}
+                                {labels.map((item, i) => (
+                                  <Badge 
+                                    key={i} 
+                                    variant="outline" 
+                                    className={`text-xs ${
+                                      item.type === 'inshokujin_univ' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                      item.type === 'mid_career' ? 'bg-green-100 text-green-800 border-green-200' :
+                                      item.type === 'referral' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                      item.type === 'overseas' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                      ''
+                                    }`}
+                                  >
+                                    {item.label}
                                   </Badge>
                                 ))}
                               </div>

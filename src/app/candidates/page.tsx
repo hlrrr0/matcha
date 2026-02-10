@@ -1086,7 +1086,13 @@ export default function CandidatesPage() {
                   <TableCell>
                     <Badge 
                       variant="outline" 
-                      className="text-xs font-medium"
+                      className={`text-xs font-medium ${
+                        candidate.sourceType === 'inshokujin_univ' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                        candidate.sourceType === 'mid_career' ? 'bg-green-100 text-green-800 border-green-200' :
+                        candidate.sourceType === 'referral' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                        candidate.sourceType === 'overseas' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                        ''
+                      }`}
                     >
                       {sourceTypeLabels[candidate.sourceType]}
                     </Badge>

@@ -47,7 +47,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate, campusLabels, sourceTypeLabels } from '@/types/candidate'
 import { Match } from '@/types/matching'
-import { getMatchesByCandidate, createMatch, updateMatchStatus } from '@/lib/firestore/matches'
+import { getMatchesByCandidate, createMatch, updateMatchStatus, deleteMatch } from '@/lib/firestore/matches'
 import { getJob, getJobs } from '@/lib/firestore/jobs'
 import { getCompany, getCompanies } from '@/lib/firestore/companies'
 import { getStoreById, getStores } from '@/lib/firestore/stores'
@@ -186,6 +186,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [selectedMatch, setSelectedMatch] = useState<MatchWithDetails | null>(null)
   // Slack送信用の状態
   const [sendingSlack, setSendingSlack] = useState(false)
+  // 削除用の状態
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [matchToDelete, setMatchToDelete] = useState<MatchWithDetails | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -704,6 +708,38 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     } finally {
       setBulkWithdrawing(false)
     }
+  }
+
+  // 進捗削除のハンドラー（提案済みのみ削除可能）
+  const handleDeleteMatch = async () => {
+    if (!matchToDelete) return
+
+    // 提案済みステータスのみ削除可能
+    if (matchToDelete.status !== 'suggested') {
+      toast.error('提案済みのステータスのみ削除できます')
+      setDeleteDialogOpen(false)
+      setMatchToDelete(null)
+      return
+    }
+
+    setDeleting(true)
+    try {
+      await deleteMatch(matchToDelete.id)
+      toast.success('進捗を削除しました')
+      await loadMatches()
+      setDeleteDialogOpen(false)
+      setMatchToDelete(null)
+    } catch (error) {
+      console.error('進捗削除エラー:', error)
+      toast.error('進捗の削除に失敗しました')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleOpenDeleteDialog = (match: MatchWithDetails) => {
+    setMatchToDelete(match)
+    setDeleteDialogOpen(true)
   }
 
   const getFilteredJobs = () => {
@@ -1436,6 +1472,18 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
                                   詳細
                                 </Link>
                               </Button>
+                              {/* 提案済みステータスの場合のみ削除ボタンを表示 */}
+                              {match.status === 'suggested' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenDeleteDialog(match)}
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  削除
+                                </Button>
+                              )}
                             </>
                           )}
                         </div>
@@ -1888,6 +1936,75 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               className="bg-orange-600 hover:bg-orange-700"
             >
               決定（{newMatchData.jobIds.length}件）
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 削除確認ダイアログ */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              進捗を削除
+            </DialogTitle>
+            <DialogDescription>
+              この進捗を完全に削除します。この操作は取り消せません。
+            </DialogDescription>
+          </DialogHeader>
+          
+          {matchToDelete && (
+            <div className="space-y-3 py-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">削除対象:</p>
+                <p className="font-medium">{matchToDelete.jobTitle}</p>
+                <p className="text-sm text-gray-600">{matchToDelete.companyName}</p>
+                <div className="mt-2">
+                  <Badge className={statusColors[matchToDelete.status]}>
+                    {statusLabels[matchToDelete.status]}
+                  </Badge>
+                </div>
+              </div>
+              
+              {matchToDelete.status !== 'suggested' && (
+                <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                  <p className="text-sm text-red-800 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    「提案済み」ステータスのもののみ削除できます
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setMatchToDelete(null)
+              }}
+              disabled={deleting}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleDeleteMatch}
+              disabled={deleting || (matchToDelete && matchToDelete.status !== 'suggested')}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  削除中...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  削除する
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
