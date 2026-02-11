@@ -1991,7 +1991,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             </Button>
             <Button
               onClick={handleDeleteMatch}
-              disabled={deleting || (matchToDelete && matchToDelete.status !== 'suggested')}
+              disabled={deleting || !!(matchToDelete && matchToDelete.status !== 'suggested')}
               className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? (
