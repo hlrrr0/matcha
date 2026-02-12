@@ -30,6 +30,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 const statusLabels: Record<Match['status'], string> = {
+  pending_proposal: '提案待ち',
   suggested: '提案済み',
   applied: '応募済み',
   document_screening: '書類選考中',
@@ -43,6 +44,7 @@ const statusLabels: Record<Match['status'], string> = {
 }
 
 const statusColors: Record<Match['status'], string> = {
+  pending_proposal: 'bg-slate-100 text-slate-800',
   suggested: 'bg-blue-100 text-blue-800',
   applied: 'bg-purple-100 text-purple-800',
   document_screening: 'bg-yellow-100 text-yellow-800',
@@ -56,6 +58,7 @@ const statusColors: Record<Match['status'], string> = {
 }
 
 const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
+  pending_proposal: Target,
   suggested: Target,
   applied: Send,
   document_screening: Eye,
@@ -69,6 +72,7 @@ const statusIcons: Record<Match['status'], React.ComponentType<{ className?: str
 }
 
 const statusFlow: Record<Match['status'], Match['status'][]> = {
+  pending_proposal: ['suggested', 'rejected', 'withdrawn'],
   suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
   applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
   document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],

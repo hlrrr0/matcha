@@ -77,6 +77,7 @@ const campusColors = {
 
 // ステータスラベル定義
 const statusLabels: Record<Match['status'], string> = {
+  pending_proposal: '提案待ち',
   suggested: '提案済み',
   applied: '応募済み',
   document_screening: '書類選考中',
@@ -91,6 +92,7 @@ const statusLabels: Record<Match['status'], string> = {
 
 // ステータスアイコン定義
 const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
+  pending_proposal: Target,
   suggested: Target,
   applied: Send,
   document_screening: Eye,
@@ -105,6 +107,7 @@ const statusIcons: Record<Match['status'], React.ComponentType<{ className?: str
 
 // ステータスフロー定義
 const statusFlow: Record<Match['status'], Match['status'][]> = {
+  pending_proposal: ['suggested', 'rejected', 'withdrawn'],
   suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
   applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
   document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
@@ -168,7 +171,7 @@ function ProgressPageContent() {
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
   
   // 一括更新専用の状態
-  const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
+  const [newStatus, setNewStatus] = useState<Match['status']>('pending_proposal')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
   const [statusNotes, setStatusNotes] = useState('')
@@ -457,8 +460,9 @@ function ProgressPageContent() {
               document_screening: 4,
               applied: 3,
               suggested: 2,
-              withdrawn: 1,
-              rejected: 1
+              pending_proposal: 1,
+              withdrawn: 0,
+              rejected: 0
             }
             compareValue = statusPriority[a.status] - statusPriority[b.status]
             break
@@ -510,7 +514,7 @@ function ProgressPageContent() {
               candidateId: newMatchData.candidateId,
               jobId: jobId,
               companyId: selectedJob.companyId,
-              status: 'suggested',
+              status: 'pending_proposal',
               score: newMatchData.score,
               matchReasons: [{
                 type: 'manual',
@@ -519,7 +523,7 @@ function ProgressPageContent() {
               }],
               timeline: [{
                 id: `timeline_${Date.now()}_${jobId}`,
-                status: 'suggested',
+                status: 'pending_proposal',
                 timestamp: new Date(),
                 description: 'マッチングが作成されました',
                 createdBy: user?.uid || '',
@@ -551,7 +555,7 @@ function ProgressPageContent() {
           candidateId: newMatchData.candidateId,
           jobId: newMatchData.jobId,
           companyId: selectedJob.companyId,
-          status: 'suggested',
+          status: 'pending_proposal',
           score: newMatchData.score,
           matchReasons: [{
             type: 'manual',
@@ -560,7 +564,7 @@ function ProgressPageContent() {
           }],
           timeline: [{
             id: `timeline_${Date.now()}`,
-            status: 'suggested',
+            status: 'pending_proposal',
             timestamp: new Date(),
             description: 'マッチングが作成されました',
             createdBy: user?.uid || '',
@@ -964,6 +968,7 @@ function ProgressPageContent() {
 
   const getStatusColor = (status: Match['status']) => {
     switch (status) {
+      case 'pending_proposal': return 'bg-slate-100 text-slate-800'
       case 'suggested': return 'bg-gray-100 text-gray-800'
       case 'applied': return 'bg-blue-100 text-blue-800'
       case 'document_screening': return 'bg-yellow-100 text-yellow-800'
@@ -980,6 +985,7 @@ function ProgressPageContent() {
 
   const getStatusLabel = (status: Match['status']) => {
     switch (status) {
+      case 'pending_proposal': return '提案待ち'
       case 'suggested': return '提案済み'
       case 'applied': return '応募済み'
       case 'document_screening': return '書類選考中'
@@ -1351,6 +1357,7 @@ function ProgressPageContent() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-2">
                         {[
+                          { value: 'pending_proposal', label: '提案待ち' },
                           { value: 'suggested', label: '提案済み' },
                           { value: 'applied', label: '応募済み' },
                           { value: 'document_screening', label: '書類選考中' },

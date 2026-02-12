@@ -64,6 +64,7 @@ import DiagnosisHistoryComparison from '@/components/diagnosis/DiagnosisHistoryC
 import { createGoogleDriveFolder, generateCandidateFolderName } from '@/lib/google-drive'
 
 const statusLabels: Record<Match['status'], string> = {
+  pending_proposal: '提案待ち',
   suggested: '提案済み',
   applied: '応募済み',
   document_screening: '書類選考中',
@@ -488,7 +489,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             jobId: jobId,
             companyId: selectedJob.companyId,
             score: 0,
-            status: 'suggested',
+            status: 'pending_proposal',
             matchReasons: [{
               type: 'manual',
               description: '手動でマッチングを作成',
@@ -496,7 +497,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
             }],
             timeline: [{
               id: `timeline_${Date.now()}_${jobId}`,
-              status: 'suggested',
+              status: 'pending_proposal',
               timestamp: new Date(),
               description: 'マッチングが作成されました',
               createdBy: user?.uid || '',

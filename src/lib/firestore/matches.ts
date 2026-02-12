@@ -147,7 +147,7 @@ const matchFromFirestore = (doc: any): Match => {
       jobId: data.jobId || '',
       companyId: data.companyId || '',
       score: data.score || 0,
-      status: data.status || 'suggested',
+      status: data.status || 'pending_proposal',
       matchReasons: data.matchReasons || [],
       createdBy: data.createdBy || ''
     } as Match
@@ -161,7 +161,7 @@ const matchFromFirestore = (doc: any): Match => {
       jobId: 'エラー',
       companyId: 'エラー',
       score: 0,
-      status: 'suggested',
+      status: 'pending_proposal',
       matchReasons: [],
       timeline: [],
       createdAt: new Date(),

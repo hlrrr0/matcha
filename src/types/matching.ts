@@ -7,7 +7,7 @@ export interface Match {
   
   // マッチング詳細
   score: number // 0-100のマッチングスコア
-  status: 'suggested' | 'applied' | 'document_screening' | 'document_passed' | 'interview' | 'interview_passed' | 'offer' | 'offer_accepted' | 'rejected' | 'withdrawn'
+  status: 'pending_proposal' | 'suggested' | 'applied' | 'document_screening' | 'document_passed' | 'interview' | 'interview_passed' | 'offer' | 'offer_accepted' | 'rejected' | 'withdrawn'
   
   // 選考ステージ情報（面接の回数管理）
   currentInterviewRound?: number // 現在の選考回数（1次、2次、3次...）

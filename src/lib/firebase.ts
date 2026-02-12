@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, disableNetwork } from 'firebase/firestore'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 // デバッグ用ログ（開発環境のみ）
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  console.log('Firebase Config Debug:', {
-    apiKey: firebaseConfig.apiKey ? '***CONFIGURED***' : 'MISSING',
+  console.log('🔥 Firebase Config:', {
+    apiKey: firebaseConfig.apiKey ? '✅ Configured' : '❌ MISSING',
     authDomain: firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,
     currentDomain: window.location.origin
@@ -26,12 +26,46 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 let app
 if (getApps().length === 0) {
   app = initializeApp(firebaseConfig)
+  if (typeof window !== 'undefined') {
+    console.log('✅ Firebase app initialized')
+  }
 } else {
   app = getApps()[0]
 }
 
-// Firestore初期化
-export const db = getFirestore(app)
+// Firestore初期化（永続キャッシュを有効化）
+let db
+try {
+  // ブラウザ環境で、まだ初期化されていない場合のみ永続キャッシュを有効化
+  const existingFirestores = getApps().map(app => {
+    try {
+      return getFirestore(app)
+    } catch {
+      return null
+    }
+  }).filter(Boolean)
+
+  if (typeof window !== 'undefined' && existingFirestores.length === 0) {
+    // 永続キャッシュを有効にしてFirestoreを初期化
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    })
+    console.log('✅ Firestore initialized with persistent cache')
+  } else {
+    // 既に初期化されているか、サーバーサイドの場合
+    db = getFirestore(app)
+    if (typeof window !== 'undefined') {
+      console.log('✅ Firestore using existing instance')
+    }
+  }
+} catch (error) {
+  // 既に初期化されている場合やエラーが発生した場合はgetFirestoreを使用
+  console.warn('⚠️ Firestore initialization warning:', error)
+  db = getFirestore(app)
+}
+export { db }
 
 // Authentication初期化
 export const auth = getAuth(app)
@@ -48,10 +82,39 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       connectFirestoreEmulator(db, 'localhost', 8080)
       connectAuthEmulator(auth, 'http://localhost:9099')
       connectStorageEmulator(storage, 'localhost', 9199)
+      console.log('✅ Firebase emulators connected')
     }
   } catch (error) {
     // エミュレーターが既に接続されている場合はエラーを無視
-    console.log('Firebase emulators already connected')
+    console.log('⚠️ Firebase emulators already connected or connection failed:', error)
+  }
+}
+
+// ネットワーク接続の監視と自動再接続（ブラウザ環境のみ）
+if (typeof window !== 'undefined') {
+  let isOnline = navigator.onLine
+
+  // オンライン/オフラインイベントの監視
+  window.addEventListener('online', async () => {
+    console.log('🌐 Network connection restored, enabling Firestore network...')
+    try {
+      await enableNetwork(db)
+      console.log('✅ Firestore network enabled')
+    } catch (error) {
+      console.warn('⚠️ Failed to enable Firestore network:', error)
+    }
+    isOnline = true
+  })
+
+  window.addEventListener('offline', async () => {
+    console.log('📡 Network connection lost, disabling Firestore network...')
+    isOnline = false
+    // オフライン時は明示的にdisableしない（自動でオフラインモードに移行する）
+  })
+
+  // 初期状態がオフラインの場合の警告
+  if (!navigator.onLine) {
+    console.warn('⚠️ Starting in offline mode - Firestore will sync when online')
   }
 }
 
