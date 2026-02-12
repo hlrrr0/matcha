@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import DiagnosisHistoryComparison from '@/components/diagnosis/DiagnosisHistoryComparison'
 
 const statusLabels: Record<Match['status'], string> = {
+  pending_proposal: '確認中',
   suggested: '確認中',
   applied: '応募済み',
   document_screening: '書類選考中',
@@ -45,6 +46,7 @@ const statusLabels: Record<Match['status'], string> = {
 }
 
 const statusColors: Record<Match['status'], string> = {
+  pending_proposal: 'bg-slate-100 text-slate-800',
   suggested: 'bg-blue-100 text-blue-800',
   applied: 'bg-purple-100 text-purple-800',
   document_screening: 'bg-yellow-100 text-yellow-800',
