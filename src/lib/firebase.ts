@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, disableNetwork } from 'firebase/firestore'
+import { getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, enableNetwork, disableNetwork, Firestore } from 'firebase/firestore'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getStorage, connectStorageEmulator } from 'firebase/storage'
 
@@ -34,7 +34,7 @@ if (getApps().length === 0) {
 }
 
 // Firestore初期化（永続キャッシュを有効化）
-let db
+let db: Firestore
 try {
   // ブラウザ環境で、まだ初期化されていない場合のみ永続キャッシュを有効化
   const existingFirestores = getApps().map(app => {
