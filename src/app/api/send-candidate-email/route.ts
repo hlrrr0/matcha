@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ メール送信成功:', data)
 
     // エラーがある場合は処理を中断
-    if ('error' in data) {
+    if (data.error) {
       console.error('❌ Resendエラー:', data.error)
       return NextResponse.json(
         { error: 'メール送信に失敗しました', details: data.error },
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
       subject: emailSubject,
       body: emailBody,
       status: 'sent',
-      resendId: data.id || null,
+      resendId: data.data?.id || null,
       sentBy: sentBy || null,
       sentAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
