@@ -534,7 +534,7 @@ export function StatusUpdateDialog({
 
   // メールプレビューから実際に送信
   const handleConfirmSendEmail = async () => {
-    if (!candidate || !job || !company || !emailPreviewData) return
+    if (!candidate || !job || !company || !match || !emailPreviewData) return
 
     setSendingEmail(true)
     try {
