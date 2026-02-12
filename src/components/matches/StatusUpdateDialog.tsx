@@ -115,6 +115,7 @@ interface StatusUpdateDialogProps {
   company?: {
     name: string
     email: string
+    consultantId?: string
   }
   userName?: string  // ログインユーザーの名前
 }
