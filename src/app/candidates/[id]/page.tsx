@@ -258,6 +258,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     if (matches.length === 0) return
     
     const statusPriority: Record<Match['status'], number> = {
+      pending_proposal: 0,
       suggested: 1,
       applied: 2,
       document_screening: 3,
