@@ -408,6 +408,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       
       // 複数条件でソート（①ステータス昇順 → ②作成日昇順）
       const statusPriority: Record<Match['status'], number> = {
+        pending_proposal: 0,
         suggested: 1,
         applied: 2,
         document_screening: 3,

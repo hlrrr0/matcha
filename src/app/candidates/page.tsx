@@ -99,8 +99,9 @@ const statusPriority: Record<Match['status'], number> = {
   document_screening: 4,
   applied: 3,
   suggested: 2,
-  withdrawn: 1,
-  rejected: 1
+  pending_proposal: 1,
+  withdrawn: 0,
+  rejected: 0
 }
 
 // 展開可能なテキストコンポーネント
