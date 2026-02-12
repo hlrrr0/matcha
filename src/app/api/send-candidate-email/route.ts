@@ -77,6 +77,15 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ メール送信成功:', data)
 
+    // エラーがある場合は処理を中断
+    if ('error' in data) {
+      console.error('❌ Resendエラー:', data.error)
+      return NextResponse.json(
+        { error: 'メール送信に失敗しました', details: data.error },
+        { status: 500 }
+      )
+    }
+
     // メール送信履歴をFirestoreに保存（Firebase Admin SDK使用）
     const adminDb = getAdminDb()
     await adminDb.collection('emailHistory').add({
@@ -92,7 +101,7 @@ export async function POST(request: NextRequest) {
       subject: emailSubject,
       body: emailBody,
       status: 'sent',
-      resendId: data.id || null,  // undefinedの場合はnullに変換
+      resendId: data.id || null,
       sentBy: sentBy || null,
       sentAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
