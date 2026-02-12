@@ -22,6 +22,17 @@
 - 先生からのコメント（履歴書情報として使用）
 - 担当者が入力した備考
 
+**送信先:**
+- TO: 企業のメールアドレス
+- BCC: `sales+matcha@super-shift.co.jp` (営業チームにも自動送信)
+
+### メール履歴機能
+送信したメールは自動的にFirestoreの`emailHistory`コレクションに保存されます。履歴には以下の情報が記録されます：
+- メール送信先、件名、本文
+- 関連するmatchId、candidateId、jobId、companyId
+- 送信者のユーザーID
+- 送信日時とステータス
+
 ## セットアップ手順
 
 ### 1. Resendアカウントの作成
@@ -62,10 +73,14 @@ src/
 │       └── send-candidate-email/
 │           └── route.ts              # メール送信APIエンドポイント
 ├── components/
+│   ├── email/
+│   │   └── EmailHistoryList.tsx     # メール履歴表示コンポーネント
 │   └── matches/
 │       └── StatusUpdateDialog.tsx    # 修正: メール送信処理を追加
 ├── lib/
 │   └── email.ts                      # メール送信用ユーティリティ関数
+├── types/
+│   └── email.ts                      # メール履歴の型定義
 └── app/
     ├── candidates/[id]/page.tsx      # 修正: メール送信用情報を渡す
     ├── progress/page.tsx             # 修正: メール送信用情報を渡す
@@ -97,6 +112,34 @@ src/
 **重要:** ステータス更新とメール送信は独立した操作です。「更新」ボタンを押してもメールは自動送信されません。
 
 開発環境では`onboarding@resend.dev`が使用されますが、本番環境では認証済みドメインのメールアドレスを設定してください！
+
+## メール履歴の表示
+
+送信したメール履歴を確認するには、`EmailHistoryList`コンポーネントを使用します。
+
+```tsx
+import { EmailHistoryList } from '@/components/email/EmailHistoryList'
+
+// 特定のマッチに関連するメール履歴を表示
+<EmailHistoryList matchId={matchId} />
+
+// 特定の候補者に関連するメール履歴を表示
+<EmailHistoryList candidateId={candidateId} />
+
+// 特定の求人に関連するメール履歴を表示
+<EmailHistoryList jobId={jobId} />
+
+// 特定の企業に関連するメール履歴を表示
+<EmailHistoryList companyId={companyId} />
+```
+
+メール履歴には以下の情報が表示されます：
+- 件名
+- 送信先メールアドレス
+- メール本文
+- 送信日時
+- 送信ステータス（送信済み/送信失敗）
+- BCC送信先（sales+matcha@super-shift.co.jp）
 
 ## トラブルシューティング
 

@@ -10,6 +10,12 @@ export async function sendCandidateApplicationEmail(params: {
   candidateResume?: string
   jobTitle: string
   notes?: string
+  matchId?: string
+  candidateId?: string
+  jobId?: string
+  companyId?: string
+  sentBy?: string
+  cc?: string  // 企業担当者のメールアドレス
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch('/api/send-candidate-email', {
@@ -22,7 +28,9 @@ export async function sendCandidateApplicationEmail(params: {
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error || 'メール送信に失敗しました')
+      console.error('APIエラーレスポンス:', error)
+      const errorMessage = error.details ? `${error.error}: ${error.details}` : error.error
+      throw new Error(errorMessage || 'メール送信に失敗しました')
     }
 
     return { success: true }

@@ -10,6 +10,9 @@ import { Badge } from '@/components/ui/badge'
 import { Match } from '@/types/matching'
 import { sendCandidateApplicationEmail } from '@/lib/email'
 import { generateIntroductionText } from '@/lib/introduction-text'
+import { generateCandidateApplicationEmailBody, generateCandidateApplicationEmailSubject } from '@/lib/email-templates'
+import { useAuth } from '@/contexts/AuthContext'
+import { EmailPreviewDialog } from '@/components/email/EmailPreviewDialog'
 import { toast } from 'sonner'
 import { 
   Target,
@@ -129,6 +132,7 @@ export function StatusUpdateDialog({
   company,
   userName
 }: StatusUpdateDialogProps) {
+  const { user } = useAuth()
   const [newStatus, setNewStatus] = useState<Match['status']>('suggested')
   const [eventDate, setEventDate] = useState('')
   const [eventTime, setEventTime] = useState('')
@@ -139,6 +143,43 @@ export function StatusUpdateDialog({
   const [sendingEmail, setSendingEmail] = useState(false)
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  
+  // メールプレビュー用の状態
+  const [showEmailPreview, setShowEmailPreview] = useState(false)
+  const [emailPreviewData, setEmailPreviewData] = useState<{
+    to: string
+    cc?: string
+    bcc: string
+    subject: string
+    body: string
+  } | null>(null)
+  const [consultantEmail, setConsultantEmail] = useState<string | null>(null)
+
+  // 企業担当者のメールアドレスを取得
+  useEffect(() => {
+    const fetchConsultantEmail = async () => {
+      if (!company?.consultantId) {
+        setConsultantEmail(null)
+        return
+      }
+
+      try {
+        const { doc, getDoc } = await import('firebase/firestore')
+        const { db } = await import('@/lib/firebase')
+        const userDoc = await getDoc(doc(db, 'users', company.consultantId))
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          setConsultantEmail(userData?.email || null)
+        }
+      } catch (error) {
+        console.error('担当者情報の取得に失敗:', error)
+        setConsultantEmail(null)
+      }
+    }
+
+    fetchConsultantEmail()
+  }, [company?.consultantId])
 
   // 最新のタイムラインアイテムかチェック
   const isLatestTimeline = (): boolean => {
@@ -453,6 +494,47 @@ export function StatusUpdateDialog({
       return
     }
 
+    // メール内容を構築
+    const introText = generateIntroductionText({
+      companyName: company.name,
+      candidateName: `${candidate.lastName} ${candidate.firstName}`,
+      candidateDateOfBirth: candidate.dateOfBirth,
+      resumeUrl: candidate.resumeUrl,
+      teacherComment: candidate.resume,
+      userName: userName
+    })
+
+    const candidateName = `${candidate.lastName} ${candidate.firstName}`
+    const emailBody = generateCandidateApplicationEmailBody({
+      companyName: company.name,
+      jobTitle: job.title,
+      candidateName: candidateName,
+      candidatePhone: candidate.phone,
+      candidateEmail: candidate.email,
+      candidateResume: introText,
+      notes: statusNotes
+    })
+
+    const emailSubject = generateCandidateApplicationEmailSubject({
+      candidateName: candidateName,
+      jobTitle: job.title
+    })
+
+    // メールプレビューを表示
+    setEmailPreviewData({
+      to: company.email,
+      cc: consultantEmail || undefined,  // 担当者のメールアドレスをCCに追加
+      bcc: 'sales+matcha@super-shift.co.jp',
+      subject: emailSubject,
+      body: emailBody
+    })
+    setShowEmailPreview(true)
+  }
+
+  // メールプレビューから実際に送信
+  const handleConfirmSendEmail = async () => {
+    if (!candidate || !job || !company || !emailPreviewData) return
+
     setSendingEmail(true)
     try {
       const introText = generateIntroductionText({
@@ -472,11 +554,19 @@ export function StatusUpdateDialog({
         candidateEmail: candidate.email,
         candidateResume: introText,
         jobTitle: job.title,
-        notes: statusNotes
+        notes: statusNotes,
+        matchId: match.id,
+        candidateId: candidate.id,
+        jobId: match.jobId,
+        companyId: match.companyId,
+        sentBy: user?.uid,
+        cc: consultantEmail || undefined  // 担当者のメールアドレスをCCに追加
       })
 
       if (emailResult.success) {
         toast.success('企業へ応募情報をメール送信しました')
+        setShowEmailPreview(false)
+        setEmailPreviewData(null)
       } else {
         toast.error(`メール送信に失敗しました: ${emailResult.error}`)
       }
@@ -696,7 +786,7 @@ export function StatusUpdateDialog({
                 title={!company.email ? '企業のメールアドレスが設定されていません' : ''}
               >
                 <Mail className="h-4 w-4 mr-2" />
-                {sendingEmail ? 'メール送信中...' : '企業へメールを送る'}
+                企業へメールを送る
               </Button>
             </>
           )}
@@ -710,6 +800,17 @@ export function StatusUpdateDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      
+      {/* メールプレビューダイアログ */}
+      {emailPreviewData && (
+        <EmailPreviewDialog
+          open={showEmailPreview}
+          onOpenChange={setShowEmailPreview}
+          emailData={emailPreviewData}
+          onConfirm={handleConfirmSendEmail}
+          isSending={sendingEmail}
+        />
+      )}
     </Dialog>
   )
 }
