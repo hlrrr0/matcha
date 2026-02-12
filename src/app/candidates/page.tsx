@@ -65,6 +65,7 @@ const campusColors = {
 }
 
 const statusLabels: Record<Match['status'], string> = {
+  pending_proposal: '提案待ち',
   suggested: '提案',
   applied: '応募',
   document_screening: '書類選考',
@@ -78,6 +79,7 @@ const statusLabels: Record<Match['status'], string> = {
 }
 
 const statusColors: Record<Match['status'], string> = {
+  pending_proposal: 'bg-slate-100 text-slate-800',
   suggested: 'bg-blue-100 text-blue-800',
   applied: 'bg-purple-100 text-purple-800',
   document_screening: 'bg-yellow-100 text-yellow-800',
