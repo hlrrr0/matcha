@@ -159,7 +159,7 @@ service cloud.firestore {
     // ========================================
     
     match /emailHistory/{emailId} {
-      // 読み取り: 認証済みユーザーのみ
+      // 読み取り: 認証済みユーザーのみ（リアルタイムリスナー対応）
       allow read: if isAuthenticated();
       
       // 作成: 認証済みユーザーのみ（APIから自動作成）
@@ -167,6 +167,11 @@ service cloud.firestore {
       
       // 更新・削除: 不可（履歴は変更不可）
       allow update, delete: if false;
+      
+      // サブコレクション: すべて拒否
+      match /{document=**} {
+        allow read, write: if false;
+      }
     }
     
     // ========================================

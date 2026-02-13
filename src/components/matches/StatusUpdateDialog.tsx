@@ -95,6 +95,7 @@ interface StatusUpdateDialogProps {
   candidateName?: string
   onUpdate: (status: Match['status'], notes: string, eventDateTime?: Date, startDate?: Date, endDate?: Date) => Promise<void>
   onDelete?: () => Promise<void>  // 進捗削除用のコールバック
+  onEmailSent?: () => Promise<void>  // メール送信完了時のコールバック
   isEditMode?: boolean
   // メール送信用の情報
   candidate?: {
@@ -127,6 +128,7 @@ export function StatusUpdateDialog({
   candidateName,
   onUpdate,
   onDelete,
+  onEmailSent,
   isEditMode = false,
   candidate,
   job,
@@ -180,7 +182,7 @@ export function StatusUpdateDialog({
     }
 
     fetchConsultantEmail()
-  }, [company?.consultantId])
+  }, [company?.consultantId, company?.email])
 
   // 最新のタイムラインアイテムかチェック
   const isLatestTimeline = (): boolean => {
@@ -568,6 +570,15 @@ export function StatusUpdateDialog({
         toast.success('企業へ応募情報をメール送信しました')
         setShowEmailPreview(false)
         setEmailPreviewData(null)
+        
+        // メール送信完了時のコールバックを実行
+        if (onEmailSent) {
+          try {
+            await onEmailSent()
+          } catch (error) {
+            console.error('メール履歴の更新に失敗:', error)
+          }
+        }
       } else {
         toast.error(`メール送信に失敗しました: ${emailResult.error}`)
       }

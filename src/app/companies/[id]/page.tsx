@@ -7,11 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
 import RelatedMatches from '@/components/matches/RelatedMatches'
+import { useAuth } from '@/contexts/AuthContext'
 import { 
   ArrowLeft, 
   Building2, 
@@ -26,9 +29,11 @@ import {
   DollarSign,
   Edit,
   Copy,
-  Search
+  Search,
+  CheckCircle,
+  Mail
 } from 'lucide-react'
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { updateCompany } from '@/lib/firestore/companies'
 import { Company } from '@/types/company'
@@ -38,12 +43,15 @@ interface CompanyDetailPageProps {
   params: Promise<{
     id: string
   }>
+  searchParams?: Promise<{
+    tab?: string
+  }>
 }
 
-export default function CompanyDetailPage({ params }: CompanyDetailPageProps) {
+export default function CompanyDetailPage({ params, searchParams }: CompanyDetailPageProps) {
   return (
     <ProtectedRoute>
-      <CompanyDetailContent params={params} />
+      <CompanyDetailContent params={params} searchParams={searchParams} />
     </ProtectedRoute>
   )
 }
@@ -72,8 +80,9 @@ function ExpandableFeature({ text }: { text: string }) {
   )
 }
 
-function CompanyDetailContent({ params }: CompanyDetailPageProps) {
+function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) {
   const router = useRouter()
+  const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [companyId, setCompanyId] = useState<string>('')
   const [company, setCompany] = useState<Company | null>(null)
@@ -81,6 +90,42 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
   const [relatedStores, setRelatedStores] = useState<any[]>([])
   const [relatedJobs, setRelatedJobs] = useState<any[]>([])
   const [storeSearchTerm, setStoreSearchTerm] = useState('')
+  const [activeTab, setActiveTab] = useState('basic')
+  const [emailHistory, setEmailHistory] = useState<any[]>([])
+  const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    router.push(`/companies/${companyId}?tab=${tab}`)
+  }
+
+  // メール履歴を再取得する関数
+  const refreshEmailHistory = async () => {
+    try {
+      const emailHistoryQuery = query(
+        collection(db, 'emailHistory'),
+        where('companyId', '==', companyId)
+      )
+      const emailHistorySnapshot = await getDocs(emailHistoryQuery)
+      const emailHistoryData = emailHistorySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setEmailHistory(emailHistoryData)
+      console.log('✅ メール履歴を更新しました:', emailHistoryData.length, '件')
+    } catch (error) {
+      console.warn('メール履歴の更新に失敗しました:', error)
+    }
+  }
+
+  useEffect(() => {
+    const initializeTab = async () => {
+      const resolvedSearchParams = await searchParams
+      const tabParam = resolvedSearchParams?.tab || 'basic'
+      setActiveTab(tabParam)
+    }
+    initializeTab()
+  }, [searchParams])
 
   useEffect(() => {
     const initializeComponent = async () => {
@@ -149,6 +194,57 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
 
     initializeComponent()
   }, [params, router])
+
+  // メール履歴のリアルタイムリッスン（別のuseEffect）
+  useEffect(() => {
+    if (!companyId || !user) {
+      console.log('⏭️  メール履歴のリッスンをスキップ（companyId:', companyId, ', user:', user?.uid, '）')
+      return
+    }
+    
+    console.log('🔍 メール履歴のリッスンを設定中:', companyId, '| ユーザーID:', user.uid)
+    
+    try {
+      const emailHistoryQuery = query(
+        collection(db, 'emailHistory'),
+        where('companyId', '==', companyId)
+      )
+      
+      // リアルタイムリッスンを設定
+      const unsubscribe = onSnapshot(emailHistoryQuery, (snapshot) => {
+        console.log('📨 メール履歴スナップショット受信:', snapshot.docs.length, '件')
+        const emailHistoryData = snapshot.docs.map(doc => {
+          const data = doc.data()
+          console.log('📄 メール履歴ドキュメント:', doc.id, data)
+          return {
+            id: doc.id,
+            ...data
+          }
+        })
+        setEmailHistory(emailHistoryData)
+        console.log('✅ メール履歴状態を更新しました:', emailHistoryData.length, '件')
+      }, (error: any) => {
+        console.error('❌ メール履歴のリッスンエラー:', error)
+        console.error('エラーコード:', error.code)
+        console.error('エラーメッセージ:', error.message)
+        
+        // 権限エラーの場合はログアウトの可能性があるため、空配列を設定
+        if (error.code === 'permission-denied') {
+          console.warn('⚠️  権限エラーです。ユーザー認証を確認してください。')
+          setEmailHistory([])
+        }
+      })
+      
+      // クリーンアップ関数を返す
+      return () => {
+        console.log('🧹 メール履歴のリスナーをクリーンアップしています')
+        unsubscribe()
+      }
+    } catch (error) {
+      console.error('❌ メール履歴のリッスン設定エラー:', error)
+      return () => {}
+    }
+  }, [companyId, user])
 
   const getStatusBadge = (status: Company['status']) => {
     const colors = {
@@ -291,21 +387,49 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 基本情報 */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>基本情報</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="font-medium text-gray-700 flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  所在地
-                </h3>
-                <p className="mt-1">{company.address}</p>
-              </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsTrigger value="basic" className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" />
+            <span className="hidden sm:inline">基本情報</span>
+          </TabsTrigger>
+          <TabsTrigger value="stores" className="flex items-center gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">関連店舗</span>
+            <Badge variant="secondary" className="ml-2">{relatedStores.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="jobs" className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            <span className="hidden sm:inline">関連求人</span>
+            <Badge variant="secondary" className="ml-2">{relatedJobs.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">進捗</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            <span className="hidden sm:inline">履歴</span>
+            <Badge variant="secondary" className="ml-2">{emailHistory.length}</Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 基本情報タブ */}
+        <TabsContent value="basic" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>基本情報</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="font-medium text-gray-700 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      所在地
+                    </h3>
+                    <p className="mt-1">{company.address}</p>
+                  </div>
 
               {company.website && (
                 <div>
@@ -469,8 +593,139 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
             </Card>
           )}
 
-          {/* 関連店舗 */}
-          {relatedStores.length > 0 && (
+            </div>
+
+            {/* サイドバー */}
+            <div className="space-y-6">
+              {/* クイックアクション */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>クイックアクション</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Link href={`/stores/new?company=${companyId}`}>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Store className="h-4 w-4 mr-2" />
+                      新しい店舗を追加
+                    </Button>
+                  </Link>
+                  
+                  <Link href={`/jobs/new?company=${companyId}`}>
+                    <Button variant="outline" className="w-full justify-start">
+                      <Briefcase className="h-4 w-4 mr-2" />
+                      新しい求人を作成
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+
+              {/* 統計情報 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    統計情報
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">店舗数</span>
+                      <span className="font-medium">{relatedStores.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">求人数</span>
+                      <span className="font-medium">{relatedJobs.length}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">公開求人数</span>
+                      <span className="font-medium">
+                        {relatedJobs.filter(job => job.status === 'active').length}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              {/* メモ・特記事項 */}
+              {company.memo && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>メモ・特記事項</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm whitespace-pre-wrap">{company.memo}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 管理情報 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    管理情報
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">作成日時</span>
+                      <span className="font-medium text-sm">{formatDateTime(company?.createdAt)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">更新日時</span>
+                      <span className="font-medium text-sm">{formatDateTime(company?.updatedAt)}</span>
+                    </div>
+                    {company?.contractStartDate && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">取引開始日</span>
+                        <span className="font-medium text-sm">
+                          {new Date(company.contractStartDate).toLocaleDateString('ja-JP')}
+                        </span>
+                      </div>
+                    )}
+                    {consultant && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">担当者</span>
+                        <span className="font-medium text-sm">{consultant.displayName || consultant.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              {/* Dominoシステム連携情報 */}
+              {company.dominoId && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-blue-800">Dominoシステム連携</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-1 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-blue-700">Domino ID:</span>
+                          <span className="ml-2 font-mono">{company.dominoId}</span>
+                        </div>
+                        {company.importedAt && (
+                          <div>
+                            <span className="font-medium text-blue-700">インポート日時:</span>
+                            <span className="ml-2">{formatDateTime(company.importedAt)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* 関連店舗タブ */}
+        <TabsContent value="stores" className="space-y-6">
+          {relatedStores.length > 0 ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="flex items-center gap-2">
@@ -572,10 +827,27 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                 </div>
               </CardContent>
             </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8 text-gray-500">
+                  <Store className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                  <p className="mb-4">関連店舗がありません</p>
+                  <Link href={`/stores/new?company=${companyId}`}>
+                    <Button>
+                      <Store className="h-4 w-4 mr-2" />
+                      新しい店舗を追加
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           )}
+        </TabsContent>
 
-          {/* 関連求人 */}
-          {relatedJobs.length > 0 && (
+        {/* 関連求人タブ */}
+        <TabsContent value="jobs" className="space-y-6">
+          {relatedJobs.length > 0 ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="flex items-center gap-2">
@@ -583,7 +855,7 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                   関連求人 ({relatedJobs.length}件)
                 </CardTitle>
                 <Link href={`/jobs/new?company=${companyId}`}>
-                  <Button variant="outline" className="w-full justify-start">
+                  <Button variant="outline" size="sm">
                     <Briefcase className="h-4 w-4 mr-2" />
                     新しい求人を作成
                   </Button>
@@ -655,173 +927,172 @@ function CompanyDetailContent({ params }: CompanyDetailPageProps) {
                       </div>
                     )
                   })}
-                  {relatedJobs.length > 5 && (
-                    <div className="text-center">
-                      <Link href={`/jobs?search=${encodeURIComponent(company.name)}`}>
-                        <Button variant="outline">すべての求人を見る</Button>
-                      </Link>
-                    </div>
-                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8 text-gray-500">
+                  <Briefcase className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                  <p className="mb-4">関連求人がありません</p>
+                  <Link href={`/jobs/new?company=${companyId}`}>
+                    <Button>
+                      <Briefcase className="h-4 w-4 mr-2" />
+                      新しい求人を作成
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
           )}
+        </TabsContent>
 
-          {/* 進捗一覧 */}
+        {/* 進捗タブ */}
+        <TabsContent value="progress" className="space-y-6">
           <RelatedMatches 
             type="company" 
             entityId={companyId}
             entityName={company?.name}
+            onEmailSent={refreshEmailHistory}
           />
-        </div>
+        </TabsContent>
 
-        {/* サイドバー */}
-        <div className="space-y-6">
-          {/* クイックアクション */}
-          <Card>
-            <CardHeader>
-              <CardTitle>クイックアクション</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link href={`/stores/new?company=${companyId}`}>
-                <Button variant="outline" className="w-full justify-start">
-                  <Store className="h-4 w-4 mr-2" />
-                  新しい店舗を追加
-                </Button>
-              </Link>
-              
-              <Link href={`/jobs/new?company=${companyId}`}>
-                <Button variant="outline" className="w-full justify-start">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  新しい求人を作成
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* 統計情報 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                統計情報
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">店舗数</span>
-                  <span className="font-medium">{relatedStores.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">求人数</span>
-                  <span className="font-medium">{relatedJobs.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">公開求人数</span>
-                  <span className="font-medium">
-                    {relatedJobs.filter(job => job.status === 'active').length}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          {/* メモ・特記事項 */}
-          {company.memo && (
-            <Card>
-              <CardHeader>
-                <CardTitle>メモ・特記事項</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <p className="text-sm whitespace-pre-wrap">{company.memo}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 管理情報 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                管理情報
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">作成日時</span>
-                  <span className="font-medium text-sm">{formatDateTime(company?.createdAt)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">更新日時</span>
-                  <span className="font-medium text-sm">{formatDateTime(company?.updatedAt)}</span>
-                </div>
-                {company?.contractStartDate && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">取引開始日</span>
-                    <span className="font-medium text-sm">
-                      {new Date(company.contractStartDate).toLocaleDateString('ja-JP')}
-                    </span>
+        {/* 履歴タブ */}
+        <TabsContent value="history" className="space-y-6">
+          {emailHistory.length > 0 ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5" />
+                    メール送信履歴 ({emailHistory.length}件)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-medium">送信日時</th>
+                          <th className="text-left py-3 px-4 font-medium">宛先</th>
+                          <th className="text-left py-3 px-4 font-medium">件名</th>
+                          <th className="text-left py-3 px-4 font-medium">ステータス</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {emailHistory
+                          .sort((a: any, b: any) => {
+                            // 送信日時降順（新しい順）
+                            const timeA = a.sentAt || a.createdAt
+                            const timeB = b.sentAt || b.createdAt
+                            
+                            let dateA = new Date(0)
+                            let dateB = new Date(0)
+                            
+                            if (timeA && typeof timeA === 'object' && timeA.toDate) {
+                              dateA = timeA.toDate()
+                            } else if (timeA instanceof Date) {
+                              dateA = timeA
+                            } else if (typeof timeA === 'string') {
+                              dateA = new Date(timeA)
+                            } else if (timeA && typeof timeA === 'object' && timeA.seconds) {
+                              dateA = new Date(timeA.seconds * 1000)
+                            }
+                            
+                            if (timeB && typeof timeB === 'object' && timeB.toDate) {
+                              dateB = timeB.toDate()
+                            } else if (timeB instanceof Date) {
+                              dateB = timeB
+                            } else if (typeof timeB === 'string') {
+                              dateB = new Date(timeB)
+                            } else if (timeB && typeof timeB === 'object' && timeB.seconds) {
+                              dateB = new Date(timeB.seconds * 1000)
+                            }
+                            
+                            return dateB.getTime() - dateA.getTime()
+                          })
+                          .map((email: any) => (
+                            <tr 
+                              key={email.id} 
+                              className="border-b hover:bg-purple-50 cursor-pointer transition-colors"
+                              onClick={() => setSelectedEmail(email)}
+                            >
+                              <td className="py-3 px-4">{formatDateTime(email.sentAt || email.createdAt)}</td>
+                              <td className="py-3 px-4">{email.to || '未設定'}</td>
+                              <td className="py-3 px-4">{email.subject || '(件名なし)'}</td>
+                              <td className="py-3 px-4">
+                                <Badge className={email.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                                  {email.status === 'sent' ? '送信済み' : '保留中'}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-                {consultant && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">担当者</span>
-                    <span className="font-medium text-sm">{consultant.displayName || consultant.email}</span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          {/* Dominoシステム連携情報 */}
-          {company.dominoId && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-blue-800">Dominoシステム連携</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-blue-700">Domino ID:</span>
-                      <span className="ml-2 font-mono">{company.dominoId}</span>
-                    </div>
-                    {company.importedAt && (
+                </CardContent>
+              </Card>
+
+              {/* メール本文プレビューダイアログ */}
+              <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>メール詳細</DialogTitle>
+                    <DialogDescription>
+                      {selectedEmail && formatDateTime(selectedEmail.sentAt || selectedEmail.createdAt)}
+                    </DialogDescription>
+                  </DialogHeader>
+                  {selectedEmail && (
+                    <div className="space-y-4">
                       <div>
-                        <span className="font-medium text-blue-700">インポート日時:</span>
-                        <span className="ml-2">{formatDateTime(company.importedAt)}</span>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">から</h3>
+                        <p className="text-sm">{selectedEmail.from || '未設定'}</p>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {/* 企業ロゴ */}
-          {company?.logo && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">宛先</h3>
+                        <p className="text-sm">{selectedEmail.to || '未設定'}</p>
+                      </div>
+                      {selectedEmail.cc && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">CC</h3>
+                          <p className="text-sm">{selectedEmail.cc}</p>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">件名</h3>
+                        <p className="text-sm font-medium">{selectedEmail.subject || '(件名なし)'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-2">本文</h3>
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm whitespace-pre-wrap break-words">
+                          {selectedEmail.body || '(本文なし)'}
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">ステータス</h3>
+                        <Badge className={selectedEmail.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                          {selectedEmail.status === 'sent' ? '送信済み' : '保留中'}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </>
+          ) : (
             <Card>
-              <CardHeader>
-                <CardTitle>企業ロゴ</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-center">
-                  <img 
-                    src={company?.logo} 
-                    alt={`${company?.name}のロゴ`}
-                    className="max-w-full h-auto max-h-32 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                    }}
-                  />
+              <CardContent className="pt-6">
+                <div className="text-center py-8 text-gray-500">
+                  <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                  <p>メール送信履歴がありません</p>
                 </div>
               </CardContent>
             </Card>
           )}
-        </div>
+        </TabsContent>
+      </Tabs>
       </div>
-    </div>
     </div>
   )
 }

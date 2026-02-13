@@ -23,6 +23,7 @@ interface Props {
   type: 'company' | 'store' | 'job'
   entityId: string
   entityName?: string
+  onEmailSent?: () => Promise<void>
 }
 
 const statusLabels: Record<Match['status'], string> = {
@@ -60,7 +61,7 @@ const statusGroups = {
   inactive: ['rejected', 'withdrawn'] as Match['status'][]
 }
 
-export default function RelatedMatches({ type, entityId, entityName }: Props) {
+export default function RelatedMatches({ type, entityId, entityName, onEmailSent }: Props) {
   const [matches, setMatches] = useState<RelatedMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [showActive, setShowActive] = useState(true)
