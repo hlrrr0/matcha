@@ -1,47 +1,24 @@
 "use client"
 
 import React, { useState, useEffect, Suspense } from 'react'
-import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
-import { 
-  TrendingUp, 
-  Plus, 
-  Search, 
-  RefreshCw,
+import { getCache, setCache } from '@/lib/utils/cache'
+import {
   CheckCircle,
-  Clock,
-  Send,
   AlertCircle,
-  Edit,
-  Eye,
-  Briefcase,
-  Users,
-  Trash2,
-  ArrowRight,
-  Target,
-  MessageSquare,
-  Calendar,
-  Star,
-  XCircle,
-  FileText,
-  ChevronDown
+  TrendingUp,
+  RefreshCw
 } from 'lucide-react'
 import { Match } from '@/types/matching'
-import { Candidate, campusLabels } from '@/types/candidate'
+import { Candidate } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -54,71 +31,15 @@ import { generateGoogleCalendarUrl } from '@/lib/google-calendar'
 import { getStores } from '@/lib/firestore/stores'
 import { getUsers } from '@/lib/firestore/users'
 import { StatusUpdateDialog } from '@/components/matches/StatusUpdateDialog'
+import ProgressHeader from '@/components/progress/ProgressHeader'
+import ProgressFilters from '@/components/progress/ProgressFilters'
+import ProgressTable from '@/components/progress/ProgressTable'
+import AcceptedMatchesTable from '@/components/progress/AcceptedMatchesTable'
+import JobSelectDialog from '@/components/progress/JobSelectDialog'
+import CandidateSelectDialog from '@/components/progress/CandidateSelectDialog'
+import { statusColors, statusFlow, statusIcons, statusLabels } from '@/components/progress/constants'
+import { MatchWithDetails } from '@/components/progress/types'
 import { toast } from 'sonner'
-
-interface MatchWithDetails extends Match {
-  candidateName?: string
-  jobTitle?: string
-  jobEmploymentType?: string
-  companyName?: string
-  storeName?: string
-  storeId?: string
-  candidateAssignedUserId?: string
-  companyAssignedUserId?: string
-}
-
-const campusColors = {
-  tokyo: 'bg-blue-100 text-blue-800 border-blue-200',
-  osaka: 'bg-orange-100 text-orange-800 border-orange-200',
-  awaji: 'bg-green-100 text-green-800 border-green-200',
-  fukuoka: 'bg-purple-100 text-purple-800 border-purple-200',
-  taiwan: 'bg-red-100 text-red-800 border-red-200'
-}
-
-// ステータスラベル定義
-const statusLabels: Record<Match['status'], string> = {
-  pending_proposal: '提案待ち',
-  suggested: '提案済み',
-  applied: '応募済み',
-  document_screening: '書類選考中',
-  document_passed: '書類選考通過',
-  interview: '面接',
-  interview_passed: '面接通過',
-  offer: '内定',
-  offer_accepted: '内定承諾',
-  rejected: '不合格',
-  withdrawn: '辞退'
-}
-
-// ステータスアイコン定義
-const statusIcons: Record<Match['status'], React.ComponentType<{ className?: string }>> = {
-  pending_proposal: Target,
-  suggested: Target,
-  applied: Send,
-  document_screening: Eye,
-  document_passed: CheckCircle,
-  interview: MessageSquare,
-  interview_passed: CheckCircle,
-  offer: Star,
-  offer_accepted: CheckCircle,
-  rejected: XCircle,
-  withdrawn: AlertCircle
-}
-
-// ステータスフロー定義
-const statusFlow: Record<Match['status'], Match['status'][]> = {
-  pending_proposal: ['suggested', 'rejected', 'withdrawn'],
-  suggested: ['applied', 'offer', 'rejected', 'withdrawn'],
-  applied: ['document_screening', 'offer', 'rejected', 'withdrawn'],
-  document_screening: ['document_passed', 'offer', 'rejected', 'withdrawn'],
-  document_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
-  interview: ['interview_passed', 'offer', 'rejected', 'withdrawn'],
-  interview_passed: ['interview', 'offer', 'rejected', 'withdrawn'],
-  offer: ['offer_accepted', 'rejected', 'withdrawn'],
-  offer_accepted: [],
-  rejected: [],
-  withdrawn: []
-}
 
 function ProgressPageContent() {
   const { user, isAdmin } = useAuth()
@@ -950,56 +871,6 @@ function ProgressPageContent() {
     return sortDirection === 'asc' ? '↑' : '↓'
   }
 
-  const getStatusIcon = (status: Match['status']) => {
-    switch (status) {
-      case 'suggested': return <Clock className="h-4 w-4" />
-      case 'applied': return <Send className="h-4 w-4" />
-      case 'document_screening': return <Eye className="h-4 w-4" />
-      case 'document_passed': return <CheckCircle className="h-4 w-4" />
-      case 'interview': return <Users className="h-4 w-4" />
-      case 'interview_passed': return <CheckCircle className="h-4 w-4" />
-      case 'offer': return <Briefcase className="h-4 w-4" />
-      case 'offer_accepted': return <CheckCircle className="h-4 w-4" />
-      case 'rejected': return <AlertCircle className="h-4 w-4" />
-      case 'withdrawn': return <AlertCircle className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
-    }
-  }
-
-  const getStatusColor = (status: Match['status']) => {
-    switch (status) {
-      case 'pending_proposal': return 'bg-slate-100 text-slate-800'
-      case 'suggested': return 'bg-gray-100 text-gray-800'
-      case 'applied': return 'bg-blue-100 text-blue-800'
-      case 'document_screening': return 'bg-yellow-100 text-yellow-800'
-      case 'document_passed': return 'bg-green-100 text-green-800'
-      case 'interview': return 'bg-purple-100 text-purple-800'
-      case 'interview_passed': return 'bg-emerald-100 text-emerald-800'
-      case 'offer': return 'bg-orange-100 text-orange-800'
-      case 'offer_accepted': return 'bg-green-100 text-green-800'
-      case 'rejected': return 'bg-red-100 text-red-800'
-      case 'withdrawn': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getStatusLabel = (status: Match['status']) => {
-    switch (status) {
-      case 'pending_proposal': return '提案待ち'
-      case 'suggested': return '提案済み'
-      case 'applied': return '応募済み'
-      case 'document_screening': return '書類選考中'
-      case 'document_passed': return '書類選考通過'
-      case 'interview': return '面接'
-      case 'interview_passed': return '面接通過'
-      case 'offer': return '内定'
-      case 'offer_accepted': return '内定承諾'
-      case 'rejected': return '不採用'
-      case 'withdrawn': return '辞退'
-      default: return status
-    }
-  }
-
   if (loading) {
     return (
       <ProtectedRoute>
@@ -1018,179 +889,27 @@ function ProgressPageContent() {
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-100">
         <div className="container mx-auto py-8 px-4">
-          {/* ヘッダー */}
-          <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg text-white">
-            <div className="flex justify-between items-center gap-4">
-              {/* タイトル部分 */}
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="p-2 sm:p-3 bg-white/20 rounded-full">
-                  <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8" />
-                </div>
-                <div>
-                  <h1 className="text-xl sm:text-3xl font-bold">進捗管理</h1>
-                  <p className="text-orange-100 text-xs sm:text-sm">求職者と求人のマッチング状況を管理</p>
-                </div>
-              </div>
-              
-              {/* ヘッダーアクション */}
-              <div className="flex flex-wrap gap-2">
-                {selectedMatchIds.size > 0 && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={openBulkStatusUpdate}
-                      disabled={getSelectedMatchesStatus() === null}
-                      className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm"
-                    >
-                      <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">一括で進捗更新 ({selectedMatchIds.size})</span>
-                      <span className="sm:hidden">進捗更新 ({selectedMatchIds.size})</span>
-                    </Button>
-                    {isAdmin && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setBulkDeleteDialogOpen(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm"
-                      >
-                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                        <span className="hidden sm:inline">削除 ({selectedMatchIds.size})</span>
-                        <span className="sm:hidden">削除 ({selectedMatchIds.size})</span>
-                      </Button>
-                    )}
-                  </>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => loadData(true)}
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs sm:text-sm"
-                  title="キャッシュをクリアして最新データを取得"
-                >
-                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                  <span className="hidden sm:inline">更新</span>
-                </Button>
-                <Dialog open={createMatchOpen} onOpenChange={(open) => {
-                  setCreateMatchOpen(open)
-                  if (!open) {
-                    // ダイアログを閉じる時に選択をクリア
-                    setNewMatchData({ candidateId: '', jobId: '', jobIds: [], score: 50, notes: '' })
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm"
-                      className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs sm:text-sm"
-                    >
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">新規マッチング</span>
-                      <span className="sm:hidden">新規</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>新規マッチング作成</DialogTitle>
-                      <DialogDescription>
-                        求職者と求人をマッチングします
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="candidate">求職者</Label>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                          onClick={() => setCandidateSelectModalOpen(true)}
-                        >
-                          <Users className="h-4 w-4 mr-2" />
-                          {getSelectedCandidateDisplay()}
-                        </Button>
-                      </div>
-                      <div>
-                        <Label htmlFor="job">求人（複数選択可）</Label>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                          onClick={() => setJobSelectModalOpen(true)}
-                        >
-                          <Briefcase className="h-4 w-4 mr-2" />
-                          {getSelectedJobDisplay()}
-                        </Button>
-                        {/* 選択済み求人リスト */}
-                        {newMatchData.jobIds.length > 0 && (
-                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-                            {newMatchData.jobIds.map((jobId) => {
-                              const job = jobs.find(j => j.id === jobId)
-                              const company = companies.find(c => c.id === job?.companyId)
-                              
-                              // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
-                              let store: Store | undefined
-                              if (job?.storeIds && job.storeIds.length > 0) {
-                                store = stores.find(s => s.id === job.storeIds?.[0])
-                              } else if (job?.storeId) {
-                                store = stores.find(s => s.id === job.storeId)
-                              }
-                              
-                              return (
-                                <div key={jobId} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium truncate">{job?.title}</div>
-                                    <div className="text-xs text-gray-600 truncate">
-                                      {company?.name}
-                                      {store && (
-                                        <span className="ml-1">
-                                          - {store.name}
-                                          {store.prefecture && `【${store.prefecture}】`}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 ml-2"
-                                    onClick={() => handleJobSelect(jobId)}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="notes">備考</Label>
-                        <Textarea
-                          id="notes"
-                          value={newMatchData.notes}
-                          onChange={(e) => setNewMatchData(prev => ({ ...prev, notes: e.target.value }))}
-                          placeholder="マッチングに関する備考..."
-                          className="min-h-[80px]"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        variant="outline"
-                        onClick={() => setCreateMatchOpen(false)}
-                      >
-                        キャンセル
-                      </Button>
-                      <Button
-                        onClick={handleCreateMatch}
-                        className="bg-orange-600 hover:bg-orange-700"
-                      >
-                        作成
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-          </div>
+          <ProgressHeader
+            selectedMatchIds={selectedMatchIds}
+            isAdmin={isAdmin}
+            openBulkStatusUpdate={openBulkStatusUpdate}
+            getSelectedMatchesStatus={getSelectedMatchesStatus}
+            setBulkDeleteDialogOpen={setBulkDeleteDialogOpen}
+            loadData={loadData}
+            createMatchOpen={createMatchOpen}
+            setCreateMatchOpen={setCreateMatchOpen}
+            setNewMatchData={setNewMatchData}
+            newMatchData={newMatchData}
+            getSelectedCandidateDisplay={getSelectedCandidateDisplay}
+            setCandidateSelectModalOpen={setCandidateSelectModalOpen}
+            getSelectedJobDisplay={getSelectedJobDisplay}
+            setJobSelectModalOpen={setJobSelectModalOpen}
+            jobs={jobs}
+            companies={companies}
+            stores={stores}
+            handleJobSelect={handleJobSelect}
+            handleCreateMatch={handleCreateMatch}
+          />
 
           {/* タブナビゲーション */}
           <div className="mb-6 flex gap-2 border-b border-gray-200">
@@ -1226,574 +945,37 @@ function ProgressPageContent() {
 
           {activeTab === 'progress' && (
             <>
-          {/* フィルター */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-orange-800">検索とフィルター</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
-                <div className="flex-1">
-                  <Label htmlFor="progress-search">求職者名・職種・企業名</Label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="progress-search"
-                      placeholder="求職者名、職種、企業名で検索..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                </div>
-                {/* ステータスフィルタープリセットボタン */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">クイックフィルター</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      onClick={() => {
-                        setShowOverdueOnly(false)
-                        setStatusFilter(new Set([
-                          'suggested',
-                          'applied',
-                          'document_screening',
-                          'document_passed',
-                          'interview',
-                          'interview_passed',
-                          'offer',
-                          'offer_accepted',
-                          'rejected',
-                          'withdrawn'
-                        ]))
-                      }}
-                    >
-                      全選択
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      onClick={() => {
-                        setShowOverdueOnly(false)
-                        setStatusFilter(new Set([
-                          'applied',
-                          'document_screening',
-                          'document_passed',
-                          'interview',
-                          'interview_passed',
-                          'offer'
-                        ]))
-                      }}
-                    >
-                      進捗中
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-9"
-                      onClick={() => {
-                        setShowOverdueOnly(true)
-                        setStatusFilter(new Set(['document_passed', 'interview_passed', 'interview']))
-                      }}
-                    >
-                      確認待ち
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilterOpen(!statusFilterOpen)}
-                    className="w-full flex items-center justify-between p-3 border rounded-md hover:bg-accent transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Label className="cursor-pointer">ステータスフィルター</Label>
-                      <Badge variant="secondary" className="text-xs">
-                        {statusFilter.size}/10
-                      </Badge>
-                    </div>
-                    <ChevronDown 
-                      className={`h-4 w-4 transition-transform ${statusFilterOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  
-                  {statusFilterOpen && (
-                    <div className="space-y-2 border rounded-md p-3 max-h-[300px] overflow-y-auto bg-background">
-                      <div className="flex items-center space-x-2 pb-2 border-b">
-                        <Checkbox
-                          id="status-all"
-                          checked={statusFilter.size === 10}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setStatusFilter(new Set([
-                                'suggested',
-                                'applied',
-                                'document_screening',
-                                'document_passed',
-                                'interview',
-                                'interview_passed',
-                                'offer',
-                                'offer_accepted',
-                                'rejected',
-                                'withdrawn'
-                              ]))
-                            } else {
-                              setStatusFilter(new Set())
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor="status-all"
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          すべて
-                        </label>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pt-2">
-                        {[
-                          { value: 'pending_proposal', label: '提案待ち' },
-                          { value: 'suggested', label: '提案済み' },
-                          { value: 'applied', label: '応募済み' },
-                          { value: 'document_screening', label: '書類選考中' },
-                          { value: 'document_passed', label: '書類選考通過' },
-                          { value: 'interview', label: '面接' },
-                          { value: 'interview_passed', label: '面接通過' },
-                          { value: 'offer', label: '内定' },
-                          { value: 'offer_accepted', label: '内定承諾' },
-                          { value: 'rejected', label: '不合格' },
-                          { value: 'withdrawn', label: '辞退' }
-                        ].map((status) => {
-                          const isNegativeStatus = status.value === 'rejected' || status.value === 'withdrawn'
-                          return (
-                            <div key={status.value} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`status-${status.value}`}
-                                checked={statusFilter.has(status.value as Match['status'])}
-                                onCheckedChange={(checked) => {
-                                  const newFilter = new Set(statusFilter)
-                                  if (checked) {
-                                    newFilter.add(status.value as Match['status'])
-                                  } else {
-                                    newFilter.delete(status.value as Match['status'])
-                                  }
-                                  setStatusFilter(newFilter)
-                                }}
-                              />
-                              <label
-                                htmlFor={`status-${status.value}`}
-                                className={`text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${
-                                  isNegativeStatus ? 'text-muted-foreground' : ''
-                                }`}
-                              >
-                                {status.label}
-                              </label>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ProgressFilters
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            statusFilterOpen={statusFilterOpen}
+            setStatusFilterOpen={setStatusFilterOpen}
+            showOverdueOnly={showOverdueOnly}
+            setShowOverdueOnly={setShowOverdueOnly}
+          />
 
-          {/* マッチングテーブル */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-orange-800">マッチング進捗一覧</CardTitle>
-              <CardDescription>
-                {filteredMatches.length} 件のマッチング
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={selectedMatchIds.size === filteredMatches.length && filteredMatches.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('candidate')}
-                      >
-                        <div className="flex items-center gap-1">
-                          求職者 {getSortIcon('candidate')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('job')}
-                      >
-                        <div className="flex items-center gap-1">
-                          職種 {getSortIcon('job')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('company')}
-                      >
-                        <div className="flex items-center gap-1">
-                          企業 {getSortIcon('company')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('status')}
-                      >
-                        <div className="flex items-center gap-1">
-                          ステータス {getSortIcon('status')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('interviewDate')}
-                      >
-                        <div className="flex items-center gap-1">
-                          面接日時 {getSortIcon('interviewDate')}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-gray-50"
-                        onClick={() => handleSort('updatedAt')}
-                      >
-                        <div className="flex items-center gap-1">
-                          更新日 {getSortIcon('updatedAt')}
-                        </div>
-                      </TableHead>
-                      <TableHead>操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredMatches.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                          マッチングデータがありません
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredMatches.map((match) => {
-                        const candidate = candidates.find(c => c.id === match.candidateId)
-                        const age = candidate?.dateOfBirth ? calculateAge(candidate.dateOfBirth) : null
-                        
-                        // 面接日程をチェック
-                        let isInterviewOverdue = false
-                        if (match.status === 'interview' && match.timeline && match.timeline.length > 0) {
-                          const interviewTimelines = match.timeline
-                            .filter(t => t.status === 'interview' && t.eventDate)
-                            .sort((a, b) => {
-                              const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
-                              const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
-                              return timeB - timeA
-                            })
-                          
-                          if (interviewTimelines.length > 0) {
-                            const eventDateValue = interviewTimelines[0].eventDate
-                            let interviewDate: Date | null = null
-                            
-                            try {
-                              if (eventDateValue && typeof eventDateValue === 'object' && 'toDate' in eventDateValue) {
-                                interviewDate = (eventDateValue as any).toDate()
-                              } else if (eventDateValue instanceof Date) {
-                                interviewDate = eventDateValue
-                              } else if (typeof eventDateValue === 'string' || typeof eventDateValue === 'number') {
-                                interviewDate = new Date(eventDateValue)
-                              }
-                              
-                              // 面接日時が過去かチェック
-                              if (interviewDate && !isNaN(interviewDate.getTime())) {
-                                const now = new Date()
-                                isInterviewOverdue = interviewDate < now
-                              }
-                            } catch (e) {
-                              console.error('面接日時の変換エラー:', e)
-                            }
-                          }
-                        }
-                        
-                        // 背景色の設定
-                        let rowBgClass = ""
-                        if (isInterviewOverdue) {
-                          rowBgClass = "bg-red-100 hover:bg-red-200"
-                        } else if (match.status === 'offer_accepted') {
-                          rowBgClass = "bg-blue-50 hover:bg-blue-100"
-                        } else if (match.status === 'rejected' || match.status === 'withdrawn') {
-                          rowBgClass = "bg-gray-100 hover:bg-gray-200"
-                        }
-                        
-                        return (
-                        <TableRow key={match.id} className={rowBgClass}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedMatchIds.has(match.id)}
-                              onCheckedChange={() => toggleSelectMatch(match.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <div className="flex items-start gap-2">
-                              {match.candidateAssignedUserId ? (
-                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                  <AvatarImage src={users.find(u => u.id === match.candidateAssignedUserId)?.photoURL} />
-                                  <AvatarFallback className="text-xs bg-green-100">
-                                    {users.find(u => u.id === match.candidateAssignedUserId)?.displayName?.charAt(0) || '?'}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : null}
-                              <div>
-                                <div>
-                                  <Link 
-                                    href={`/candidates/${match.candidateId}`}
-                                    className="hover:underline text-blue-600 hover:text-blue-800"
-                                  >
-                                    {match.candidateName}
-                                  </Link>
-                                  {age !== null && (
-                                    <>
-                                      （{age}歳）
-                                    </>
-                                  )}
-                                </div>
-                                {candidate?.assignedUserId && (
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    担当者：{users.find(u => u.id === candidate.assignedUserId)?.displayName || '担当者不明'}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <Link 
-                                href={`/jobs/${match.jobId}`}
-                                className="hover:underline text-blue-600 hover:text-blue-800"
-                              >
-                                {match.jobTitle}
-                              </Link>
-                              {match.jobEmploymentType && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {match.jobEmploymentType}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-start gap-2">
-                              {match.companyAssignedUserId ? (
-                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                  <AvatarImage src={users.find(u => u.id === match.companyAssignedUserId)?.photoURL} />
-                                  <AvatarFallback className="text-xs bg-blue-100">
-                                    {users.find(u => u.id === match.companyAssignedUserId)?.displayName?.charAt(0) || '?'}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : null}
-                              <div>
-                                <Link 
-                                  href={`/companies/${match.companyId}`}
-                                  className="hover:underline text-blue-600 hover:text-blue-800"
-                                >
-                                  {match.companyName}
-                                </Link><br></br>
-                                {match.storeId ? (
-                                  <Link 
-                                    href={`/stores/${match.storeId}`}
-                                    className="hover:underline text-blue-600 hover:text-blue-800 text-xs text-gray-500 mt-1"
-                                  >
-                                    {match.storeName}
-                                  </Link>
-                                ) : (
-                                  <span className="text-xs text-gray-500 mt-1">{match.storeName}</span>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${getStatusColor(match.status)} border-0`}>
-                              <div className="flex items-center gap-1">
-                                {getStatusIcon(match.status)}
-                                {getStatusLabel(match.status)}
-                              </div>
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              // timelineから面接日時を取得
-                              let interviewDate: Date | null = null
-                              
-                              // timelineから面接ステータスのeventDateを探す
-                              if (match.timeline && match.timeline.length > 0) {
-                                // 面接ステータスのタイムラインを日付順にソート（新しい順）
-                                const interviewTimelines = match.timeline
-                                  .filter(t => t.status === 'interview' && t.eventDate)
-                                  .sort((a, b) => {
-                                    const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
-                                    const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
-                                    return timeB - timeA
-                                  })
-                                
-                                if (interviewTimelines.length > 0) {
-                                  const eventDateValue = interviewTimelines[0].eventDate
-                                  
-                                  try {
-                                    // Firestore Timestampの場合
-                                    if (eventDateValue && typeof eventDateValue === 'object' && 'toDate' in eventDateValue) {
-                                      interviewDate = (eventDateValue as any).toDate()
-                                    } else if (eventDateValue instanceof Date) {
-                                      interviewDate = eventDateValue
-                                    } else if (typeof eventDateValue === 'string' || typeof eventDateValue === 'number') {
-                                      interviewDate = new Date(eventDateValue)
-                                    }
-                                  } catch (e) {
-                                    console.error('面接日時の変換エラー:', e)
-                                  }
-                                }
-                              }
-                              
-                              // 有効な日付かチェック
-                              if (!interviewDate || isNaN(interviewDate.getTime())) {
-                                return <span className="text-gray-400">-</span>
-                              }
-                              
-                              // 時刻が00:00かチェック（時刻未入力）
-                              const hasTime = interviewDate.getHours() !== 0 || interviewDate.getMinutes() !== 0
-                              
-                              return (
-                                <div className="text-sm">
-                                  <div>{interviewDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })}</div>
-                                  {hasTime ? (
-                                    <div className="text-xs text-gray-500">
-                                      {interviewDate.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                  ) : (
-                                    <div className="text-xs text-orange-500">
-                                      時刻未定
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            {match.updatedAt && typeof match.updatedAt === 'object' && match.updatedAt instanceof Date
-                              ? match.updatedAt.toLocaleDateString()
-                              : match.updatedAt && typeof match.updatedAt === 'string'
-                              ? new Date(match.updatedAt).toLocaleDateString()
-                              : '不明'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
-                                className="h-8 w-8 p-0"
-                                title="詳細を見る"
-                              >
-                                <Link href={`/progress/${match.id}`}>
-                                  <Eye className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              {statusFlow[match.status].length > 0 && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedMatch(match)
-                                    const nextStatuses = statusFlow[match.status]
-                                    if (nextStatuses.length > 0) {
-                                      setNewStatus(nextStatuses[0])
-                                      setEventDate('')
-                                    }
-                                    setStatusUpdateOpen(true)
-                                  }}
-                                  className="h-8 px-2"
-                                >
-                                  <ArrowRight className="h-4 w-4 mr-1" />
-                                  <span className="text-xs">次へ</span>
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-              
-              {/* ページネーション */}
-              {totalItems > 0 && (
-                <div className="flex items-center justify-between px-6 py-4 border-t bg-white">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-700">
-                      {totalItems}件中 {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}-{Math.min(currentPage * itemsPerPage, totalItems)}件を表示
-                    </span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value))
-                        setCurrentPage(1)
-                      }}
-                      className="border rounded px-2 py-1 text-sm"
-                    >
-                      <option value={20}>20件</option>
-                      <option value={50}>50件</option>
-                      <option value={100}>100件</option>
-                      <option value={200}>200件</option>
-                    </select>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      最初
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      前へ
-                    </Button>
-                    <span className="text-sm px-4">
-                      {currentPage} / {Math.ceil(totalItems / itemsPerPage)}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalItems / itemsPerPage), p + 1))}
-                      disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
-                    >
-                      次へ
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.ceil(totalItems / itemsPerPage))}
-                      disabled={currentPage >= Math.ceil(totalItems / itemsPerPage)}
-                    >
-                      最後
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ProgressTable
+            filteredMatches={filteredMatches}
+            candidates={candidates}
+            users={users}
+            selectedMatchIds={selectedMatchIds}
+            toggleSelectAll={toggleSelectAll}
+            toggleSelectMatch={toggleSelectMatch}
+            handleSort={handleSort}
+            getSortIcon={getSortIcon}
+            calculateAge={calculateAge}
+            setSelectedMatch={setSelectedMatch}
+            setNewStatus={setNewStatus}
+            setEventDate={setEventDate}
+            setStatusUpdateOpen={setStatusUpdateOpen}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage}
+            totalItems={totalItems}
+            setCurrentPage={setCurrentPage}
+            setItemsPerPage={setItemsPerPage}
+          />
 
           {/* ステータス更新ダイアログ */}
           <StatusUpdateDialog
@@ -1840,7 +1022,7 @@ function ProgressPageContent() {
                 {getSelectedMatchesStatus() && (
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-sm text-gray-600 mb-2">現在のステータス</p>
-                    <Badge className={`${getStatusColor(getSelectedMatchesStatus()!)} px-3 py-1 flex items-center gap-2 w-fit`}>
+                    <Badge className={`${statusColors[getSelectedMatchesStatus()!]} px-3 py-1 flex items-center gap-2 w-fit`}>
                       {React.createElement(statusIcons[getSelectedMatchesStatus()!], { className: "h-4 w-4" })}
                       {statusLabels[getSelectedMatchesStatus()!]}
                     </Badge>
@@ -2001,479 +1183,43 @@ function ProgressPageContent() {
           </>
           )}
 
-          {/* 内定承諾者一覧タブ */}
           {activeTab === 'accepted' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-orange-800">内定承諾者一覧</CardTitle>
-                <CardDescription>
-                  内定を承諾した求職者の店舗名と入社日を管理します
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>求職者名</TableHead>
-                      <TableHead>店舗名</TableHead>
-                      <TableHead>企業名</TableHead>
-                      <TableHead>入社日</TableHead>
-                      <TableHead>退職日</TableHead>
-                      <TableHead>担当者</TableHead>
-                      <TableHead>メモ</TableHead>
-                      <TableHead>進捗詳細</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {matches
-                      .filter(match => match.status === 'offer_accepted')
-                      .sort((a, b) => {
-                        // 入社日でソート（新しい順）
-                        const dateA = a.startDate ? new Date(a.startDate).getTime() : 0
-                        const dateB = b.startDate ? new Date(b.startDate).getTime() : 0
-                        return dateB - dateA
-                      })
-                      .map(match => {
-                        const candidate = candidates.find(c => c.id === match.candidateId)
-                        const assignedUser = users.find(u => u.id === match.candidateAssignedUserId)
-                        
-                        // 入社日が過ぎているかチェック
-                        const isStartDatePassed = match.startDate && new Date(match.startDate) < new Date()
-                        // 退職日が入っているかチェック
-                        const hasEndDate = !!match.endDate
-                        
-                        // スタイルの決定（退職日優先）
-                        let rowClassName = ''
-                        if (hasEndDate) {
-                          rowClassName = 'bg-red-50 hover:bg-red-100'
-                        } else if (isStartDatePassed) {
-                          rowClassName = 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }
-                        
-                        return (
-                          <TableRow key={match.id} className={rowClassName}>
-                            <TableCell className="font-medium">
-                              <Link 
-                                href={`/candidates/${match.candidateId}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                {match.candidateName}
-                              </Link>
-                              {candidate?.campus && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={`ml-2 text-xs ${campusColors[candidate.campus]}`}
-                                >
-                                  {campusLabels[candidate.campus]}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {match.storeName ? (
-                                <Link 
-                                  href={`/stores/${match.storeId}`}
-                                  className="text-blue-600 hover:underline"
-                                >
-                                  {match.storeName}
-                                </Link>
-                              ) : (
-                                '-'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {match.companyName ? (
-                                <Link 
-                                  href={`/companies/${match.companyId}`}
-                                  className="text-blue-600 hover:underline"
-                                >
-                                  {match.companyName}
-                                </Link>
-                              ) : (
-                                '-'
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {editingDateField?.matchId === match.id && editingDateField?.field === 'startDate' ? (
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="date"
-                                    value={editingDateValue}
-                                    onChange={(e) => setEditingDateValue(e.target.value)}
-                                    className="h-8 w-36"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleSaveDateEdit(match.id, 'startDate')
-                                      } else if (e.key === 'Escape') {
-                                        handleCancelDateEdit()
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleSaveDateEdit(match.id, 'startDate')}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={handleCancelDateEdit}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <XCircle className="h-4 w-4 text-gray-600" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-                                  onClick={() => handleStartDateEdit(match.id, 'startDate', match.startDate)}
-                                >
-                                  <Calendar className="h-4 w-4 text-gray-400" />
-                                  {match.startDate ? (
-                                    new Date(match.startDate).toLocaleDateString('ja-JP')
-                                  ) : (
-                                    <span className="text-gray-400">未設定</span>
-                                  )}
-                                  <Edit className="h-3 w-3 text-gray-400 ml-1" />
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {editingDateField?.matchId === match.id && editingDateField?.field === 'endDate' ? (
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="date"
-                                    value={editingDateValue}
-                                    onChange={(e) => setEditingDateValue(e.target.value)}
-                                    className="h-8 w-36"
-                                    autoFocus
-                                    min={match.startDate ? new Date(match.startDate).toISOString().split('T')[0] : undefined}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleSaveDateEdit(match.id, 'endDate')
-                                      } else if (e.key === 'Escape') {
-                                        handleCancelDateEdit()
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleSaveDateEdit(match.id, 'endDate')}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={handleCancelDateEdit}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <XCircle className="h-4 w-4 text-gray-600" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div 
-                                  className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded"
-                                  onClick={() => handleStartDateEdit(match.id, 'endDate', match.endDate)}
-                                >
-                                  <Calendar className="h-4 w-4 text-gray-400" />
-                                  {match.endDate ? (
-                                    new Date(match.endDate).toLocaleDateString('ja-JP')
-                                  ) : (
-                                    <span className="text-gray-400">-</span>
-                                  )}
-                                  <Edit className="h-3 w-3 text-gray-400 ml-1" />
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {assignedUser ? (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={assignedUser.photoURL} />
-                                    <AvatarFallback className="text-xs">
-                                      {assignedUser.displayName?.charAt(0) || assignedUser.email?.charAt(0)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{assignedUser.displayName || assignedUser.email}</span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">未割当</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {match.notes || '-'}
-                            </TableCell>
-                            <TableCell>
-                              <Link 
-                                href={`/progress/${match.id}`}
-                                className="text-blue-600 hover:underline"
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-blue-600 hover:text-blue-700"
-                                >
-                                  詳細
-                                </Button>
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    {matches.filter(match => match.status === 'offer_accepted').length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                          内定承諾者はまだいません
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <AcceptedMatchesTable
+              matches={matches}
+              candidates={candidates}
+              users={users}
+              editingDateField={editingDateField}
+              editingDateValue={editingDateValue}
+              setEditingDateValue={setEditingDateValue}
+              handleSaveDateEdit={handleSaveDateEdit}
+              handleCancelDateEdit={handleCancelDateEdit}
+              handleStartDateEdit={handleStartDateEdit}
+            />
           )}
 
-          {/* 求人選択モーダル */}
-          <Dialog open={jobSelectModalOpen} onOpenChange={setJobSelectModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-              <DialogHeader>
-                <DialogTitle>求人を選択（複数選択可）</DialogTitle>
-                <DialogDescription>
-                  マッチングを作成する求人を選択してください（複数選択可能）
-                  {newMatchData.jobIds.length > 0 && (
-                    <span className="ml-2 text-orange-600 font-medium">
-                      {newMatchData.jobIds.length}件選択中
-                    </span>
-                  )}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-                {/* 検索フィールド */}
-                <div>
-                  <Label htmlFor="job-dialog-search">検索</Label>
-                  <div className="flex items-center space-x-2">
-                    <Search className="h-4 w-4 text-gray-400" />
-                    <Input
-                      id="job-dialog-search"
-                      placeholder="求人名、企業名、店舗名で検索..."
-                      value={jobSearchTerm}
-                      onChange={(e) => setJobSearchTerm(e.target.value)}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
+          <JobSelectDialog
+            open={jobSelectModalOpen}
+            onOpenChange={setJobSelectModalOpen}
+            jobSearchTerm={jobSearchTerm}
+            setJobSearchTerm={setJobSearchTerm}
+            getFilteredJobs={getFilteredJobs}
+            newMatchData={newMatchData}
+            handleJobSelect={handleJobSelect}
+            handleJobSelectComplete={handleJobSelectComplete}
+            companies={companies}
+            stores={stores}
+          />
 
-                {/* 求人リスト */}
-                <div className="flex-1 overflow-y-auto border rounded-lg">
-                  <div className="space-y-2 p-4">
-                    {getFilteredJobs().map((job) => {
-                      const company = companies.find(c => c.id === job.companyId)
-                      
-                      // 複数店舗対応: storeIds優先、storeIdは後方互換性のため
-                      let store: Store | undefined
-                      if (job.storeIds && job.storeIds.length > 0) {
-                        store = stores.find(s => s.id === job.storeIds?.[0])
-                      } else if (job.storeId) {
-                        store = stores.find(s => s.id === job.storeId)
-                      }
-                      
-                      const isSelected = newMatchData.jobIds.includes(job.id)
-                      
-                      return (
-                        <div
-                          key={job.id}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
-                            isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
-                          }`}
-                          onClick={() => handleJobSelect(job.id)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-lg">{job.title}</h4>
-                              <p className="text-gray-600 text-sm mt-1">
-                                {company?.name || '企業名不明'}
-                                {store && (
-                                  <span className="ml-2">
-                                    - {store.name}
-                                    {store.prefecture && `【${store.prefecture}】`}
-                                  </span>
-                                )}
-                              </p>
-                              <div className="flex items-center gap-2 mt-2">
-                                <Badge 
-                                  variant={job.status === 'active' ? 'default' : 'secondary'}
-                                  className="text-xs"
-                                >
-                                  {job.status === 'draft' && '下書き'}
-                                  {job.status === 'active' && '募集中'}
-                                  {job.status === 'closed' && '募集終了'}
-                                </Badge>
-                                {(job.salaryInexperienced || job.salaryExperienced) && (
-                                  <span className="text-xs text-gray-500">
-                                    {job.salaryInexperienced || job.salaryExperienced}
-                                  </span>
-                                )}
-                              </div>
-                              {job.jobDescription && (
-                                <p className="text-gray-600 text-sm mt-2 line-clamp-2">
-                                  {job.jobDescription}
-                                </p>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <CheckCircle className="h-5 w-5 text-orange-500 mt-1 flex-shrink-0" />
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    
-                    {getFilteredJobs().length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        {jobSearchTerm ? '検索条件に一致する求人が見つかりません' : '求人がありません'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setJobSelectModalOpen(false)
-                    setJobSearchTerm('')
-                  }}
-                >
-                  キャンセル
-                </Button>
-                <Button
-                  onClick={handleJobSelectComplete}
-                  disabled={newMatchData.jobIds.length === 0}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  決定（{newMatchData.jobIds.length}件）
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* 求職者選択モーダル */}
-          <Dialog open={candidateSelectModalOpen} onOpenChange={setCandidateSelectModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-              <DialogHeader>
-                <DialogTitle>求職者を選択</DialogTitle>
-                <DialogDescription>
-                  マッチングを作成する求職者を選択してください
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-                {/* 検索フィールド */}
-                <div>
-                  <Label htmlFor="candidate-dialog-search">検索</Label>
-                  <div className="flex items-center space-x-2">
-                    <Search className="h-4 w-4 text-gray-400" />
-                    <Input
-                      id="candidate-dialog-search"
-                      placeholder="氏名、カナ、メールアドレスで検索..."
-                      value={candidateSearchTerm}
-                      onChange={(e) => setCandidateSearchTerm(e.target.value)}
-                      className="flex-1"
-                    />
-                  </div>
-                </div>
-
-                {/* 求職者リスト */}
-                <div className="flex-1 overflow-y-auto border rounded-lg">
-                  <div className="space-y-2 p-4">
-                    {getFilteredCandidates().map((candidate) => {
-                      const isSelected = newMatchData.candidateId === candidate.id
-                      const age = calculateAge(candidate.dateOfBirth)
-                      
-                      return (
-                        <div
-                          key={candidate.id}
-                          className={`p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
-                            isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
-                          }`}
-                          onClick={() => handleCandidateSelect(candidate.id)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-lg">
-                                  {candidate.lastName} {candidate.firstName}
-                                </h4>
-                                {age !== null && (
-                                  <span className="text-sm text-gray-600">
-                                    （{age}歳）
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-gray-600 text-sm mt-1">
-                                {candidate.lastNameKana} {candidate.firstNameKana}
-                              </p>
-                              <div className="flex items-center gap-3 mt-2">
-                                {candidate.enrollmentDate && (
-                                  <span className="text-xs text-gray-600">
-                                    📅 入学: {new Date(candidate.enrollmentDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' })}
-                                  </span>
-                                )}
-                                {candidate.campus && (
-                                  <Badge className={`${campusColors[candidate.campus]} border text-xs font-medium`}>
-                                    {campusLabels[candidate.campus]}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                            {isSelected && (
-                              <CheckCircle className="h-5 w-5 text-orange-500 mt-1" />
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                    
-                    {getFilteredCandidates().length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        {candidateSearchTerm ? '検索条件に一致する求職者が見つかりません' : '求職者がいません'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCandidateSelectModalOpen(false)
-                    setCandidateSearchTerm('')
-                  }}
-                >
-                  キャンセル
-                </Button>
-                <Button
-                  onClick={() => {
-                    setCandidateSelectModalOpen(false)
-                    setCandidateSearchTerm('')
-                  }}
-                  disabled={!newMatchData.candidateId}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  選択
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <CandidateSelectDialog
+            open={candidateSelectModalOpen}
+            onOpenChange={setCandidateSelectModalOpen}
+            candidateSearchTerm={candidateSearchTerm}
+            setCandidateSearchTerm={setCandidateSearchTerm}
+            getFilteredCandidates={getFilteredCandidates}
+            newMatchData={newMatchData}
+            handleCandidateSelect={handleCandidateSelect}
+            calculateAge={calculateAge}
+          />
         </div>
       </div>
     </ProtectedRoute>
