@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
 import RelatedMatches from '@/components/matches/RelatedMatches'
@@ -91,6 +92,7 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
   const [relatedStores, setRelatedStores] = useState<any[]>([])
   const [relatedJobs, setRelatedJobs] = useState<any[]>([])
   const [storeSearchTerm, setStoreSearchTerm] = useState('')
+  const [storePrefectureFilter, setStorePrefectureFilter] = useState('all')
   const [activeTab, setActiveTab] = useState('basic')
   const [emailHistory, setEmailHistory] = useState<any[]>([])
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
@@ -744,16 +746,63 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
                 </Link>
               </CardHeader>
               <CardContent>
-                {/* 検索入力 */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="店舗名、住所、都道府県で検索..."
-                    value={storeSearchTerm}
-                    onChange={(e) => setStoreSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+                {/* 検索入力と都道府県フィルター */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <Select value={storePrefectureFilter} onValueChange={(value) => {
+                    setStorePrefectureFilter(value)
+                    setStoresCurrentPage(1) // フィルター変更時にページをリセット
+                  }}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="都道府県で絞り込み" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべての都道府県</SelectItem>
+                      {(() => {
+                        // 都道府県を北から南の順に並べる
+                        const prefectureOrder = [
+                          '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+                          '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+                          '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+                          '岐阜県', '静岡県', '愛知県', '三重県',
+                          '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+                          '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+                          '徳島県', '香川県', '愛媛県', '高知県',
+                          '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'
+                        ]
+                        
+                        // 店舗から都道府県を抽出してユニークなリストを作成
+                        const uniquePrefectures = Array.from(new Set(
+                          relatedStores
+                            .map(store => store.prefecture)
+                            .filter(Boolean)
+                        ))
+                        
+                        // prefectureOrderに従ってソート
+                        const sortedPrefectures = uniquePrefectures.sort((a, b) => {
+                          const indexA = prefectureOrder.indexOf(a)
+                          const indexB = prefectureOrder.indexOf(b)
+                          // リストにない場合は最後に配置
+                          if (indexA === -1) return 1
+                          if (indexB === -1) return -1
+                          return indexA - indexB
+                        })
+                        
+                        return sortedPrefectures.map(pref => (
+                          <SelectItem key={pref} value={pref}>{pref}</SelectItem>
+                        ))
+                      })()}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="店舗名、住所で検索..."
+                      value={storeSearchTerm}
+                      onChange={(e) => setStoreSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-3">
@@ -761,13 +810,19 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
                     // 検索フィルタリングとソート
                     let filteredStores = [...relatedStores]
                     
+                    // 都道府県フィルタ
+                    if (storePrefectureFilter !== 'all') {
+                      filteredStores = filteredStores.filter(store =>
+                        store.prefecture === storePrefectureFilter
+                      )
+                    }
+                    
                     // 検索フィルタ
                     if (storeSearchTerm.trim() !== '') {
                       const searchLower = storeSearchTerm.toLowerCase()
                       filteredStores = filteredStores.filter(store =>
                         store.name?.toLowerCase().includes(searchLower) ||
-                        store.address?.toLowerCase().includes(searchLower) ||
-                        store.prefecture?.toLowerCase().includes(searchLower)
+                        store.address?.toLowerCase().includes(searchLower)
                       )
                     }
                     
