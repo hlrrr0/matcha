@@ -15,6 +15,19 @@ function NewStorePageContent() {
   const [loading, setLoading] = useState(false)
   const [initialData, setInitialData] = useState<Partial<StoreType>>({})
 
+  // 食べログURLからクエリパラメータを削除する関数
+  const cleanTabelogUrl = (url: string): string => {
+    if (!url) return url
+    try {
+      const urlObj = new URL(url)
+      // パスのみを抽出（末尾のスラッシュも削除）
+      return urlObj.origin + urlObj.pathname.replace(/\/$/, '')
+    } catch {
+      // URLのパース失敗時は元のURLを返す
+      return url
+    }
+  }
+
   // URLパラメータから企業IDまたは複製元店舗IDを取得して初期データを設定
   useEffect(() => {
     const loadInitialData = async () => {
@@ -61,11 +74,14 @@ function NewStorePageContent() {
     try {
       // 重複チェック
       if (data.tabelogUrl) {
-        const existingStoreByTabelog = await checkStoreByTabelogUrl(data.tabelogUrl)
+        const cleanedUrl = cleanTabelogUrl(data.tabelogUrl)
+        const existingStoreByTabelog = await checkStoreByTabelogUrl(cleanedUrl)
         if (existingStoreByTabelog) {
           alert(`この食べログURLは既に登録されています: ${existingStoreByTabelog.name}`)
           return
         }
+        // クリーンなURLをdataに設定
+        data.tabelogUrl = cleanedUrl
       }
 
       const existingStoreByName = await checkStoreByNameAndCompany(data.name, data.companyId)

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import RelatedMatches from '@/components/matches/RelatedMatches'
 import { 
@@ -48,6 +49,7 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
   const [company, setCompany] = useState<Company | null>(null)
   const [jobs, setJobs] = useState<Job[]>([])
   const [modalImage, setModalImage] = useState<{ src: string; alt: string } | null>(null)
+  const [activeTab, setActiveTab] = useState('basic')
 
   // URLパラメータから戻り先のパラメータを取得
   const returnPage = searchParams.get('returnPage') || '1'
@@ -257,9 +259,27 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 基本情報 */}
-        <div className="lg:col-span-2 space-y-6">
+      {/* タブUI */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="basic" className="flex items-center gap-2">
+            <Store className="h-4 w-4" />
+            基本情報
+          </TabsTrigger>
+          <TabsTrigger value="jobs" className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4" />
+            関連求人
+            <Badge variant="secondary" className="ml-2">{jobs.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="progress" className="flex items-center gap-2">
+            進捗
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 基本情報タブ */}
+        <TabsContent value="basic" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>基本情報</CardTitle>
@@ -510,17 +530,10 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               </CardContent>
             </Card>
           )}
+            </div>
 
-          {/* 進捗一覧 */}
-          <RelatedMatches 
-            type="store" 
-            entityId={storeId}
-            entityName={store?.name}
-          />
-        </div>
-
-        {/* サイドバー */}
-        <div className="space-y-6">
+            {/* サイドバー */}
+            <div className="space-y-6">
           {/* クイックアクション */}
           <Card>
             <CardHeader>
@@ -566,64 +579,6 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
             </Card>
           )}
 
-          {/* 関連求人 */}
-          {jobs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5" />
-                  関連求人 ({jobs.length}件)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {jobs.map((job) => (
-                  <div key={job.id} className="border rounded-lg p-3 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">{job.title}</h4>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          <Badge 
-                            variant={job.status === 'active' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {job.status === 'draft' && '下書き'}
-                            {job.status === 'active' && '募集中'}
-                            {job.status === 'closed' && '募集終了'}
-                          </Badge>
-                          {(job.salaryInexperienced || job.salaryExperienced) && (
-                            <span className="text-xs text-gray-600">
-                              {job.salaryInexperienced || job.salaryExperienced}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Link href={`/jobs/${job.id}`}>
-                        <Button variant="outline" size="sm" className="text-xs h-7">
-                          詳細
-                        </Button>
-                      </Link>
-                      <Link href={`/jobs/${job.id}/edit`}>
-                        <Button variant="outline" size="sm" className="text-xs h-7">
-                          編集
-                        </Button>
-                      </Link>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs h-7"
-                        onClick={() => duplicateJob(job)}
-                      >
-                        複製
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
           {/* 統計情報 */}
           <Card>
             <CardHeader>
@@ -664,8 +619,96 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* 関連求人タブ */}
+        <TabsContent value="jobs" className="space-y-6">
+          {jobs.length > 0 ? (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  関連求人 ({jobs.length}件)
+                </CardTitle>
+                <Link href={`/jobs/new?company=${store.companyId}&store=${storeId}`}>
+                  <Button variant="outline" size="sm">
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    新しい求人を作成
+                  </Button>
+                </Link>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {jobs.map((job) => (
+                  <div key={job.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{job.title}</h4>
+                        <Badge 
+                          variant={job.status === 'active' ? 'default' : 'secondary'}
+                        >
+                          {job.status === 'draft' && '下書き'}
+                          {job.status === 'active' && '募集中'}
+                          {job.status === 'closed' && '募集終了'}
+                        </Badge>
+                      </div>
+                      {(job.salaryInexperienced || job.salaryExperienced) && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          {job.salaryInexperienced || job.salaryExperienced}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/jobs/${job.id}`}>
+                        <Button variant="outline" size="sm">
+                          詳細
+                        </Button>
+                      </Link>
+                      <Link href={`/jobs/${job.id}/edit`}>
+                        <Button variant="outline" size="sm">
+                          編集
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => duplicateJob(job)}
+                      >
+                        複製
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center py-8 text-gray-500">
+                  <Briefcase className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                  <p className="mb-4">関連求人がありません</p>
+                  <Link href={`/jobs/new?company=${store.companyId}&store=${storeId}`}>
+                    <Button>
+                      <Briefcase className="h-4 w-4 mr-2" />
+                      新しい求人を作成
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* 進捗タブ */}
+        <TabsContent value="progress" className="space-y-6">
+          <RelatedMatches 
+            type="store" 
+            entityId={storeId}
+            entityName={store?.name}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* 画像拡大モーダル */}
       <Dialog open={!!modalImage} onOpenChange={() => setModalImage(null)}>

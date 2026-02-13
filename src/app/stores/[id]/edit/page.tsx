@@ -35,6 +35,19 @@ export default function EditStorePage({ params }: EditStorePageProps) {
   })
   const [applyingFlags, setApplyingFlags] = useState(false)
 
+  // 食べログURLからクエリパラメータを削除する関数
+  const cleanTabelogUrl = (url: string): string => {
+    if (!url) return url
+    try {
+      const urlObj = new URL(url)
+      // パスのみを抽出（末尾のスラッシュも削除）
+      return urlObj.origin + urlObj.pathname.replace(/\/$/, '')
+    } catch {
+      // URLのパース失敗時は元のURLを返す
+      return url
+    }
+  }
+
   useEffect(() => {
     const initializeParams = async () => {
       const resolvedParams = await params
@@ -80,12 +93,15 @@ export default function EditStorePage({ params }: EditStorePageProps) {
     try {
       // tabelogURLの重複チェック（自分自身以外）
       if (data.tabelogUrl) {
-        const existingStoreByTabelog = await checkStoreByTabelogUrl(data.tabelogUrl)
+        const cleanedUrl = cleanTabelogUrl(data.tabelogUrl)
+        const existingStoreByTabelog = await checkStoreByTabelogUrl(cleanedUrl)
         if (existingStoreByTabelog && existingStoreByTabelog.id !== storeId) {
           alert(`この食べログURLは既に登録されています: ${existingStoreByTabelog.name}`)
           setSaving(false)
           return
         }
+        // クリーンなURLをdataに設定
+        data.tabelogUrl = cleanedUrl
       }
 
       // 位置情報が取得されていない場合、住所から自動取得を試みる
