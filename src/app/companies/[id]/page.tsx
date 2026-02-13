@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Pagination } from '@/components/ui/pagination'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import DominoLinkage from '@/components/companies/DominoLinkage'
 import RelatedMatches from '@/components/matches/RelatedMatches'
@@ -93,6 +94,9 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
   const [activeTab, setActiveTab] = useState('basic')
   const [emailHistory, setEmailHistory] = useState<any[]>([])
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
+  const [storesCurrentPage, setStoresCurrentPage] = useState(1)
+  const [jobsCurrentPage, setJobsCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
@@ -783,8 +787,11 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
                       )
                     }
                     
-                    const displayStores = filteredStores.slice(0, 5)
-                    const hasMore = filteredStores.length > 5
+                    // ページネーション計算
+                    const totalPages = Math.ceil(filteredStores.length / itemsPerPage)
+                    const startIndex = (storesCurrentPage - 1) * itemsPerPage
+                    const endIndex = startIndex + itemsPerPage
+                    const displayStores = filteredStores.slice(startIndex, endIndex)
                     
                     return (
                       <>
@@ -814,11 +821,15 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
                             </div>
                           </div>
                         ))}
-                        {hasMore && (
-                          <div className="text-center">
-                            <Link href={`/stores?company=${companyId}`}>
-                              <Button variant="outline">すべての店舗を見る ({filteredStores.length}件)</Button>
-                            </Link>
+                        {totalPages > 1 && (
+                          <div className="mt-6">
+                            <Pagination
+                              currentPage={storesCurrentPage}
+                              totalPages={totalPages}
+                              onPageChange={setStoresCurrentPage}
+                              itemsPerPage={itemsPerPage}
+                              totalItems={filteredStores.length}
+                            />
                           </div>
                         )}
                       </>
@@ -863,7 +874,16 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {relatedJobs.slice(0, 5).map((job) => {
+                  {(() => {
+                    // ページネーション計算
+                    const totalPages = Math.ceil(relatedJobs.length / itemsPerPage)
+                    const startIndex = (jobsCurrentPage - 1) * itemsPerPage
+                    const endIndex = startIndex + itemsPerPage
+                    const displayJobs = relatedJobs.slice(startIndex, endIndex)
+                    
+                    return (
+                      <>
+                        {displayJobs.map((job) => {
                     // 求人に紐付く店舗を取得
                     const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
                     const jobStores = storeIds
@@ -927,6 +947,20 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
                       </div>
                     )
                   })}
+                  {totalPages > 1 && (
+                    <div className="mt-6">
+                      <Pagination
+                        currentPage={jobsCurrentPage}
+                        totalPages={totalPages}
+                        onPageChange={setJobsCurrentPage}
+                        itemsPerPage={itemsPerPage}
+                        totalItems={relatedJobs.length}
+                      />
+                    </div>
+                  )}
+                </>
+              )
+            })()}
                 </div>
               </CardContent>
             </Card>
