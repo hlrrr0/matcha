@@ -115,6 +115,7 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                   <TableHead>契約状況</TableHead>
                   <TableHead>入力率</TableHead>
                   <TableHead>Domino連携</TableHead>
+                  <TableHead>Indeed</TableHead>
                   <TableHead>担当者</TableHead>
                   <TableHead>店舗数</TableHead>
                   <TableHead className="text-right">アクション</TableHead>
@@ -238,6 +239,32 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                             )}
                           </div>
                         </TableCell>
+                        {/* Indeed掲載ステータス */}
+                        <TableCell>
+                          {company.indeedStatus ? (
+                            company.indeedStatus.detected ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                <span className="text-xs text-orange-700 font-medium">掲載あり</span>
+                                {company.indeedStatus.detectedBy && (
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                    {company.indeedStatus.detectedBy === 'agent' ? 'Agent' : '外部'}
+                                  </Badge>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <span className="text-xs text-green-700 font-medium">掲載なし</span>
+                              </div>
+                            )
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                              <span className="text-xs text-gray-400">未チェック</span>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {(() => {
                             const assignedUser = getAssignedUser(company)
@@ -309,7 +336,7 @@ export const CompaniesTable: React.FC<CompaniesTableProps> = ({
                       {/* 店舗一覧のアコーディオン */}
                       {isExpanded && storeCount > 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="bg-gray-50 p-0">
+                          <TableCell colSpan={6} className="bg-gray-50 p-0">
                             <div className="p-4">
                               <h4 className="font-medium mb-3 text-gray-700">店舗一覧 ({storeCount}件)</h4>
                               <div className="grid gap-2">

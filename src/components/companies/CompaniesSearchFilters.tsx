@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
-import { statusLabels, sizeLabels, dominoStatusLabels } from './constants'
+import { statusLabels, sizeLabels, dominoStatusLabels, indeedStatusLabels } from './constants'
 import { CompanyFilters } from './types'
 
 interface CompaniesSearchFiltersProps {
@@ -55,10 +55,16 @@ export const CompaniesSearchFilters: React.FC<CompaniesSearchFiltersProps> = ({
     onUpdateURL?.({ consultantId: value })
   }
 
+  const handleIndeedChange = (value: 'all' | 'detected' | 'not_detected' | 'unchecked') => {
+    const newFilters = { ...filters, indeedStatus: value }
+    onFilterChange(newFilters)
+    onUpdateURL?.({ indeedStatus: value })
+  }
+
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* 企業名検索 */}
           <div>
             <Label htmlFor="company-search">企業名</Label>
@@ -143,6 +149,37 @@ export const CompaniesSearchFilters: React.FC<CompaniesSearchFiltersProps> = ({
                     {user.displayName || user.email}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Indeed掲載フィルター */}
+          <div>
+            <Label htmlFor="company-indeed">Indeed掲載</Label>
+            <Select value={filters.indeedStatus || 'all'} onValueChange={handleIndeedChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Indeed掲載" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">すべて</SelectItem>
+                <SelectItem value="detected">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    掲載あり
+                  </div>
+                </SelectItem>
+                <SelectItem value="not_detected">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    掲載なし
+                  </div>
+                </SelectItem>
+                <SelectItem value="unchecked">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    未チェック
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

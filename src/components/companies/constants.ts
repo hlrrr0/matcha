@@ -28,6 +28,14 @@ export const dominoStatusLabels = {
   not_connected: 'Domino未連携',
 }
 
+// Indeed detection status
+export const indeedStatusLabels = {
+  all: 'すべて',
+  detected: 'Indeed掲載あり',
+  not_detected: 'Indeed掲載なし',
+  unchecked: '未チェック',
+}
+
 // Company fields for completion rate calculation
 export const companyFields = [
   'name', 'address', 'email', 'phone', 'website', 'logo',

@@ -55,6 +55,16 @@ export interface Company {
   // Dominoシステム連携
   dominoId?: string
   importedAt?: string | Date
+  
+  // Indeed掲載判定
+  indeedStatus?: {
+    detected: boolean                      // Indeed掲載が検出されたか
+    detectedBy: 'agent' | 'external' | null  // 自社出稿 or 外部出稿
+    indeedUrl?: string                     // 検出されたIndeed企業ページURL
+    lastCheckedAt?: string | Date          // 最終チェック日時
+    error?: string                         // エラーがあった場合の詳細
+  }
+  normalizedName?: string                  // 正規化された企業名（Indeed検索用）
 }
 
 export const companyStatusLabels = {

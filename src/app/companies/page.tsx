@@ -45,6 +45,7 @@ function CompaniesPageContent() {
     status: (searchParams.get('status') as any) || 'all',
     size: (searchParams.get('size') as any) || 'all',
     dominoStatus: (searchParams.get('domino') as any) || 'all',
+    indeedStatus: (searchParams.get('indeed') as any) || 'all',
     consultantId: searchParams.get('consultant') || 'all',
   })
 
@@ -296,7 +297,13 @@ function CompaniesPageContent() {
         company.consultantId === filters.consultantId ||
         (filters.consultantId === 'unassigned' && (!company.consultantId || company.consultantId === ''))
 
-      return matchesSearch && matchesStatus && matchesSize && matchesDomino && matchesConsultant
+      const matchesIndeed =
+        filters.indeedStatus === 'all' ||
+        (filters.indeedStatus === 'detected' && company.indeedStatus?.detected === true) ||
+        (filters.indeedStatus === 'not_detected' && company.indeedStatus?.detected === false) ||
+        (filters.indeedStatus === 'unchecked' && !company.indeedStatus)
+
+      return matchesSearch && matchesStatus && matchesSize && matchesDomino && matchesConsultant && matchesIndeed
     })
     .sort((a, b) => {
       let valueA: string | Date
@@ -340,6 +347,7 @@ function CompaniesPageContent() {
     if (currentFilters.status !== 'all') searchParams.set('status', currentFilters.status)
     if (currentFilters.size !== 'all') searchParams.set('size', currentFilters.size)
     if (currentFilters.dominoStatus !== 'all') searchParams.set('domino', currentFilters.dominoStatus)
+    if (currentFilters.indeedStatus !== 'all') searchParams.set('indeed', currentFilters.indeedStatus)
     if (currentFilters.consultantId !== 'all') searchParams.set('consultant', currentFilters.consultantId)
     if (page && page > 1) searchParams.set('page', page.toString())
 

@@ -7,6 +7,7 @@ export interface CompanyFilters {
   status: Company['status'] | 'all'
   size: Company['size'] | 'all'
   dominoStatus: 'all' | 'connected' | 'not_connected'
+  indeedStatus: 'all' | 'detected' | 'not_detected' | 'unchecked'
   consultantId: string | 'all'
 }
 

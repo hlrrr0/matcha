@@ -96,6 +96,13 @@ export interface Job {
   createdAt: string | Date
   updatedAt: string | Date
   createdBy?: string                      // 作成者ID
+  
+  // Indeed掲載管理
+  indeedControl?: {
+    canPost: boolean                       // Indeed出稿可能か（企業が未掲載なら true）
+    exported: boolean                      // CSVエクスポート済みか
+    exportedAt?: string | Date             // エクスポート日時
+  }
 }
 
 export const jobStatusLabels = {
