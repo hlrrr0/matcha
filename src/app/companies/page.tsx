@@ -1,42 +1,11 @@
 "use client"
 
-import React, { useState, useEffect, useRef, Suspense } from 'react'
-import Link from 'next/link'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Pagination } from '@/components/ui/pagination'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getCache, setCache, generateCacheKey } from '@/lib/utils/cache'
-import { 
-  Building2, 
-  Plus, 
-  Search, 
-  Download,
-  ExternalLink,
-  Edit,
-  Trash2,
-  Eye,
-  RefreshCw,
-  Upload,
-  FileText,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  ChevronDown,
-  ChevronUp,
-  Store,
-  User
-} from 'lucide-react'
+import { getCache, setCache } from '@/lib/utils/cache'
+import { RefreshCw } from 'lucide-react'
 import { Company } from '@/types/company'
 import { Store as StoreType } from '@/types/store'
 import { User as UserType } from '@/types/user'
@@ -47,139 +16,74 @@ import { getActiveUsers } from '@/lib/firestore/users'
 import { getJobsByCompany } from '@/lib/firestore/jobs'
 import { importCompaniesFromCSV, generateCompaniesCSVTemplate } from '@/lib/csv/companies'
 import { toast } from 'sonner'
-
-const statusLabels = {
-  active: 'アクティブ',
-  inactive: '非アクティブ',
-}
-
-const statusColors = {
-  active: 'bg-green-100 text-green-800',
-  inactive: 'bg-gray-100 text-gray-800',
-}
-
-const sizeLabels = {
-  startup: '個人店',
-  small: '2~3店舗',
-  medium: '4~20店舗',
-  large: '21~99店舗',
-  enterprise: '100店舗以上',
-}
+import {
+  CompaniesHeader,
+  CompaniesSearchFilters,
+  CompaniesTable,
+  CompanyDeleteDialog,
+  BulkDeleteDialog,
+  companyFields,
+  statusLabels,
+} from '@/components/companies'
+import { CompanyFilters } from '@/components/companies/types'
 
 function CompaniesPageContent() {
   const { isAdmin } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Data states
   const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [csvImporting, setCsvImporting] = useState(false)
-  
-  // ユーザー一覧
   const [users, setUsers] = useState<UserType[]>([])
   const [userDisplayNameMap, setUserDisplayNameMap] = useState<Record<string, string>>({})
-  
-  // 企業データの入力率チェック対象フィールド
-  const companyFields = [
-    'name', 'address', 'email', 'phone', 'website', 'logo',
-    'feature1', 'feature2', 'feature3', 'careerPath', 
-    'youngRecruitReason', 'consultantId', 'contractType'
-  ]
-  
-  // 企業の入力率を計算する関数
-  const calculateCompletionRate = (company: Company): number => {
-    let filledCount = 0
-    companyFields.forEach(field => {
-      const value = (company as any)[field]
-      if (value !== null && value !== undefined && value !== '') {
-        filledCount++
-      }
-    })
-    return Math.round((filledCount / companyFields.length) * 100)
-  }
-  
-  // フィルター・検索状態（URLパラメータから初期化）
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
-  const [statusFilter, setStatusFilter] = useState<Company['status'] | 'all'>((searchParams.get('status') as Company['status']) || 'all')
-  const [sizeFilter, setSizeFilter] = useState<Company['size'] | 'all'>((searchParams.get('size') as Company['size']) || 'all')
-  const [dominoFilter, setDominoFilter] = useState<'all' | 'connected' | 'not_connected'>((searchParams.get('domino') as 'all' | 'connected' | 'not_connected') || 'all')
-  const [consultantFilter, setConsultantFilter] = useState<string>(searchParams.get('consultant') || 'all')
-  
-  // ページネーション状態（URLパラメータから初期化）
+  const [loading, setLoading] = useState(true)
+  const [csvImporting, setCsvImporting] = useState(false)
+
+  // Filter states
+  const [filters, setFilters] = useState<CompanyFilters>({
+    searchTerm: searchParams.get('search') || '',
+    status: (searchParams.get('status') as any) || 'all',
+    size: (searchParams.get('size') as any) || 'all',
+    dominoStatus: (searchParams.get('domino') as any) || 'all',
+    consultantId: searchParams.get('consultant') || 'all',
+  })
+
+  // Pagination states
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1'))
-  const [itemsPerPage] = useState(50) // 1ページあたり50件
-  
-  // ソート状態
-  const [sortBy, setSortBy] = useState<'name' | 'createdAt' | 'updatedAt' | 'status'>('updatedAt')
+
+  // Sort states
+  const [sortBy, setSortBy] = useState<'name' | 'updatedAt' | 'createdAt' | 'status'>('updatedAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  
-  // 削除ダイアログ
+
+  // Dialog states
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
-  
-  // 一括削除ダイアログ
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [deletingBulk, setDeletingBulk] = useState(false)
-  
-  // 一括選択状態
+
+  // Selection states
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
-  const [isAllSelected, setIsAllSelected] = useState(false)
-  
-  // アコーディオンの展開状態と店舗データ
+
+  // Store accordion states
   const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set())
   const [companyStores, setCompanyStores] = useState<Record<string, StoreType[]>>({})
   const [loadingStores, setLoadingStores] = useState<Set<string>>(new Set())
-  
-  // 店舗数キャッシュ
   const [storeCounts, setStoreCounts] = useState<Record<string, number>>({})
-  
-  // 企業ごとの求人フラグ集約
+
+  // Job flags
   const [companyJobFlags, setCompanyJobFlags] = useState<Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>>({})
 
+  // Initialize
   useEffect(() => {
     loadCompanies()
     loadUsers()
   }, [])
 
-  // URLパラメータを更新する関数
-  const updateURLParams = (params: { 
-    search?: string
-    status?: string
-    size?: string
-    domino?: string
-    consultant?: string
-    page?: number
-  }) => {
-    const newParams = new URLSearchParams()
-    
-    if (params.search) newParams.set('search', params.search)
-    if (params.status && params.status !== 'all') newParams.set('status', params.status)
-    if (params.size && params.size !== 'all') newParams.set('size', params.size)
-    if (params.domino && params.domino !== 'all') newParams.set('domino', params.domino)
-    if (params.consultant && params.consultant !== 'all') newParams.set('consultant', params.consultant)
-    if (params.page && params.page > 1) newParams.set('page', params.page.toString())
-    
-    router.push(`/companies?${newParams.toString()}`)
-  }
-
-  // ページ変更ハンドラー
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    updateURLParams({
-      search: searchTerm,
-      status: statusFilter,
-      size: sizeFilter,
-      domino: dominoFilter,
-      consultant: consultantFilter,
-      page
-    })
-  }
-
+  // Load users
   const loadUsers = async () => {
     try {
       const userData = await getActiveUsers()
       setUsers(userData)
-      
-      // ユーザーIDから表示名へのマップを作成
       const displayNameMap = userData.reduce((acc, user) => {
         acc[user.id] = user.displayName
         return acc
@@ -187,24 +91,17 @@ function CompaniesPageContent() {
       setUserDisplayNameMap(displayNameMap)
     } catch (error) {
       console.error('❌ ユーザーデータの読み込みエラー:', error)
-      // ユーザーデータの読み込みは必須ではないため、エラートーストは表示しない
     }
   }
 
+  // Load companies
   const loadCompanies = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true)
-      
-      // キャッシュキーを生成
       const cacheKey = 'companies_data'
-      
-      // キャッシュチェック（強制更新でない場合のみ）
+
       if (!forceRefresh) {
-        const cached = getCache<{
-          companies: any[]
-          storeCounts: Record<string, number>
-        }>(cacheKey)
-        
+        const cached = getCache<{ companies: any[]; storeCounts: Record<string, number> }>(cacheKey)
         if (cached) {
           console.log('📦 キャッシュからデータ読み込み')
           setCompanies(cached.companies)
@@ -213,12 +110,12 @@ function CompaniesPageContent() {
           return
         }
       }
-      
+
       console.log('🔄 Firestoreからデータ読み込み')
       const data = await getCompanies()
       setCompanies(data)
-      
-      // 各企業の店舗数を事前に読み込み
+
+      // Load store counts
       const storeCountPromises = data.map(async (company) => {
         try {
           const stores = await getStoresByCompany(company.id)
@@ -228,46 +125,50 @@ function CompaniesPageContent() {
           return { companyId: company.id, count: 0 }
         }
       })
-      
+
       const storeCountResults = await Promise.all(storeCountPromises)
-      const storeCountsMap = storeCountResults.reduce((acc, { companyId, count }) => {
-        acc[companyId] = count
-        return acc
-      }, {} as Record<string, number>)
-      
+      const storeCountsMap = storeCountResults.reduce(
+        (acc, { companyId, count }) => {
+          acc[companyId] = count
+          return acc
+        },
+        {} as Record<string, number>
+      )
       setStoreCounts(storeCountsMap)
-      
-      // 各企業の求人フラグを集約
+
+      // Load job flags
       const jobFlagsPromises = data.map(async (company) => {
         try {
           const jobs = await getJobsByCompany(company.id)
-          const flags = {
-            highDemand: jobs.some(j => j.flags?.highDemand),
-            provenTrack: jobs.some(j => j.flags?.provenTrack),
-            weakRelationship: jobs.some(j => j.flags?.weakRelationship)
+          return {
+            companyId: company.id,
+            flags: {
+              highDemand: jobs.some(j => j.flags?.highDemand),
+              provenTrack: jobs.some(j => j.flags?.provenTrack),
+              weakRelationship: jobs.some(j => j.flags?.weakRelationship),
+            },
           }
-          return { companyId: company.id, flags }
         } catch (error) {
           console.error(`❌ 企業「${company.name}」の求人フラグ取得エラー:`, error)
-          return { companyId: company.id, flags: { highDemand: false, provenTrack: false, weakRelationship: false } }
+          return {
+            companyId: company.id,
+            flags: { highDemand: false, provenTrack: false, weakRelationship: false },
+          }
         }
       })
-      
+
       const jobFlagsResults = await Promise.all(jobFlagsPromises)
-      const jobFlagsMap = jobFlagsResults.reduce((acc, { companyId, flags }) => {
-        acc[companyId] = flags
-        return acc
-      }, {} as Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>)
-      
+      const jobFlagsMap = jobFlagsResults.reduce(
+        (acc, { companyId, flags }) => {
+          acc[companyId] = flags
+          return acc
+        },
+        {} as Record<string, { highDemand: boolean; provenTrack: boolean; weakRelationship: boolean }>
+      )
       setCompanyJobFlags(jobFlagsMap)
-      
-      // キャッシュに保存（5分間有効）
-      setCache(cacheKey, {
-        companies: data,
-        storeCounts: storeCountsMap
-      })
+
+      setCache(cacheKey, { companies: data, storeCounts: storeCountsMap })
       console.log('💾 データをキャッシュに保存')
-      
     } catch (error) {
       console.error('❌ 企業データの読み込みエラー:', error)
       toast.error('企業データの読み込みに失敗しました')
@@ -276,7 +177,9 @@ function CompaniesPageContent() {
     }
   }
 
-  const handleCSVImport = async (file: File) => {
+  // CSV import
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
     if (!file) return
 
     if (!file.name.endsWith('.csv')) {
@@ -288,7 +191,7 @@ function CompaniesPageContent() {
     try {
       const text = await file.text()
       const result = await importCompaniesFromCSV(text)
-      
+
       if (result.errors.length > 0) {
         toast.error(`インポート完了: 新規${result.success}件、更新${result.updated}件、エラー${result.errors.length}件`)
         console.error('Import errors:', result.errors)
@@ -300,8 +203,7 @@ function CompaniesPageContent() {
           toast.success(`${result.success}件の企業データをインポートしました`)
         }
       }
-      
-      // データを再読み込み（キャッシュをクリア）
+
       await loadCompanies(true)
     } catch (error) {
       console.error('Error importing CSV:', error)
@@ -311,6 +213,7 @@ function CompaniesPageContent() {
     }
   }
 
+  // Download CSV template
   const downloadCSVTemplate = () => {
     const csvContent = generateCompaniesCSVTemplate()
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -324,314 +227,81 @@ function CompaniesPageContent() {
     document.body.removeChild(link)
   }
 
-  // 店舗数を取得して表示するための関数（キャッシュから）
+  // Get store count
   const getStoreCount = (companyId: string): number => {
     return storeCounts[companyId] ?? 0
   }
 
-  // 担当者の表示名を取得する関数
-  const getAssignedToDisplayName = (company: Company): string => {
-    // まずassignedToフィールドをチェック（Dominoから来るデータ）
-    const assignedTo = (company as any).assignedTo
-    if (assignedTo && userDisplayNameMap[assignedTo]) {
-      return userDisplayNameMap[assignedTo]
-    }
-    if (assignedTo && typeof assignedTo === 'string') {
-      // ユーザーマップにない場合、assignedToの値をそのまま表示
-      return assignedTo
-    }
-    
-    // 次にconsultantIdをチェック
-    if (company.consultantId && userDisplayNameMap[company.consultantId]) {
-      return userDisplayNameMap[company.consultantId]
-    }
-    
-    return '-'
-  }
-
-  // 担当者のユーザー情報を取得する関数
-  const getAssignedUser = (company: Company): UserType | null => {
-    // まずassignedToフィールドをチェック（Dominoから来るデータ）
+  // Get assigned user info
+  const getAssignedUser = (company: Company): UserType | undefined => {
     const assignedTo = (company as any).assignedTo
     if (assignedTo) {
       const user = users.find(u => u.id === assignedTo)
       if (user) return user
     }
-    
-    // 次にconsultantIdをチェック
+
     if (company.consultantId) {
-      const user = users.find(u => u.id === company.consultantId)
-      if (user) return user
-    }
-    
-    return null
-  }
-
-  // 一括選択関連の関数
-  const handleSelectAll = () => {
-    if (!isAdmin) return
-    
-    if (isAllSelected) {
-      setSelectedCompanies(new Set())
-      setIsAllSelected(false)
-    } else {
-      const filteredCompanyIds = filteredAndSortedCompanies.map(company => company.id)
-      setSelectedCompanies(new Set(filteredCompanyIds))
-      setIsAllSelected(true)
-    }
-  }
-
-  const handleSelectCompany = (companyId: string) => {
-    if (!isAdmin) return
-    
-    const newSelected = new Set(selectedCompanies)
-    if (newSelected.has(companyId)) {
-      newSelected.delete(companyId)
-    } else {
-      newSelected.add(companyId)
-    }
-    setSelectedCompanies(newSelected)
-    setIsAllSelected(newSelected.size === filteredAndSortedCompanies.length && filteredAndSortedCompanies.length > 0)
-  }
-
-  // 選択された企業のCSV出力
-  const exportSelectedCompaniesCSV = () => {
-    if (selectedCompanies.size === 0) {
-      toast.error('エクスポートする企業を選択してください')
-      return
+      return users.find(u => u.id === company.consultantId)
     }
 
-    const selectedCompanyData = companies.filter(company => selectedCompanies.has(company.id))
-    
-    // CSVヘッダー（CSVテンプレートと同じ形式 + ID）
-    const headers = [
-      'id',              // 企業ID（編集/新規判定用）
-      'name',
-      'address',
-      'phone',
-      'website',
-      'email',
-      'establishedYear',
-      'employeeCount',
-      'capital',
-      'representative',
-      'feature1',
-      'feature2',
-      'feature3',
-      'careerPath',
-      'youngRecruitReason',
-      'logo',
-      'status',
-      'size',
-      'isPublic',
-      'hasHousingSupport',
-      'fullTimeAgeGroup',
-      'independenceRecord',
-      'hasIndependenceSupport',
-      'consultantId',
-      'memo',
-      'dominoId',
-      'importedAt'
-    ]
-
-    // CSVデータを生成
-    const csvRows = [
-      headers.join(','),
-      ...selectedCompanyData.map(company => {
-        return headers.map(header => {
-          let value = company[header as keyof Company] || ''
-          
-          // Boolean値を文字列に変換
-          if (typeof value === 'boolean') {
-            value = value.toString()
-          }
-          
-          // Date値を文字列に変換
-          if (value instanceof Date) {
-            value = value.toISOString().split('T')[0] // YYYY-MM-DD形式
-          }
-          
-          // Firestore Timestampを文字列に変換
-          if (value && typeof value === 'object' && 'toDate' in value && typeof (value as any).toDate === 'function') {
-            value = (value as any).toDate().toISOString().split('T')[0] // YYYY-MM-DD形式
-          }
-          
-          // CSVフィールドをエスケープ
-          const stringValue = String(value)
-          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-            return `"${stringValue.replace(/"/g, '""')}"`
-          }
-          return stringValue
-        }).join(',')
-      })
-    ]
-
-    const csvContent = csvRows.join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', `companies_export_${new Date().toISOString().split('T')[0]}.csv`)
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    toast.success(`${selectedCompanies.size}件の企業データをエクスポートしました`)
+    return undefined
   }
 
-  // アコーディオンの切り替えと店舗データの読み込み
-  const toggleStoreAccordion = async (companyId: string) => {
-    const isExpanded = expandedCompanies.has(companyId)
-    
-    if (isExpanded) {
-      // 閉じる
-      const newExpanded = new Set(expandedCompanies)
-      newExpanded.delete(companyId)
-      setExpandedCompanies(newExpanded)
-    } else {
-      // 展開する
-      const newExpanded = new Set(expandedCompanies)
-      newExpanded.add(companyId)
-      setExpandedCompanies(newExpanded)
-      
-      // 店舗データがまだ読み込まれていない場合は読み込む
-      if (!companyStores[companyId]) {
-        setLoadingStores(prev => new Set([...prev, companyId]))
-        
-        try {
-          const stores = await getStoresByCompany(companyId)
-          setCompanyStores(prev => ({
-            ...prev,
-            [companyId]: stores
-          }))
-        } catch (error) {
-          console.error(`店舗データの読み込みに失敗しました (企業ID: ${companyId}):`, error)
-          toast.error('店舗データの読み込みに失敗しました')
-        } finally {
-          setLoadingStores(prev => {
-            const newLoading = new Set(prev)
-            newLoading.delete(companyId)
-            return newLoading
-          })
-        }
+  const getAssignedToDisplayName = (company: Company): string => {
+    const assignedTo = (company as any).assignedTo
+    if (assignedTo && userDisplayNameMap[assignedTo]) {
+      return userDisplayNameMap[assignedTo]
+    }
+    if (assignedTo && typeof assignedTo === 'string') {
+      return assignedTo
+    }
+
+    if (company.consultantId && userDisplayNameMap[company.consultantId]) {
+      return userDisplayNameMap[company.consultantId]
+    }
+
+    return '-'
+  }
+
+  // Calculate completion rate
+  const calculateCompletionRate = (company: Company): number => {
+    let filledCount = 0
+    companyFields.forEach(field => {
+      const value = (company as any)[field]
+      if (value !== null && value !== undefined && value !== '') {
+        filledCount++
       }
-    }
-  }
-
-  const handleDeleteCompany = async () => {
-    if (!companyToDelete) {
-      console.error('❌ 削除対象の企業が設定されていません')
-      toast.error('削除対象の企業が選択されていません')
-      return
-    }
-
-    console.log('🗑️ 企業削除を開始:', {
-      id: companyToDelete.id,
-      name: companyToDelete.name
     })
-
-    try {
-      await deleteCompany(companyToDelete.id)
-      console.log('✅ 企業削除成功:', companyToDelete.name)
-      toast.success(`「${companyToDelete.name}」を削除しました`)
-      
-    } catch (error) {
-      console.error('❌ 企業削除エラー:', error)
-      toast.error(`「${companyToDelete.name}」の削除に失敗しました: ${error}`)
-    } finally {
-      // 成功・失敗に関わらず一覧を更新（データ整合性確保、キャッシュクリア）
-      try {
-        await loadCompanies(true)
-      } catch (reloadError) {
-        console.error('❌ 一覧再読み込みエラー:', reloadError)
-        toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')
-      }
-      
-      setDeleteDialogOpen(false)
-      setCompanyToDelete(null)
-    }
+    return Math.round((filledCount / companyFields.length) * 100)
   }
 
-  const handleBulkDelete = async () => {
-    if (selectedCompanies.size === 0) {
-      toast.error('削除する企業を選択してください')
-      return
-    }
-
-    setDeletingBulk(true)
-
-    try {
-      const selectedIds = Array.from(selectedCompanies)
-      const selectedCompanyNames = companies
-        .filter(c => selectedIds.includes(c.id))
-        .map(c => c.name)
-        .join('、')
-
-      const result = await deleteMultipleCompanies(selectedIds)
-      
-      console.log('✅ 一括削除完了:', result)
-      
-      if (result.errors.length > 0) {
-        toast.error(`一括削除完了: 成功 ${result.success}件、エラー ${result.errors.length}件`)
-        console.error('❌ 一括削除エラー:', result.errors)
-      } else {
-        toast.success(`${result.success}件の企業とその関連データを削除しました`)
-      }
-      
-    } catch (error) {
-      console.error('❌ 一括削除エラー:', error)
-      toast.error(`一括削除に失敗しました: ${error}`)
-    } finally {
-      setDeletingBulk(false)
-      setBulkDeleteDialogOpen(false)
-      setSelectedCompanies(new Set())
-      setIsAllSelected(false)
-      
-      // 成功・失敗に関わらず一覧を更新（キャッシュクリア）
-      try {
-        await loadCompanies(true)
-      } catch (reloadError) {
-        console.error('❌ 一覧再読み込みエラー:', reloadError)
-        toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')
-      }
-    }
-  }
-
-  const getStatusBadge = (status: Company['status']) => {
-    return (
-      <Badge className={statusColors[status]}>
-        {statusLabels[status]}
-      </Badge>
-    )
-  }
-
-  // フィルタリング＆ソート済み企業リスト
+  // Filter companies
   const filteredAndSortedCompanies = companies
     .filter(company => {
-      const matchesSearch = (company.name && company.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           (company.email && company.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                           (company.address && company.address.toLowerCase().includes(searchTerm.toLowerCase()))
-      
-      const matchesStatus = statusFilter === 'all' || company.status === statusFilter
-      const matchesSize = sizeFilter === 'all' || company.size === sizeFilter
-      
-      // Domino連携フィルター
-      const matchesDomino = dominoFilter === 'all' || 
-                           (dominoFilter === 'connected' && company.dominoId) ||
-                           (dominoFilter === 'not_connected' && !company.dominoId)
-      
-      // 担当者フィルター
-      const matchesConsultant = consultantFilter === 'all' || 
-                               company.consultantId === consultantFilter ||
-                               (consultantFilter === 'unassigned' && (!company.consultantId || company.consultantId === ''))
-      
+      const matchesSearch =
+        (company.name && company.name.toLowerCase().includes(filters.searchTerm.toLowerCase())) ||
+        (company.email && company.email.toLowerCase().includes(filters.searchTerm.toLowerCase())) ||
+        (company.address && company.address.toLowerCase().includes(filters.searchTerm.toLowerCase()))
+
+      const matchesStatus = filters.status === 'all' || company.status === filters.status
+      const matchesSize = filters.size === 'all' || company.size === filters.size
+
+      const matchesDomino =
+        filters.dominoStatus === 'all' ||
+        (filters.dominoStatus === 'connected' && company.dominoId) ||
+        (filters.dominoStatus === 'not_connected' && !company.dominoId)
+
+      const matchesConsultant =
+        filters.consultantId === 'all' ||
+        company.consultantId === filters.consultantId ||
+        (filters.consultantId === 'unassigned' && (!company.consultantId || company.consultantId === ''))
+
       return matchesSearch && matchesStatus && matchesSize && matchesDomino && matchesConsultant
     })
     .sort((a, b) => {
       let valueA: string | Date
       let valueB: string | Date
-      
+
       switch (sortBy) {
         case 'name':
           valueA = a.name.toLowerCase()
@@ -653,71 +323,157 @@ function CompaniesPageContent() {
           valueA = a.name.toLowerCase()
           valueB = b.name.toLowerCase()
       }
-      
-      if (valueA < valueB) {
-        return sortOrder === 'asc' ? -1 : 1
-      }
-      if (valueA > valueB) {
-        return sortOrder === 'asc' ? 1 : -1
-      }
+
+      if (valueA < valueB) return sortOrder === 'asc' ? -1 : 1
+      if (valueA > valueB) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
 
-  // ページネーション処理
-  const totalPages = Math.ceil(filteredAndSortedCompanies.length / itemsPerPage)
-  const paginatedCompanies = filteredAndSortedCompanies.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
+  const totalPages = Math.ceil(filteredAndSortedCompanies.length / 50)
 
-  // フィルター変更時はページを1に戻す（初回ロード時は除外）
-  const isInitialMount = useRef(true)
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false
+  // Update URL params
+  const updateURLParams = (newFilters?: Partial<CompanyFilters>, page?: number) => {
+    const searchParams = new URLSearchParams()
+
+    const currentFilters = newFilters ? { ...filters, ...newFilters } : filters
+    if (currentFilters.searchTerm) searchParams.set('search', currentFilters.searchTerm)
+    if (currentFilters.status !== 'all') searchParams.set('status', currentFilters.status)
+    if (currentFilters.size !== 'all') searchParams.set('size', currentFilters.size)
+    if (currentFilters.dominoStatus !== 'all') searchParams.set('domino', currentFilters.dominoStatus)
+    if (currentFilters.consultantId !== 'all') searchParams.set('consultant', currentFilters.consultantId)
+    if (page && page > 1) searchParams.set('page', page.toString())
+
+    router.push(`/companies?${searchParams.toString()}`)
+  }
+
+  // Handle filter change
+  const handleFilterChange = (newFilters: CompanyFilters) => {
+    setFilters(newFilters)
+    setCurrentPage(1)
+    updateURLParams(newFilters, 1)
+  }
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    updateURLParams(undefined, page)
+  }
+
+  // Handle selection
+  const handleSelectCompany = (id: string) => {
+    const newSelected = new Set(selectedCompanies)
+    if (newSelected.has(id)) {
+      newSelected.delete(id)
+    } else {
+      newSelected.add(id)
+    }
+    setSelectedCompanies(newSelected)
+  }
+
+  const handleSelectAll = () => {
+    if (selectedCompanies.size === filteredAndSortedCompanies.length) {
+      setSelectedCompanies(new Set())
+    } else {
+      setSelectedCompanies(new Set(filteredAndSortedCompanies.map(c => c.id)))
+    }
+  }
+
+  // Handle store accordion
+  const handleToggleExpand = async (companyId: string) => {
+    const isExpanded = expandedCompanies.has(companyId)
+
+    if (isExpanded) {
+      const newExpanded = new Set(expandedCompanies)
+      newExpanded.delete(companyId)
+      setExpandedCompanies(newExpanded)
+    } else {
+      const newExpanded = new Set(expandedCompanies)
+      newExpanded.add(companyId)
+      setExpandedCompanies(newExpanded)
+
+      if (!companyStores[companyId]) {
+        setLoadingStores(prev => new Set([...prev, companyId]))
+
+        try {
+          const stores = await getStoresByCompany(companyId)
+          setCompanyStores(prev => ({
+            ...prev,
+            [companyId]: stores,
+          }))
+        } catch (error) {
+          console.error(`店舗データの読み込みに失敗しました (企業ID: ${companyId}):`, error)
+          toast.error('店舗データの読み込みに失敗しました')
+        } finally {
+          setLoadingStores(prev => {
+            const newLoading = new Set(prev)
+            newLoading.delete(companyId)
+            return newLoading
+          })
+        }
+      }
+    }
+  }
+
+  // Handle delete
+  const handleDeleteCompany = async () => {
+    if (!companyToDelete) {
+      toast.error('削除対象の企業が選択されていません')
       return
     }
-    setCurrentPage(1)
-    handlePageChange(1)
-  }, [searchTerm, statusFilter, sizeFilter, dominoFilter, consultantFilter])
 
-  // ソート切り替えハンドラー
-  const handleSort = (field: 'name' | 'createdAt' | 'updatedAt' | 'status') => {
-    if (sortBy === field) {
-      // 同じフィールドの場合は昇順・降順を切り替え
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      // 異なるフィールドの場合は昇順に設定
-      setSortBy(field)
-      setSortOrder('asc')
+    try {
+      await deleteCompany(companyToDelete.id)
+      toast.success(`「${companyToDelete.name}」を削除しました`)
+    } catch (error) {
+      console.error('❌ 企業削除エラー:', error)
+      toast.error(`「${companyToDelete.name}」の削除に失敗しました`)
+    } finally {
+      try {
+        await loadCompanies(true)
+      } catch (reloadError) {
+        console.error('❌ 一覧再読み込みエラー:', reloadError)
+        toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')
+      }
+
+      setDeleteDialogOpen(false)
+      setCompanyToDelete(null)
     }
   }
 
-  // ソートアイコンを取得
-  const getSortIcon = (field: 'name' | 'createdAt' | 'updatedAt' | 'status') => {
-    if (sortBy !== field) {
-      return <ArrowUpDown className="w-4 h-4 text-gray-400" />
+  const handleBulkDelete = async () => {
+    if (selectedCompanies.size === 0) {
+      toast.error('削除する企業を選択してください')
+      return
     }
-    return sortOrder === 'asc' 
-      ? <ArrowUp className="w-4 h-4 text-blue-600" />
-      : <ArrowDown className="w-4 h-4 text-blue-600" />
-  }
 
-  // ソート可能なヘッダーコンポーネント
-  const SortableHeader = ({ field, children }: { 
-    field: 'name' | 'createdAt' | 'updatedAt' | 'status', 
-    children: React.ReactNode 
-  }) => (
-    <TableHead 
-      className="cursor-pointer hover:bg-gray-50 select-none"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center space-x-1">
-        <span>{children}</span>
-        {getSortIcon(field)}
-      </div>
-    </TableHead>
-  )
+    setDeletingBulk(true)
+
+    try {
+      const selectedIds = Array.from(selectedCompanies)
+      const result = await deleteMultipleCompanies(selectedIds)
+
+      if (result.errors.length > 0) {
+        toast.error(`一括削除完了: 成功 ${result.success}件、エラー ${result.errors.length}件`)
+        console.error('❌ 一括削除エラー:', result.errors)
+      } else {
+        toast.success(`${result.success}件の企業とその関連データを削除しました`)
+      }
+    } catch (error) {
+      console.error('❌ 一括削除エラー:', error)
+      toast.error(`一括削除に失敗しました: ${error}`)
+    } finally {
+      setDeletingBulk(false)
+      setBulkDeleteDialogOpen(false)
+      setSelectedCompanies(new Set())
+
+      try {
+        await loadCompanies(true)
+      } catch (reloadError) {
+        console.error('❌ 一覧再読み込みエラー:', reloadError)
+        toast.error('一覧の更新に失敗しました。ページを再読み込みしてください。')
+      }
+    }
+  }
 
   if (loading) {
     return (
@@ -732,682 +488,66 @@ function CompaniesPageContent() {
 
   return (
     <ProtectedRoute>
-      <div className="container mx-auto px-4 py-8">
-        {/* ページヘッダー */}
-        <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg text-white">
-          <div className="flex justify-between items-center gap-4">
-            {/* タイトル部分 */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="p-2 sm:p-3 bg-white/20 rounded-full">
-                <Building2 className="h-6 w-6 sm:h-8 sm:w-8" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-3xl font-bold">企業管理</h1>
-                <p className="text-blue-100 mt-1 text-xs sm:text-sm">
-                  登録企業の管理・検索・Dominoシステムとの連携
-                </p>
-              </div>
-            </div>
-            
-            {/* ヘッダーアクション */}
-            <div className="flex flex-col gap-2">
-              {isAdmin && selectedCompanies.size > 0 && (
-                <div className="flex flex-wrap items-center gap-2 bg-white/20 rounded-lg p-2">
-                  <Checkbox
-                    checked={selectedCompanies.size === filteredAndSortedCompanies.length && filteredAndSortedCompanies.length > 0}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedCompanies(new Set(filteredAndSortedCompanies.map((c: Company) => c.id)))
-                      } else {
-                        setSelectedCompanies(new Set())
-                      }
-                    }}
-                    id="select-all-header"
-                  />
-                  <label htmlFor="select-all-header" className="text-xs sm:text-sm text-white cursor-pointer whitespace-nowrap">
-                    全て選択 ({selectedCompanies.size}件)
-                  </label>
-                  <Button
-                    onClick={exportSelectedCompaniesCSV}
-                    variant="outline"
-                    size="sm"
-                    className="bg-green-600 text-white hover:bg-green-700 border-green-600 text-xs"
-                  >
-                    <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                    CSV出力
-                  </Button>
-                  <Button
-                    onClick={() => setBulkDeleteDialogOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="bg-red-600 text-white hover:bg-red-700 border-red-600 text-xs"
-                  >
-                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                    削除
-                  </Button>
-                </div>
-              )}
-              
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => loadCompanies(true)}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
-                  title="キャッシュをクリアして最新データを取得"
-                >
-                  <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">更新</span>
-                </Button>
-                <Button
-                  onClick={downloadCSVTemplate}
-                  variant="outline"
-                  size="sm"
-                  className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
-                >
-                  <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden sm:inline">CSVテンプレート</span>
-                  <span className="sm:hidden">テンプレート</span>
-                </Button>
-                <label htmlFor="csv-upload" className="cursor-pointer">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-white text-blue-600 hover:bg-blue-50 border-white flex items-center gap-1 text-xs sm:text-sm"
-                    disabled={csvImporting}
-                    asChild
-                  >
-                    <span>
-                      {csvImporting ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                          <span className="hidden sm:inline">インポート中...</span>
-                          <span className="sm:hidden">処理中...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="hidden sm:inline">CSVインポート</span>
-                          <span className="sm:hidden">インポート</span>
-                        </>
-                      )}
-                    </span>
-                  </Button>
-                </label>
-                <input
-                  id="csv-upload"
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) {
-                      handleCSVImport(file)
-                      e.target.value = '' // リセット
-                    }
-                  }}
-                />
-                <Link href="/companies/new">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="bg-white text-blue-600 hover:bg-blue-50 border-white text-xs sm:text-sm"
-                  >
-                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                    <span className="hidden sm:inline">新規企業追加</span>
-                    <span className="sm:hidden">新規追加</span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="container mx-auto px-4 py-8 space-y-6">
+        <CompaniesHeader
+          isAdmin={isAdmin}
+          companiesCount={companies.length}
+          selectedCount={selectedCompanies.size}
+          isLoading={loading}
+          onRefresh={() => loadCompanies(true)}
+          onCSVImport={handleCSVImport}
+          onGenerateTemplate={downloadCSVTemplate}
+          onDeleteClick={() => setBulkDeleteDialogOpen(true)}
+        />
 
-      {/* 検索・フィルター */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-            検索・フィルター
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-            {/* 検索 */}
-            <div>
-              <Label htmlFor="company-search">企業名・住所</Label>
-              <Input
-                id="company-search"
-                placeholder="企業名・住所で検索..."
-                value={searchTerm}
-                onChange={(e) => {
-                  const value = e.target.value
-                  setSearchTerm(value)
-                  updateURLParams({ search: value, status: statusFilter, size: sizeFilter, domino: dominoFilter, consultant: consultantFilter })
-                }}
-                className="w-full"
-              />
-            </div>
-            
-            {/* ステータスフィルター */}
-            <div>
-              <Label htmlFor="company-status">ステータス</Label>
-              <Select value={statusFilter} onValueChange={(value: Company['status'] | 'all') => {
-                setStatusFilter(value)
-                updateURLParams({ search: searchTerm, status: value, size: sizeFilter, domino: dominoFilter, consultant: consultantFilter })
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="ステータス" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべてのステータス</SelectItem>
-                  {Object.entries(statusLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* 企業規模フィルター */}
-            <div>
-              <Label htmlFor="company-size">企業規模</Label>
-              <Select value={sizeFilter} onValueChange={(value: Company['size'] | 'all') => {
-                setSizeFilter(value)
-                updateURLParams({ search: searchTerm, status: statusFilter, size: value, domino: dominoFilter, consultant: consultantFilter })
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="企業規模" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべての規模</SelectItem>
-                  {Object.entries(sizeLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <CompaniesSearchFilters
+          filters={filters}
+          users={users}
+          onFilterChange={handleFilterChange}
+        />
 
-            {/* Domino連携フィルター */}
-            <div>
-              <Label htmlFor="company-domino">Domino連携</Label>
-              <Select value={dominoFilter} onValueChange={(value: 'all' | 'connected' | 'not_connected') => {
-                setDominoFilter(value)
-                updateURLParams({ search: searchTerm, status: statusFilter, size: sizeFilter, domino: value, consultant: consultantFilter })
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Domino連携" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="connected">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      連携済み
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="not_connected">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      未連携
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* 担当者フィルター */}
-            <div>
-              <Label htmlFor="company-consultant">担当者</Label>
-              <Select value={consultantFilter} onValueChange={(value) => {
-                setConsultantFilter(value)
-                updateURLParams({ search: searchTerm, status: statusFilter, size: sizeFilter, domino: dominoFilter, consultant: value })
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="担当者" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべての担当者</SelectItem>
-                  <SelectItem value="unassigned">未設定</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.displayName || user.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {/* ソート選択 */}
-            <div>
-              <Label htmlFor="company-sort">ソート</Label>
-              <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-                const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder]
-                setSortBy(field)
-                setSortOrder(order)
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="並び順" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name-asc">企業名（昇順）</SelectItem>
-                  <SelectItem value="name-desc">企業名（降順）</SelectItem>
-                  <SelectItem value="status-asc">ステータス（昇順）</SelectItem>
-                  <SelectItem value="status-desc">ステータス（降順）</SelectItem>
-                  <SelectItem value="createdAt-desc">登録日（新しい順）</SelectItem>
-                  <SelectItem value="createdAt-asc">登録日（古い順）</SelectItem>
-                  <SelectItem value="updatedAt-desc">更新日（新しい順）</SelectItem>
-                  <SelectItem value="updatedAt-asc">更新日（古い順）</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <CompaniesTable
+          companies={companies}
+          filteredCompanies={filteredAndSortedCompanies}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          selectedCompanies={selectedCompanies}
+          expandedCompanies={expandedCompanies}
+          companyStores={companyStores}
+          loadingStores={loadingStores}
+          isAdmin={isAdmin}
+          onPageChange={handlePageChange}
+          onSelectCompany={handleSelectCompany}
+          onSelectAll={handleSelectAll}
+          onToggleExpand={handleToggleExpand}
+          onEdit={() => {}}
+          onDelete={(company) => {
+            setCompanyToDelete(company)
+            setDeleteDialogOpen(true)
+          }}
+          calculateCompletionRate={calculateCompletionRate}
+          getStoreCount={getStoreCount}
+          getAssignedUser={getAssignedUser}
+          getAssignedToDisplayName={getAssignedToDisplayName}
+          companyJobFlags={companyJobFlags}
+        />
 
-      {/* 企業リスト */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base sm:text-lg">企業リスト ({filteredAndSortedCompanies.length}件)</CardTitle>
-          <CardDescription className="text-xs sm:text-sm">
-            登録企業の一覧と管理
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {filteredAndSortedCompanies.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              {companies.length === 0 ? '企業が登録されていません' : '検索条件に一致する企業がありません'}
-            </div>
-          ) : (
-            <div className="min-w-full">
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  {isAdmin && (
-                    <TableHead className="w-12">
-                      <Checkbox
-                        checked={companies.length > 0 && selectedCompanies.size === companies.length}
-                        onCheckedChange={handleSelectAll}
-                        aria-label="全て選択"
-                      />
-                    </TableHead>
-                  )}
-                  <SortableHeader field="name">企業名</SortableHeader>
-                  <SortableHeader field="status">ステータス</SortableHeader>
-                  <TableHead>契約状況</TableHead>
-                  <TableHead>入力率</TableHead>
-                  <TableHead>Domino連携</TableHead>
-                  <TableHead>担当者</TableHead>
-                  <TableHead>店舗数</TableHead>
-                  <TableHead className="text-right">アクション</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedCompanies.map((company) => {
-                  const isInactive = company.status === 'inactive'
-                  const isExpanded = expandedCompanies.has(company.id)
-                  const storeCount = getStoreCount(company.id)
-                  const stores = companyStores[company.id] || []
-                  const isLoadingStores = loadingStores.has(company.id)
-                  
-                  return (
-                    <React.Fragment key={company.id}>
-                      <TableRow 
-                        className={`${isInactive ? 'bg-gray-300 hover:bg-gray-400' : ''} ${company.contractType === 'free_only' ? 'bg-gray-100' : ''}`}
-                      >
-                        {isAdmin && (
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedCompanies.has(company.id)}
-                              onCheckedChange={() => handleSelectCompany(company.id)}
-                              aria-label={`${company.name}を選択`}
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="font-medium">
-                          <Link href={`/companies/${company.id}`} className="hover:text-blue-600 hover:underline">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">{company.name}</span>
-                              {/* フラグアイコン表示 */}
-                              {companyJobFlags[company.id] && (companyJobFlags[company.id].highDemand || companyJobFlags[company.id].provenTrack || companyJobFlags[company.id].weakRelationship) && (
-                                <span className="flex gap-1">
-                                  {companyJobFlags[company.id].highDemand && <span title="ニーズ高の求人あり">🔥</span>}
-                                  {companyJobFlags[company.id].provenTrack && <span title="実績ありの求人あり">🎉</span>}
-                                  {companyJobFlags[company.id].weakRelationship && <span title="関係薄めの求人あり">💧</span>}
-                                </span>
-                              )}
-                            </div>
-                            {/* タグ表示 */}
-                            {(company.tags?.overseasExpansion || company.tags?.hasFisheryCompany) && (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {company.tags.overseasExpansion?.map((country) => (
-                                  <Badge key={country} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                                    🌏 {country}
-                                  </Badge>
-                                ))}
-                                {company.tags.hasFisheryCompany && (
-                                  <Badge variant="outline" className="text-xs bg-cyan-50 text-cyan-700 border-cyan-200">
-                                    🐟 水産会社
-                                  </Badge>
-                                )}
-                              </div>
-                            )}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(company.status)}</TableCell>
-                        <TableCell>
-                          {company.contractType ? (
-                            <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}>
-                              {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
-                            </Badge>
-                          ) : (
-                            <span className="text-sm text-gray-400">未設定</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const rate = calculateCompletionRate(company)
-                            return (
-                              <div className="flex items-center gap-2">
-                                <div className="w-16 h-2 bg-gray-200 rounded overflow-hidden">
-                                  <div 
-                                    className={`h-2 ${
-                                      rate >= 80 ? 'bg-green-500' :
-                                      rate >= 50 ? 'bg-yellow-500' :
-                                      'bg-red-500'
-                                    }`}
-                                    style={{ width: `${rate}%` }} 
-                                  />
-                                </div>
-                                <span className={`text-sm font-medium ${
-                                  rate >= 80 ? 'text-green-600' :
-                                  rate >= 50 ? 'text-yellow-600' :
-                                  'text-red-600'
-                                }`}>
-                                  {rate}%
-                                </span>
-                              </div>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {company.dominoId ? (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <span className="text-xs text-green-700 font-medium">連携済み</span>
-                                <a
-                                  href={`https://sushi-domino.vercel.app/companies/${company.dominoId}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:text-blue-800 underline font-mono"
-                                >
-                                  {company.dominoId.length > 10 
-                                    ? `${company.dominoId.substring(0, 10)}...`
-                                    : company.dominoId
-                                  }
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                                <span className="text-xs text-gray-500">未連携</span>
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const assignedUser = getAssignedUser(company)
-                            return assignedUser ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage src={assignedUser.photoURL} />
-                                  <AvatarFallback className="text-xs">
-                                    {assignedUser.displayName?.charAt(0) || assignedUser.email?.charAt(0)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{assignedUser.displayName || assignedUser.email}</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm text-gray-400">
-                                  {getAssignedToDisplayName(company)}
-                                </span>
-                              </div>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            onClick={() => toggleStoreAccordion(company.id)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                          >
-                            <Store className="h-4 w-4" />
-                            <span>{storeCount}件</span>
-                            {storeCount > 0 && (
-                              isExpanded ? 
-                                <ChevronUp className="h-4 w-4" /> : 
-                                <ChevronDown className="h-4 w-4" />
-                            )}
-                            {isLoadingStores && (
-                              <RefreshCw className="h-4 w-4 animate-spin" />
-                            )}
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Link href={`/companies/${company.id}`}>
-                              <Button variant="outline" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
-                                <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                              </Button>
-                            </Link>
-                            {isAdmin && (
-                              <Link href={`/companies/${company.id}/edit`}>
-                                <Button variant="outline" size="sm" className="h-7 w-7 sm:h-8 sm:w-8 p-0">
-                                  <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                </Button>
-                              </Link>
-                            )}
-                            {isAdmin && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  console.log('🗑️ 削除ボタンクリック:', {
-                                    companyId: company.id,
-                                    companyName: company.name
-                                  })
-                                  setCompanyToDelete(company)
-                                  setDeleteDialogOpen(true)
-                                }}
-                                className="text-red-600 hover:text-red-700 h-7 w-7 sm:h-8 sm:w-8 p-0"
-                              >
-                                <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* 店舗一覧のアコーディオン */}
-                      {isExpanded && storeCount > 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="bg-gray-50 p-0">
-                            <div className="p-4">
-                              <h4 className="font-medium mb-3 text-gray-700">店舗一覧 ({storeCount}件)</h4>
-                              <div className="grid gap-2">
-                                {stores.map((store) => (
-                                  <div
-                                    key={store.id}
-                                    className="bg-white p-3 rounded border border-gray-200 flex flex-col sm:flex-row justify-between items-start gap-3"
-                                  >
-                                    <div className="min-w-0 flex-1">
-                                      <div className="font-medium truncate">
-                                        {store.name}
-                                        {store.prefecture && (
-                                          <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
-                                        )}
-                                      </div>
-                                      {/* タグ表示 */}
-                                      {(store.tags?.michelinStars || store.tags?.hasBibGourmand || store.tags?.tabelogAward || store.tags?.hasTabelogAward || store.tags?.goetMiyoScore) && (
-                                        <div className="flex flex-wrap gap-1 mt-1 mb-2">
-                                          {store.tags.michelinStars && store.tags.michelinStars > 0 && (
-                                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
-                                              ⭐ ミシュラン獲得店
-                                            </Badge>
-                                          )}
-                                          {store.tags.hasBibGourmand && (
-                                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                                              🍽️ ミシュランビブグルマン
-                                            </Badge>
-                                          )}
-                                          {store.tags.tabelogAward && store.tags.tabelogAward.length > 0 && (
-                                            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                                              📖 食べログ100名店
-                                            </Badge>
-                                          )}
-                                          {store.tags.hasTabelogAward && (
-                                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                                              🏆 食べログアワード
-                                            </Badge>
-                                          )}
-                                          {store.tags.goetMiyoScore && store.tags.goetMiyoScore > 0 && (
-                                            <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                                              🍷 ゴ・エ・ミヨ掲載店
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      )}
-                                      <div className="text-sm text-gray-600 break-words">
-                                        {store.address && <div className="text-xs sm:text-sm">📍 {store.address}</div>}
-                                        {store.website && <div className="text-xs sm:text-sm">🌐 <a href={store.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{store.website}</a></div>}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-2 flex-shrink-0 items-center mt-2 sm:mt-0">
-                                      <Link href={`/stores/${store.id}`}>
-                                        <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-7 sm:w-7">
-                                          <Eye className="h-4 w-4" />
-                                        </Button>
-                                      </Link>
-                                      {isAdmin && (
-                                        <Link href={`/stores/${store.id}/edit`}>
-                                          <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-7 sm:w-7">
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
-                                        </Link>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-              </TableBody>
-            </Table>
-            </div>
-          )}
-          
-          {/* ページネーション */}
-          {filteredAndSortedCompanies.length > 0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-center sm:justify-end">
-                <div className="overflow-x-auto">
-                  <div className="inline-block">
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      onPageChange={handlePageChange}
-                      itemsPerPage={itemsPerPage}
-                      totalItems={filteredAndSortedCompanies.length}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <CompanyDeleteDialog
+          open={deleteDialogOpen}
+          company={companyToDelete}
+          isDeleting={loading}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleDeleteCompany}
+        />
 
-      {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>企業の削除</DialogTitle>
-            <DialogDescription>
-              「{companyToDelete?.name}」を削除しますか？
-              この操作は取り消すことができません。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteCompany}
-            >
-              削除
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 一括削除確認ダイアログ */}
-      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>企業の一括削除</DialogTitle>
-            <DialogDescription>
-              選択された{selectedCompanies.size}件の企業とその関連データ（店舗・求人）を削除しますか？
-              <br />
-              <strong className="text-red-600">この操作は取り消すことができません。</strong>
-              <br />
-              <br />
-              削除対象企業：
-              <br />
-              {companies
-                .filter(c => selectedCompanies.has(c.id))
-                .map(c => c.name)
-                .join('、')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setBulkDeleteDialogOpen(false)}
-              disabled={deletingBulk}
-            >
-              キャンセル
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
-              disabled={deletingBulk}
-            >
-              {deletingBulk ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  削除中...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {selectedCompanies.size}件削除
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <BulkDeleteDialog
+          open={bulkDeleteDialogOpen}
+          companies={companies}
+          selectedIds={selectedCompanies}
+          isDeleting={deletingBulk}
+          onOpenChange={setBulkDeleteDialogOpen}
+          onConfirm={handleBulkDelete}
+        />
       </div>
     </ProtectedRoute>
   )
@@ -1415,13 +555,15 @@ function CompaniesPageContent() {
 
 export default function CompaniesPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center">読み込み中...</div>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+          <div className="container mx-auto px-4 py-8">
+            <div className="text-center">読み込み中...</div>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CompaniesPageContent />
     </Suspense>
   )
