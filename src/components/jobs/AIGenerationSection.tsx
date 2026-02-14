@@ -6,7 +6,7 @@ import { Company } from '@/types/company'
 import { Store } from '@/types/store'
 import { FormData } from './JobFormTypes'
 import { FIELD_LABELS } from './JobFormConstants'
-import { authenticatedPost } from '@/lib/firebase/auth'
+import { authenticatedPost } from '@/lib/api-client'
 
 interface AIGenerationSectionProps {
   formData: FormData
