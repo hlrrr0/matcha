@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, FileUp, Plus } from 'lucide-react'
+import { RefreshCw, FileUp, Plus, Edit } from 'lucide-react'
 import Link from 'next/link'
 import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 
@@ -15,6 +15,8 @@ interface CompaniesHeaderProps {
   onCSVImport: (e: React.ChangeEvent<HTMLInputElement>) => void
   onGenerateTemplate: () => void
   onDeleteClick: () => void
+  onDominoExport?: () => void
+  onBulkUpdate?: () => void
 }
 
 export const CompaniesHeader: React.FC<CompaniesHeaderProps> = ({
@@ -26,6 +28,8 @@ export const CompaniesHeader: React.FC<CompaniesHeaderProps> = ({
   onCSVImport,
   onGenerateTemplate,
   onDeleteClick,
+  onDominoExport,
+  onBulkUpdate,
 }) => {
   return (
     <>
@@ -81,6 +85,18 @@ export const CompaniesHeader: React.FC<CompaniesHeaderProps> = ({
                   />
                 </label>
 
+                {isAdmin && onDominoExport && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onDominoExport}
+                    className="h-8 text-xs sm:h-9 sm:text-sm bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-300"
+                  >
+                    <FileUp className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                    Domino送信
+                  </Button>
+                )}
+
                 <Link href="/companies/new">
                   <Button
                     size="sm"
@@ -92,14 +108,25 @@ export const CompaniesHeader: React.FC<CompaniesHeaderProps> = ({
                 </Link>
 
                 {selectedCount > 0 && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={onDeleteClick}
-                    className="h-8 text-xs sm:h-9 sm:text-sm"
-                  >
-                    {selectedCount}件削除
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onBulkUpdate}
+                      className="h-8 text-xs sm:h-9 sm:text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                    >
+                      <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      {selectedCount}件を一括更新
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={onDeleteClick}
+                      className="h-8 text-xs sm:h-9 sm:text-sm"
+                    >
+                      {selectedCount}件削除
+                    </Button>
+                  </>
                 )}
               </>
             )}

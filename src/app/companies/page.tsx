@@ -25,6 +25,7 @@ import {
   companyFields,
   statusLabels,
 } from '@/components/companies'
+import { BulkUpdateDialog, BulkUpdateValues } from '@/components/companies/BulkUpdateDialog'
 import { CompanyFilters } from '@/components/companies/types'
 
 function CompaniesPageContent() {
@@ -38,6 +39,7 @@ function CompaniesPageContent() {
   const [userDisplayNameMap, setUserDisplayNameMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [csvImporting, setCsvImporting] = useState(false)
+  const [dominoExporting, setDominoExporting] = useState(false)
 
   // Filter states
   const [filters, setFilters] = useState<CompanyFilters>({
@@ -61,6 +63,8 @@ function CompaniesPageContent() {
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [deletingBulk, setDeletingBulk] = useState(false)
+  const [bulkUpdateDialogOpen, setBulkUpdateDialogOpen] = useState(false)
+  const [bulkUpdating, setBulkUpdating] = useState(false)
 
   // Selection states
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set())
@@ -226,6 +230,53 @@ function CompaniesPageContent() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  // Export to Domino
+  const handleDominoExport = async () => {
+    if (!confirm('企業・店舗データをDominoに送信しますか？\n\n有効な企業とその店舗データが送信されます。')) {
+      return
+    }
+
+    setDominoExporting(true)
+
+    try {
+      const response = await fetch('/api/domino/export?type=all', {
+        method: 'POST',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'エクスポートに失敗しました')
+      }
+
+      const { companies: companiesResult, stores: storesResult } = result.results
+      const totalExported = companiesResult.exported + storesResult.exported
+      const totalFailed = companiesResult.failed + storesResult.failed
+
+      if (totalFailed === 0) {
+        toast.success(`Dominoに送信しました: 企業${companiesResult.exported}件、店舗${storesResult.exported}件`)
+      } else {
+        toast.warning(
+          `送信完了: 成功${totalExported}件、失敗${totalFailed}件\n` +
+          `企業: ${companiesResult.exported}/${companiesResult.total}件\n` +
+          `店舗: ${storesResult.exported}/${storesResult.total}件`
+        )
+        
+        if (companiesResult.errors.length > 0) {
+          console.error('企業エクスポートエラー:', companiesResult.errors)
+        }
+        if (storesResult.errors.length > 0) {
+          console.error('店舗エクスポートエラー:', storesResult.errors)
+        }
+      }
+    } catch (error) {
+      console.error('Domino export error:', error)
+      toast.error(error instanceof Error ? error.message : 'Dominoへの送信に失敗しました')
+    } finally {
+      setDominoExporting(false)
+    }
   }
 
   // Get store count
@@ -483,6 +534,68 @@ function CompaniesPageContent() {
     }
   }
 
+  const handleBulkUpdate = async (updateValues: BulkUpdateValues) => {
+    if (selectedCompanies.size === 0) {
+      toast.error('更新する企業を選択してください')
+      return
+    }
+
+    if (Object.keys(updateValues).length === 0) {
+      toast.error('更新する項目を選択してください')
+      return
+    }
+
+    setBulkUpdating(true)
+
+    try {
+      const selectedIds = Array.from(selectedCompanies)
+      let successCount = 0
+      let errorCount = 0
+      const errors: string[] = []
+
+      // FirestoreのupdateCompanyを使用
+      const { updateCompany } = await import('@/lib/firestore/companies')
+
+      for (const companyId of selectedIds) {
+        try {
+          const company = companies.find(c => c.id === companyId)
+          if (!company) continue
+
+          const updates: Partial<Company> = {}
+          if (updateValues.status) updates.status = updateValues.status
+          if (updateValues.contractType) updates.contractType = updateValues.contractType
+          if (updateValues.consultantId !== undefined) {
+            updates.consultantId = updateValues.consultantId || null
+          }
+
+          await updateCompany(companyId, updates)
+          successCount++
+        } catch (error) {
+          errorCount++
+          const company = companies.find(c => c.id === companyId)
+          errors.push(company?.name || companyId)
+          console.error(`❌ 企業更新エラー (${companyId}):`, error)
+        }
+      }
+
+      if (errorCount === 0) {
+        toast.success(`${successCount}件の企業を更新しました`)
+      } else {
+        toast.warning(`更新完了: 成功${successCount}件、失敗${errorCount}件`)
+        console.error('❌ 一括更新エラー:', errors)
+      }
+
+      await loadCompanies(true)
+      setSelectedCompanies(new Set())
+      setBulkUpdateDialogOpen(false)
+    } catch (error) {
+      console.error('❌ 一括更新エラー:', error)
+      toast.error(`一括更新に失敗しました: ${error}`)
+    } finally {
+      setBulkUpdating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -501,11 +614,13 @@ function CompaniesPageContent() {
           isAdmin={isAdmin}
           companiesCount={companies.length}
           selectedCount={selectedCompanies.size}
-          isLoading={loading}
+          isLoading={loading || dominoExporting}
           onRefresh={() => loadCompanies(true)}
           onCSVImport={handleCSVImport}
           onGenerateTemplate={downloadCSVTemplate}
           onDeleteClick={() => setBulkDeleteDialogOpen(true)}
+          onDominoExport={handleDominoExport}
+          onBulkUpdate={() => setBulkUpdateDialogOpen(true)}
         />
 
         <CompaniesSearchFilters
@@ -555,6 +670,16 @@ function CompaniesPageContent() {
           isDeleting={deletingBulk}
           onOpenChange={setBulkDeleteDialogOpen}
           onConfirm={handleBulkDelete}
+        />
+
+        {/* 一括更新ダイアログ */}
+        <BulkUpdateDialog
+          open={bulkUpdateDialogOpen}
+          onOpenChange={setBulkUpdateDialogOpen}
+          selectedCount={selectedCompanies.size}
+          users={users}
+          onConfirm={handleBulkUpdate}
+          isUpdating={bulkUpdating}
         />
       </div>
     </ProtectedRoute>

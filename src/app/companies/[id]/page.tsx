@@ -14,6 +14,7 @@ import CompanyStoresTab from '@/components/companies/detail/CompanyStoresTab'
 import CompanyJobsTab from '@/components/companies/detail/CompanyJobsTab'
 import CompanyHistoryTab from '@/components/companies/detail/CompanyHistoryTab'
 import { useAuth } from '@/contexts/AuthContext'
+import { toast } from 'sonner'
 import { 
   ArrowLeft, 
   Building2, 
@@ -21,7 +22,8 @@ import {
   Briefcase,
   Edit,
   CheckCircle,
-  Mail
+  Mail,
+  Send
 } from 'lucide-react'
 import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -48,7 +50,7 @@ export default function CompanyDetailPage({ params, searchParams }: CompanyDetai
 
 function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [companyId, setCompanyId] = useState<string>('')
   const [company, setCompany] = useState<Company | null>(null)
@@ -62,6 +64,7 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null)
   const [storesCurrentPage, setStoresCurrentPage] = useState(1)
   const [jobsCurrentPage, setJobsCurrentPage] = useState(1)
+  const [sendingToDomino, setSendingToDomino] = useState(false)
   const itemsPerPage = 20
 
   const handleTabChange = (tab: string) => {
@@ -251,6 +254,100 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
     setCompany(updatedCompany)
   }
 
+  // Dominoに送信
+  const handleSendToDomino = async () => {
+    if (!company) return
+
+    // まずドライランで確認
+    if (!confirm(`【テスト送信】\n\n「${company.name}」とその店舗データの変換プレビューを確認しますか？\n\n※実際の送信は行われません`)) {
+      return
+    }
+
+    setSendingToDomino(true)
+
+    try {
+      // ドライランモード
+      const dryRunResponse = await fetch(`/api/domino/export?type=all&companyId=${companyId}&dryRun=true`, {
+        method: 'POST',
+      })
+
+      const dryRunResult = await dryRunResponse.json()
+
+      if (!dryRunResponse.ok) {
+        throw new Error(dryRunResult.error || 'プレビューの取得に失敗しました')
+      }
+
+      const { companies: companiesResult, stores: storesResult } = dryRunResult.results
+
+      // データを整形して表示
+      let previewMessage = `【送信データプレビュー】\n\n`
+      previewMessage += `企業: ${companiesResult.total}件\n`
+      previewMessage += `店舗: ${storesResult.total}件\n\n`
+      
+      if (companiesResult.data.length > 0) {
+        previewMessage += `--- 企業データ ---\n`
+        companiesResult.data.forEach((item: any) => {
+          previewMessage += `• ${item.company}\n`
+          previewMessage += `  ID: ${item.payload.id}\n`
+          previewMessage += `  住所: ${item.payload.address || 'なし'}\n\n`
+        })
+      }
+
+      if (storesResult.data.length > 0) {
+        previewMessage += `--- 店舗データ ---\n`
+        storesResult.data.forEach((item: any) => {
+          previewMessage += `• ${item.store} (${item.company})\n`
+          previewMessage += `  ID: ${item.payload.id}\n`
+          previewMessage += `  住所: ${item.payload.address || 'なし'}\n\n`
+        })
+      }
+
+      previewMessage += `\n\n⚠️ 注意: Domino APIエンドポイントが正しく設定されている必要があります。\n現在のエンドポイント: ${process.env.NEXT_PUBLIC_DOMINO_API_URL || 'https://sushi-domino.vercel.app/api/hr-export'}`
+
+      console.log('=== Domino Export Preview ===')
+      console.log('Companies:', companiesResult.data)
+      console.log('Stores:', storesResult.data)
+      
+      alert(previewMessage)
+
+      // 本番送信の確認
+      if (!confirm('データを確認しました。\n\n実際にDominoに送信しますか？')) {
+        setSendingToDomino(false)
+        return
+      }
+
+      // 実際の送信
+      const response = await fetch(`/api/domino/export?type=all&companyId=${companyId}`, {
+        method: 'POST',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'エクスポートに失敗しました')
+      }
+
+      const { companies: finalCompanies, stores: finalStores } = result.results
+
+      if (finalCompanies.failed === 0 && finalStores.failed === 0) {
+        toast.success(
+          `Dominoに送信しました\n企業: ${finalCompanies.exported}件\n店舗: ${finalStores.exported}件`
+        )
+      } else {
+        const errors = [...finalCompanies.errors, ...finalStores.errors]
+        toast.error(
+          `送信エラー\n企業: ${finalCompanies.exported}/${finalCompanies.total}件\n店舗: ${finalStores.exported}/${finalStores.total}件\n\nエラー: ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`
+        )
+        console.error('Domino export errors:', errors)
+      }
+    } catch (error) {
+      console.error('Domino export error:', error)
+      toast.error(error instanceof Error ? error.message : 'Dominoへの送信に失敗しました')
+    } finally {
+      setSendingToDomino(false)
+    }
+  }
+
 
   if (loading) {
     return (
@@ -306,6 +403,18 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
             company={company} 
             onUpdate={handleCompanyUpdate}
           />
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendToDomino}
+              disabled={sendingToDomino}
+              className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-300"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {sendingToDomino ? '送信中...' : 'Domino送信'}
+            </Button>
+          )}
           <Link href={`/companies/${companyId}/edit`} className="w-full sm:w-auto">
             <Button className="flex items-center gap-2 w-full sm:w-auto">
               <Edit className="h-4 w-4" />
