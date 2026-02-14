@@ -66,6 +66,20 @@ export async function GET(
 
     const job = { id: jobDoc.id, ...jobDoc.data() } as Job
 
+    // 企業の公開状態をチェック
+    if (job.companyId) {
+      const companyDoc = await getDoc(doc(db, 'companies', job.companyId))
+      if (companyDoc.exists()) {
+        const companyData = companyDoc.data()
+        if (!companyData.isPublic) {
+          return NextResponse.json(
+            { success: false, error: { code: 'NOT_FOUND', message: 'Job not found' } },
+            { status: 404 }
+          )
+        }
+      }
+    }
+
     // 募集中の求人のみ公開
     if (job.status !== 'active') {
       return NextResponse.json(

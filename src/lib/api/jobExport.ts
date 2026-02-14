@@ -214,9 +214,9 @@ export async function exportPublicJobs(options: ExportOptions) {
     for (const jobDoc of jobsSnapshot.docs) {
       const job = { id: jobDoc.id, ...jobDoc.data() } as Job
 
-      // 企業が有効かチェック
+      // 企業が有効かつ公開状態かチェック
       const company = await getCompany(job.companyId)
-      if (!company || company.status !== 'active') continue
+      if (!company || company.status !== 'active' || !company.isPublic) continue
 
       // 店舗を取得してチェック
       const stores = await getJobStores(job)
@@ -310,9 +310,9 @@ export async function getPublicJob(jobId: string): Promise<PublicJob | null> {
     
     if (job.status !== 'active') return null
     
-    // 企業が有効かチェック
+    // 企業が有効かつ公開状態かチェック
     const company = await getCompany(job.companyId)
-    if (!company || company.status !== 'active') return null
+    if (!company || company.status !== 'active' || !company.isPublic) return null
     
     // 店舗を取得してチェック
     const stores = await getJobStores(job)

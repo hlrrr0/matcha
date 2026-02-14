@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       
       companySnapshot.docs.forEach(doc => {
         const data = doc.data()
-        if (data.status === 'active') {
+        if (data.status === 'active' && data.isPublic !== false) {
           companyMap.set(doc.id, data)
         }
       })

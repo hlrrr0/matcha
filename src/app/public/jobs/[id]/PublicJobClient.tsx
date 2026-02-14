@@ -61,9 +61,15 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
             if (jobData.companyId && jobData.companyId.trim() !== '') {
               const companyDoc = await getDoc(doc(db, 'companies', jobData.companyId))
               if (companyDoc.exists()) {
+                const companyData = companyDoc.data() as Company
+                // 企業が非公開の場合は求人を表示しない
+                if (!companyData.isPublic) {
+                  setState(prev => ({ ...prev, job: null, loading: false }))
+                  return
+                }
                 setState(prev => ({ 
                   ...prev, 
-                  company: { ...companyDoc.data() as Company, id: jobData.companyId } 
+                  company: { ...companyData, id: jobData.companyId } 
                 }))
               }
             }

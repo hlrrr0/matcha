@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     for (const doc of companiesSnapshot.docs) {
       const data = doc.data()
       const status = data.indeedStatus
-      // 掲載なし = detected === false かつ error なし
-      if (status && status.detected === false && !status.error) {
+      // 掲載なし = detected === false かつ error なし、かつ公開状態
+      if (status && status.detected === false && !status.error && data.isPublic !== false) {
         notDetectedCompanies.set(doc.id, { id: doc.id, ...data })
       }
     }

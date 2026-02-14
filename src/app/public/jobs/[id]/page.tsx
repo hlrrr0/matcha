@@ -59,6 +59,14 @@ export async function generateMetadata({ params }: PublicJobPageProps): Promise<
       const companyDoc = await getDoc(doc(db, 'companies', jobData.companyId))
       if (companyDoc.exists()) {
         const companyData = companyDoc.data() as Company
+        // 企業が非公開の場合は求人を表示しない
+        if (!companyData.isPublic) {
+          return {
+            title: '求人が見つかりません',
+            description: 'お探しの求人情報が見つかりませんでした。',
+            robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
+          }
+        }
         companyName = companyData.name || ''
       }
     }
