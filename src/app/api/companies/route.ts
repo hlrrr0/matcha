@@ -25,6 +25,9 @@ interface DominoCompanyData {
  * DominoCompanyDataをCompany型に変換
  */
 function convertDominoDataToCompany(data: DominoCompanyData): Omit<Company, 'id' | 'createdAt' | 'updatedAt'> {
+  // Domino IDから 'domino_' プレフィックスを削除
+  const cleanDominoId = data.id.startsWith('domino_') ? data.id.substring(7) : data.id
+  
   return {
     name: data.name,
     address: data.address || '',
@@ -34,7 +37,7 @@ function convertDominoDataToCompany(data: DominoCompanyData): Omit<Company, 'id'
     memo: data.description || '', // descriptionをmemoフィールドにマッピング
     size: data.size === 'small' ? 'small' : data.size === 'large' ? 'large' : 'medium',
     status: data.status === 'active' ? 'active' : 'inactive',
-    dominoId: data.id, // Domino側のIDを保存
+    dominoId: cleanDominoId, // プレフィックスを削除したIDを保存
     importedAt: new Date(), // Domino連携時刻を記録
     // その他のフィールドはデフォルト値
     employeeCount: undefined,

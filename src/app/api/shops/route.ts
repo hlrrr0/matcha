@@ -25,6 +25,10 @@ interface DominoShopData {
  * DominoShopDataをStore型に変換
  */
 function convertDominoDataToStore(data: DominoShopData): Omit<Store, 'id' | 'createdAt' | 'updatedAt'> {
+  // Domino IDから 'domino_' プレフィックスを削除
+  const cleanDominoId = data.id.startsWith('domino_') ? data.id.substring(7) : data.id
+  const cleanDominoCompanyId = data.companyId.startsWith('domino_') ? data.companyId.substring(7) : data.companyId
+  
   return {
     name: data.name,
     companyId: data.hrCompanyId || '', // 人材紹介システム側の企業IDを使用
@@ -34,8 +38,8 @@ function convertDominoDataToStore(data: DominoShopData): Omit<Store, 'id' | 'cre
     tabelogUrl: data.tabelogUrl,
     status: data.isActive !== false ? 'active' : 'inactive',
     // Domino連携用フィールド
-    dominoId: data.id, // Domino側のIDを保存
-    dominoCompanyId: data.companyId, // Domino側の企業IDも保存
+    dominoId: cleanDominoId, // プレフィックスを削除したIDを保存
+    dominoCompanyId: cleanDominoCompanyId, // Domino側の企業IDもプレフィックス削除
     importedAt: new Date(),
     phone: data.phone || '',
     manager: data.manager || '',
