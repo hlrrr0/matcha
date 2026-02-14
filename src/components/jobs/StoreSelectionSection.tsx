@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, FormEvent } from 'react'
 import { Store } from '@/types/store'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
