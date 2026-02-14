@@ -104,12 +104,18 @@ const StoreSelectionSection = ({
               <div key={prefecture} className="border-l-2 border-gray-200 pl-4">
                 {/* Prefecture Header */}
                 <div className="flex items-center space-x-2 mb-2">
-                  <Checkbox
-                    id={`prefecture-${prefecture}`}
-                    checked={isSelected}
-                    indeterminate={isPartiallySelected && !isSelected}
-                    onChange={(checked) => handlePrefectureChange(prefecture, checked)}
-                  />
+                  <div className="relative">
+                    <Checkbox
+                      id={`prefecture-${prefecture}`}
+                      checked={isSelected || isPartiallySelected}
+                      onChange={(checked) => handlePrefectureChange(prefecture, checked)}
+                    />
+                    {isPartiallySelected && !isSelected && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-1.5 h-1.5 bg-gray-400 rounded-sm"></div>
+                      </div>
+                    )}
+                  </div>
                   <label
                     htmlFor={`prefecture-${prefecture}`}
                     className="text-sm font-medium cursor-pointer flex-1"
