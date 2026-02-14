@@ -680,7 +680,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   }
 
   // 年齢計算のヘルパー関数
-  const calculateAge = (dateOfBirth: string): number | null => {
+  const calculateAge = (dateOfBirth: string | Date | undefined): number | null => {
     if (!dateOfBirth) return null
     
     const birthDate = new Date(dateOfBirth)
