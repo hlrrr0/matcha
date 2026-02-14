@@ -20,11 +20,22 @@ export async function GET(request: NextRequest) {
 
     const companies = snapshot.docs.map(doc => {
       const data = doc.data()
+
+      // Firestore Timestamp を ISO文字列に変換
+      let indeedStatus = data.indeedStatus || null
+      if (indeedStatus?.lastCheckedAt) {
+        const ts = indeedStatus.lastCheckedAt
+        indeedStatus = {
+          ...indeedStatus,
+          lastCheckedAt: ts.toDate ? ts.toDate().toISOString() : new Date(ts._seconds ? ts._seconds * 1000 : ts).toISOString(),
+        }
+      }
+
       return {
         id: doc.id,
         name: data.name || '',
         normalizedName: data.normalizedName || '',
-        indeedStatus: data.indeedStatus || null,
+        indeedStatus,
         status: data.status,
       }
     })

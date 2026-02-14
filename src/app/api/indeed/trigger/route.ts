@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
 
     if (!cloudRunUrl) {
       return NextResponse.json(
-        { success: false, error: 'INDEED_CHECKER_URL が設定されていません' },
-        { status: 500 }
+        { success: false, error: 'Cloud Run が未デプロイです。INDEED_CHECKER_URL 環境変数を設定してください。' },
+        { status: 503 }
       )
     }
 

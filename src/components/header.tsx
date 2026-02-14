@@ -110,6 +110,11 @@ export default function Header() {
                         Domino連携
                       </Link>
                     </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/indeed" className="w-full cursor-pointer">
+                        Indeed管理
+                      </Link>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -231,6 +236,11 @@ export default function Header() {
                         <Link href="/domino/import" onClick={handleLinkClick}>
                           <Button variant="ghost" className="w-full justify-start text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                             Domino連携
+                          </Button>
+                        </Link>
+                        <Link href="/admin/indeed" onClick={handleLinkClick}>
+                          <Button variant="ghost" className="w-full justify-start text-orange-600 hover:text-orange-700 hover:bg-orange-50">
+                            Indeed管理
                           </Button>
                         </Link>
                       </div>

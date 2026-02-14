@@ -166,7 +166,7 @@ def run_checker():
 
 @app.route('/check-single', methods=['POST'])
 def check_single():
-    """1社だけチェックするデバッグ用エンドポイント。
+    """1社だけチェックしてFirestoreも更新するエンドポイント。
 
     Request Body:
         { "companyId": "xxx", "companyName": "企業名" }
@@ -180,6 +180,39 @@ def check_single():
 
     company = {'id': company_id, 'name': company_name}
     result = check_company_indeed(company)
+
+    # Firestore に結果を書き込む
+    if company_id and not result.error:
+        try:
+            detected_by = None
+            if result.detected:
+                if has_agent_exported_jobs(company_id):
+                    detected_by = 'agent'
+                else:
+                    detected_by = 'external'
+
+            update_company_indeed_status(
+                company_id=company_id,
+                detected=result.detected,
+                detected_by=detected_by,
+                indeed_url=result.indeed_url,
+            )
+
+            can_post = not result.detected
+            updated_count = update_jobs_indeed_control(company_id, can_post)
+            logger.info(f'単体チェック Firestore更新完了: {company_name} (求人{updated_count}件)')
+        except Exception as e:
+            logger.error(f'単体チェック Firestore更新エラー ({company_id}): {e}')
+    elif company_id and result.error:
+        try:
+            update_company_indeed_status(
+                company_id=company_id,
+                detected=False,
+                detected_by=None,
+                error=result.error,
+            )
+        except Exception as e:
+            logger.error(f'単体チェック エラー記録失敗 ({company_id}): {e}')
 
     return jsonify({
         'companyId': company_id,

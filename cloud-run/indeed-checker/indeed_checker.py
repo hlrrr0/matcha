@@ -1,13 +1,16 @@
 """Indeed 掲載チェッカーモジュール
 
-Google Custom Search API を使って企業の Indeed 掲載有無を判定する。
-HEAD リクエストで /jobs ページの存在を確認する。
+SerpAPI (Google検索) を使って企業の Indeed 掲載有無を判定する。
+1. SerpAPI で「site:jp.indeed.com/cmp/ "企業名"」を検索
+2. 見つかった Indeed 企業ページの /jobs サブページを確認
 """
 
 import logging
 import os
 import random
+import re
 import time
+from typing import Optional
 
 import requests
 
@@ -15,24 +18,21 @@ from normalization import normalize_company_name
 
 logger = logging.getLogger(__name__)
 
-# Google Custom Search API 設定
-GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
-GOOGLE_CSE_ID = os.environ.get('GOOGLE_CSE_ID', '')
-
-# Indeed 企業ページのベースURL
-INDEED_CMP_BASE = 'https://jp.indeed.com/cmp/'
+# SerpAPI 設定
+SERPAPI_KEY = os.environ.get('SERPAPI_KEY', '')
+SERPAPI_URL = 'https://serpapi.com/search.json'
 
 # リクエスト間隔（秒）
-MIN_SLEEP = 3
-MAX_SLEEP = 5
+MIN_SLEEP = 2
+MAX_SLEEP = 4
 
 # HTTP タイムアウト（秒）
-REQUEST_TIMEOUT = 15
+REQUEST_TIMEOUT = 20
 
 # User-Agent
 USER_AGENT = (
-    'Mozilla/5.0 (compatible; MATCHABot/1.0; '
-    '+https://github.com/matcha-project)'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 )
 
 
@@ -42,9 +42,9 @@ class IndeedCheckResult:
     def __init__(
         self,
         detected: bool = False,
-        indeed_url: str | None = None,
+        indeed_url: Optional[str] = None,
         has_jobs_page: bool = False,
-        error: str | None = None,
+        error: Optional[str] = None,
     ):
         self.detected = detected
         self.indeed_url = indeed_url
@@ -67,51 +67,66 @@ def _sleep_between_requests():
     time.sleep(duration)
 
 
-def search_indeed_company(company_name: str) -> dict | None:
-    """Google Custom Search API で Indeed 企業ページを検索する。
+def search_indeed_company(company_name: str) -> Optional[str]:
+    """SerpAPI (Google検索) で Indeed 企業ページを検索する。
+
+    「site:jp.indeed.com/cmp/ "企業名"」で検索し、
+    Indeed 企業ページの URL を返す。
 
     Args:
         company_name: 正規化済み企業名
 
     Returns:
-        検索結果の最初のヒット、またはNone
+        Indeed 企業ページURL（見つかった場合）、またはNone
     """
-    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
-        raise ValueError(
-            'GOOGLE_API_KEY と GOOGLE_CSE_ID 環境変数が必要です'
-        )
+    if not SERPAPI_KEY:
+        raise ValueError('SERPAPI_KEY 環境変数が必要です')
 
     # Indeed 企業ページに絞った検索クエリ
     query = f'site:jp.indeed.com/cmp/ "{company_name}"'
 
     params = {
-        'key': GOOGLE_API_KEY,
-        'cx': GOOGLE_CSE_ID,
+        'api_key': SERPAPI_KEY,
+        'engine': 'google',
         'q': query,
-        'num': 3,  # 上位3件を取得
+        'num': 5,
+        'gl': 'jp',
+        'hl': 'ja',
     }
 
     try:
         resp = requests.get(
-            'https://www.googleapis.com/customsearch/v1',
+            SERPAPI_URL,
             params=params,
             timeout=REQUEST_TIMEOUT,
-            headers={'User-Agent': USER_AGENT},
         )
         resp.raise_for_status()
         data = resp.json()
 
-        items = data.get('items', [])
-        if not items:
+        # エラーチェック
+        if 'error' in data:
+            logger.error(f'SerpAPI エラー: {data["error"]}')
+            raise RuntimeError(f'SerpAPI エラー: {data["error"]}')
+
+        results = data.get('organic_results', [])
+        if not results:
             logger.info(f'"{company_name}" の Indeed ページは見つかりません')
             return None
 
-        # /cmp/ を含むURLのみフィルタ
-        for item in items:
-            link = item.get('link', '')
+        # /cmp/ を含むURLを探す
+        for result in results:
+            link = result.get('link', '')
             if '/cmp/' in link:
-                logger.info(f'"{company_name}" の Indeed ページ発見: {link}')
-                return item
+                # /cmp/企業名 部分のみ抽出（クエリパラメータ除去）
+                cmp_match = re.match(
+                    r'(https?://jp\.indeed\.com/cmp/[^/?#]+)', link
+                )
+                if cmp_match:
+                    found_url = cmp_match.group(1)
+                    logger.info(
+                        f'"{company_name}" の Indeed ページ発見: {found_url}'
+                    )
+                    return found_url
 
         logger.info(
             f'"{company_name}" の検索結果に /cmp/ ページなし'
@@ -119,15 +134,18 @@ def search_indeed_company(company_name: str) -> dict | None:
         return None
 
     except requests.exceptions.Timeout:
-        logger.warning(f'Google Custom Search タイムアウト: {company_name}')
+        logger.warning(f'SerpAPI タイムアウト: {company_name}')
         raise
     except requests.exceptions.RequestException as e:
-        logger.error(f'Google Custom Search エラー: {e}')
+        logger.error(f'SerpAPI リクエストエラー: {e}')
         raise
 
 
 def check_jobs_page(cmp_url: str) -> bool:
-    """Indeed 企業ページの /jobs サブページが存在するか HEAD リクエストで確認する。
+    """Indeed 企業ページの /jobs サブページが存在するか確認する。
+
+    SerpAPI で「site:企業ページURL/jobs」を検索して確認する。
+    直接アクセスは Indeed にブロックされるため、検索結果で判定する。
 
     Args:
         cmp_url: Indeed 企業ページURL (例: https://jp.indeed.com/cmp/CompanyName)
@@ -135,33 +153,46 @@ def check_jobs_page(cmp_url: str) -> bool:
     Returns:
         /jobs ページが存在すれば True
     """
-    # URL末尾のスラッシュを正規化
+    if not SERPAPI_KEY:
+        return False
+
     jobs_url = cmp_url.rstrip('/') + '/jobs'
+    query = f'site:{jobs_url}'
+
+    params = {
+        'api_key': SERPAPI_KEY,
+        'engine': 'google',
+        'q': query,
+        'num': 1,
+        'gl': 'jp',
+        'hl': 'ja',
+    }
 
     try:
-        resp = requests.head(
-            jobs_url,
+        resp = requests.get(
+            SERPAPI_URL,
+            params=params,
             timeout=REQUEST_TIMEOUT,
-            headers={'User-Agent': USER_AGENT},
-            allow_redirects=True,
         )
+        resp.raise_for_status()
+        data = resp.json()
 
-        if resp.status_code == 200:
-            logger.info(f'/jobs ページ存在: {jobs_url}')
-            return True
-        else:
-            logger.info(
-                f'/jobs ページなし (status={resp.status_code}): {jobs_url}'
-            )
-            return False
+        results = data.get('organic_results', [])
+        if results:
+            # /jobs を含む結果があれば存在と判定
+            for result in results:
+                link = result.get('link', '')
+                if '/jobs' in link:
+                    logger.info(f'/jobs ページ存在: {jobs_url}')
+                    return True
 
-    except requests.exceptions.Timeout:
-        logger.warning(f'HEAD リクエストタイムアウト: {jobs_url}')
-        # タイムアウトは存在しないとは断定しない
-        raise
-    except requests.exceptions.RequestException as e:
-        logger.error(f'HEAD リクエストエラー: {e}')
-        raise
+        logger.info(f'/jobs ページなし: {jobs_url}')
+        return False
+
+    except Exception as e:
+        logger.warning(f'/jobs チェック失敗: {e}')
+        # /jobs チェック失敗は False 扱い（掲載検出には影響しない）
+        return False
 
 
 def check_company_indeed(company: dict) -> IndeedCheckResult:
@@ -169,8 +200,8 @@ def check_company_indeed(company: dict) -> IndeedCheckResult:
 
     処理フロー:
     1. 企業名を正規化
-    2. Google Custom Search で Indeed 企業ページを検索
-    3. 見つかったら HEAD リクエストで /jobs ページ確認
+    2. SerpAPI で Indeed 企業ページを検索
+    3. 見つかったら /jobs ページ確認
     4. 結果を返す
 
     Args:
@@ -192,27 +223,23 @@ def check_company_indeed(company: dict) -> IndeedCheckResult:
     )
 
     try:
-        # 1. Google Custom Search
-        search_result = search_indeed_company(normalized)
+        # 1. SerpAPI で Indeed 企業ページを検索
+        indeed_url = search_indeed_company(normalized)
         _sleep_between_requests()
 
-        if not search_result:
+        if not indeed_url:
             return IndeedCheckResult(detected=False)
 
-        # Indeed URL を取得
-        indeed_url = search_result.get('link', '')
-
-        # 2. /jobs ページの確認
+        # 2. /jobs ページの確認（SerpAPIの追加クエリ消費を避けるため、
+        #    バッチ実行時はスキップ可能）
         has_jobs = False
-        if indeed_url:
-            try:
-                has_jobs = check_jobs_page(indeed_url)
-                _sleep_between_requests()
-            except Exception as e:
-                logger.warning(
-                    f'/jobs チェック失敗 ({company_id}): {e}'
-                )
-                # /jobs チェック失敗でも掲載は検出済み
+        try:
+            has_jobs = check_jobs_page(indeed_url)
+            _sleep_between_requests()
+        except Exception as e:
+            logger.warning(
+                f'/jobs チェック失敗 ({company_id}): {e}'
+            )
 
         return IndeedCheckResult(
             detected=True,
@@ -221,7 +248,6 @@ def check_company_indeed(company: dict) -> IndeedCheckResult:
         )
 
     except requests.exceptions.Timeout:
-        # タイムアウトは「不明」扱い（falseにしない）
         return IndeedCheckResult(
             error=f'タイムアウト: {company_name}'
         )

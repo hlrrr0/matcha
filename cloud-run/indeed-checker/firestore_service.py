@@ -5,6 +5,7 @@ Companies / Jobs コレクションの読み書きを担当する。
 
 import logging
 from datetime import datetime, timezone
+from typing import Dict, List, Optional
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def get_db() -> firestore.Client:
     return _db
 
 
-def get_all_companies() -> list[dict]:
+def get_all_companies() -> List[dict]:
     """全アクティブ企業を取得する。
 
     Returns:
@@ -42,9 +43,9 @@ def get_all_companies() -> list[dict]:
 def update_company_indeed_status(
     company_id: str,
     detected: bool,
-    detected_by: str | None,
-    indeed_url: str | None = None,
-    error: str | None = None,
+    detected_by: Optional[str],
+    indeed_url: Optional[str] = None,
+    error: Optional[str] = None,
 ) -> None:
     """企業の indeedStatus を更新する。
 
@@ -81,7 +82,7 @@ def update_company_indeed_status(
     )
 
 
-def get_jobs_for_company(company_id: str) -> list[dict]:
+def get_jobs_for_company(company_id: str) -> List[dict]:
     """企業に紐づく全求人を取得する。
 
     Args:
