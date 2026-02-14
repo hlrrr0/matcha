@@ -128,8 +128,13 @@ export default function CompanyBasicTab({
                     {company.contractType && (
                       <div>
                         <h4 className="text-sm text-gray-600 mb-1">契約状況</h4>
-                        <Badge className={company.contractType === 'paid' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}>
-                          {company.contractType === 'paid' ? '有料紹介可' : '無料のみ'}
+                        <Badge className={
+                          company.contractType === 'paid_contracted' ? 'bg-green-100 text-green-800' :
+                          company.contractType === 'paid_available' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {company.contractType === 'paid_contracted' ? '有料【契約済】' :
+                           company.contractType === 'paid_available' ? '有料紹介可' : '無料のみ'}
                         </Badge>
                       </div>
                     )}

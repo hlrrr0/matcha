@@ -448,12 +448,16 @@ export function JobsTableSection({
                       {company?.contractType ? (
                         <Badge
                           className={
-                            company.contractType === 'paid'
+                            company.contractType === 'paid_contracted'
+                              ? 'bg-green-100 text-green-800'
+                              : company.contractType === 'paid_available'
                               ? 'bg-blue-100 text-blue-800'
                               : 'bg-gray-100 text-gray-700'
                           }
                         >
-                          {company.contractType === 'paid'
+                          {company.contractType === 'paid_contracted'
+                            ? '有料【契約済】'
+                            : company.contractType === 'paid_available'
                             ? '有料紹介可'
                             : '無料のみ'}
                         </Badge>

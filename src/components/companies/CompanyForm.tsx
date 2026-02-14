@@ -246,7 +246,8 @@ export default function CompanyForm({
                   <SelectValue placeholder="契約状況を選択してください" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="paid">有料紹介可</SelectItem>
+                  <SelectItem value="paid_contracted">有料【契約済】</SelectItem>
+                  <SelectItem value="paid_available">有料紹介可</SelectItem>
                   <SelectItem value="free_only">無料のみ</SelectItem>
                 </SelectContent>
               </Select>

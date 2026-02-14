@@ -301,7 +301,7 @@ export async function GET(request: NextRequest) {
       const access = store?.nearestStation || ''
 
       // 有料職業紹介
-      const isPaidReferral = company.contractType === 'paid' ? 'はい' : 'いいえ'
+      const isPaidReferral = (company.contractType === 'paid_contracted' || company.contractType === 'paid_available') ? 'はい' : 'いいえ'
 
       const row = [
         '募集中',                                          // ステータス
