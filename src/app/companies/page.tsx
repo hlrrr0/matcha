@@ -565,7 +565,7 @@ function CompaniesPageContent() {
           if (updateValues.status) updates.status = updateValues.status
           if (updateValues.contractType) updates.contractType = updateValues.contractType
           if (updateValues.consultantId !== undefined) {
-            updates.consultantId = updateValues.consultantId || null
+            updates.consultantId = updateValues.consultantId || undefined
           }
 
           await updateCompany(companyId, updates)
