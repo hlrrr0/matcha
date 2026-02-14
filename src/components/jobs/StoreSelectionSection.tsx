@@ -46,18 +46,20 @@ const StoreSelectionSection = ({
     return groupStoresByPrefecture(companyStores)
   }, [companyId, stores, storeSearchTerm])
 
-  const handlePrefectureChange = (prefecture: string, checked: boolean) => {
+  const handlePrefectureChange = (prefecture: string, checked: FormEvent<HTMLButtonElement> | boolean) => {
+    const isChecked = typeof checked === 'boolean' ? checked : (checked.currentTarget as HTMLInputElement).checked
     const updatedStoreIds = handlePrefectureToggle(
       prefecture,
-      checked,
+      isChecked,
       filteredStoresGrouped,
       selectedStoreIds
     )
     onStoreSelect(updatedStoreIds)
   }
 
-  const handleStoreChange = (storeId: string, checked: boolean) => {
-    const updatedStoreIds = checked
+  const handleStoreChange = (storeId: string, checked: FormEvent<HTMLButtonElement> | boolean) => {
+    const isChecked = typeof checked === 'boolean' ? checked : (checked.currentTarget as HTMLInputElement).checked
+    const updatedStoreIds = isChecked
       ? [...selectedStoreIds, storeId]
       : selectedStoreIds.filter(id => id !== storeId)
     onStoreSelect(updatedStoreIds)
