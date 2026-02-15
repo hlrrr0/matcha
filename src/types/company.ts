@@ -43,7 +43,7 @@ export interface Company {
   contractStartDate?: string | Date       // 取引開始日
   contractType?: 'paid_contracted' | 'paid_available' | 'free_only'     // 契約状況（有料【契約済】、有料紹介可、無料のみ）
   contractDetails?: string                // 契約詳細
-  status: 'active' | 'inactive'  // 取引状況
+  status: 'active' | 'inactive' | 'prospect' | 'prospect_contacted' | 'appointment' | 'no_approach' | 'suspended' | 'paused'  // 取引状況
   isPublic: boolean                       // 公開状況（公開／非公開）
   consultantId?: string                   // 担当者ID（企業担当者）
   memo?: string                           // メモ・特記事項
@@ -70,6 +70,12 @@ export interface Company {
 export const companyStatusLabels = {
   active: 'アクティブ',
   inactive: '非アクティブ',
+  prospect: '見込み客',
+  prospect_contacted: '見込み客/接触あり',
+  appointment: 'アポ',
+  no_approach: 'アプローチ不可',
+  suspended: '停止',
+  paused: '休止',
 }
 
 export const companySizeLabels = {
