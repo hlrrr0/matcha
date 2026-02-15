@@ -51,6 +51,16 @@ function convertCompanyToDominoFormat(company: Company): DominoCompanyPayload {
   // dominoIdがあればそれを使用、なければMATCHAのIDにプレフィックスを付与
   const dominoId = company.dominoId ? `domino_${company.dominoId}` : `matcha_${company.id}`
   
+  // ステータスをDomino形式にマッピング（Dominoはactive/inactiveのみサポート）
+  const mapStatusToDomino = (status: Company['status']): 'active' | 'inactive' => {
+    // active, prospect, prospect_contacted, appointment は active としてマッピング
+    if (status === 'active' || status === 'prospect' || status === 'prospect_contacted' || status === 'appointment') {
+      return 'active'
+    }
+    // inactive, no_approach, suspended, paused は inactive としてマッピング
+    return 'inactive'
+  }
+  
   return {
     id: dominoId,
     name: company.name,
@@ -60,7 +70,7 @@ function convertCompanyToDominoFormat(company: Company): DominoCompanyPayload {
     website: company.website,
     description: company.memo,
     size: company.size === 'startup' ? 'small' : company.size === 'enterprise' ? 'large' : company.size,
-    status: company.status,
+    status: mapStatusToDomino(company.status),
   }
 }
 
