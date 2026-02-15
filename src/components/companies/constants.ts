@@ -4,12 +4,24 @@ import { Company } from '@/types/company'
 export const statusLabels: Record<Company['status'], string> = {
   active: 'アクティブ',
   inactive: '非アクティブ',
+  prospect: '見込み客',
+  prospect_contacted: '見込み客/接触あり',
+  appointment: 'アポ',
+  no_approach: 'アプローチ不可',
+  suspended: '停止',
+  paused: '休止',
 }
 
 // Status colors
 export const statusColors: Record<Company['status'], string> = {
   active: 'bg-green-100 text-green-800',
   inactive: 'bg-gray-100 text-gray-800',
+  prospect: 'bg-blue-100 text-blue-800',
+  prospect_contacted: 'bg-cyan-100 text-cyan-800',
+  appointment: 'bg-purple-100 text-purple-800',
+  no_approach: 'bg-red-100 text-red-800',
+  suspended: 'bg-yellow-100 text-yellow-800',
+  paused: 'bg-orange-100 text-orange-800',
 }
 
 // Size labels
