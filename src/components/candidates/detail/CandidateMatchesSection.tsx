@@ -21,6 +21,7 @@ interface CandidateMatchesSectionProps {
   onSelectMatch: (matchId: string, checked: boolean) => void
   onBulkWithdraw: () => void
   onCopySuggestedJobs: () => void
+  onCopyPendingProposalJobs: () => void
   onCopyJobInfo: (jobId: string) => void
   onOpenCreateMatch: () => void
   onOpenStatusUpdate: (match: MatchWithDetails) => void
@@ -40,6 +41,7 @@ export default function CandidateMatchesSection({
   onSelectMatch,
   onBulkWithdraw,
   onCopySuggestedJobs,
+  onCopyPendingProposalJobs,
   onCopyJobInfo,
   onOpenCreateMatch,
   onOpenStatusUpdate,
@@ -48,6 +50,7 @@ export default function CandidateMatchesSection({
   formatDate
 }: CandidateMatchesSectionProps) {
   const suggestedCount = matches.filter(m => m.status === 'suggested').length
+  const pendingProposalCount = matches.filter(m => m.status === 'pending_proposal').length
   const selectableCount = matches.filter(m => m.status !== 'withdrawn' && m.status !== 'rejected').length
 
   return (
@@ -68,6 +71,17 @@ export default function CandidateMatchesSection({
               {matches.length}件
             </Badge>
             {matchesLoading && <RefreshCw className="h-4 w-4 animate-spin text-purple-600" />}
+            {pendingProposalCount > 0 && (
+              <Button
+                onClick={onCopyPendingProposalJobs}
+                variant="outline"
+                size="sm"
+                className="text-amber-600 border-amber-200 hover:bg-amber-50"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                提案待ちをコピー ({pendingProposalCount})
+              </Button>
+            )}
             {suggestedCount > 0 && (
               <Button
                 onClick={onCopySuggestedJobs}

@@ -823,6 +823,92 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 提案待ちの求人をまとめてコピー
+  const copyPendingProposalJobs = async () => {
+    try {
+      // 提案待ち（pending_proposal）のマッチを取得
+      const pendingMatches = matches.filter(m => m.status === 'pending_proposal')
+      
+      console.log('提案待ちマッチ数:', pendingMatches.length)
+      console.log('提案待ちマッチのステータス:', pendingMatches.map(m => ({ id: m.id, status: m.status })))
+      
+      if (pendingMatches.length === 0) {
+        toast.error('提案待ちの求人がありません')
+        return
+      }
+
+      // 各求人の情報を収集
+      const jobInfos: string[] = []
+      for (const match of pendingMatches) {
+        // 再度ステータスを確認（念のため）
+        if (match.status !== 'pending_proposal') {
+          console.warn('提案待ち以外のステータスが混入:', match.status)
+          continue
+        }
+        
+        const job = jobs.find(j => j.id === match.jobId)
+        if (!job) continue
+
+        // 店舗名を取得
+        let storeNames = ''
+        let priceInfo = ''
+        if (job.storeIds && job.storeIds.length > 0) {
+          const jobStores = stores.filter(s => job.storeIds?.includes(s.id))
+          storeNames = jobStores.map(s => s.name).join('、')
+          
+          // 複数店舗の場合は、最初の店舗の客単価を表示
+          if (jobStores.length > 0 && (jobStores[0].unitPriceLunch || jobStores[0].unitPriceDinner)) {
+            const lunch = jobStores[0].unitPriceLunch ? `昼: ¥${jobStores[0].unitPriceLunch.toLocaleString()}` : ''
+            const dinner = jobStores[0].unitPriceDinner ? `夜: ¥${jobStores[0].unitPriceDinner.toLocaleString()}` : ''
+            priceInfo = [lunch, dinner].filter(p => p).join(' / ')
+          }
+        } else if (job.storeId) {
+          const store = stores.find(s => s.id === job.storeId)
+          storeNames = store?.name || ''
+          
+          // 客単価情報を取得
+          if (store && (store.unitPriceLunch || store.unitPriceDinner)) {
+            const lunch = store.unitPriceLunch ? `昼: ¥${store.unitPriceLunch.toLocaleString()}` : ''
+            const dinner = store.unitPriceDinner ? `夜: ¥${store.unitPriceDinner.toLocaleString()}` : ''
+            priceInfo = [lunch, dinner].filter(p => p).join(' / ')
+          }
+        }
+
+        // おすすめポイントを取得
+        const recommendedPoints = job.recommendedPoints || ''
+
+        // 公開URL（求職者の区分に応じて変更）
+        // sourceTypeがundefinedの場合はデフォルトで飲食人大学として扱う
+        const candidateSourceType = candidate?.sourceType || 'inshokujin_univ'
+        const urlPath = candidateSourceType === 'inshokujin_univ' 
+          ? '/public/jobs' 
+          : '/public/sushicareer/jobs'
+        const publicUrl = `${window.location.origin}${urlPath}/${match.jobId}`
+
+        // 求人情報のテキストを作成
+        let jobInfo = `【店舗名】${storeNames}`
+        if (priceInfo) {
+          jobInfo += `\n【客単価】${priceInfo}`
+        }
+        if (recommendedPoints.trim()) {
+          jobInfo += `\n【おすすめポイント】\n${recommendedPoints}`
+        }
+        jobInfo += `\n${publicUrl}`
+        
+        jobInfos.push(jobInfo)
+      }
+
+      // 全ての求人情報を結合
+      const copyText = jobInfos.join('\n\n---\n\n')
+
+      await navigator.clipboard.writeText(copyText)
+      toast.success(`提案待ちの求人 ${pendingMatches.length}件をコピーしました`)
+    } catch (error) {
+      console.error('クリップボードへのコピーに失敗しました:', error)
+      toast.error('クリップボードへのコピーに失敗しました')
+    }
+  }
+
   // Google Driveフォルダー作成ハンドラー
   const handleCreateFolder = async () => {
     if (!candidate) {
@@ -992,6 +1078,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
           onSelectMatch={handleSelectMatch}
           onBulkWithdraw={handleBulkWithdraw}
           onCopySuggestedJobs={copySuggestedJobs}
+          onCopyPendingProposalJobs={copyPendingProposalJobs}
           onCopyJobInfo={copyJobInfo}
           onOpenCreateMatch={() => setCreateMatchOpen(true)}
           onOpenStatusUpdate={handleOpenStatusUpdate}
