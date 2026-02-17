@@ -152,11 +152,21 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* 翻訳機能付きヘッダー */}
-      <header className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+      <header className="bg-black border-b border-gray-800 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-800">求人詳細</h1>
-            <SimpleTranslate />
+            <div className="flex items-center gap-2">
+              <img 
+                src="/logo_wh.png" 
+                alt="飲食人大学" 
+                className="h-8 w-auto"
+                onError={(e) => {
+                  // ロゴが見つからない場合はテキストのみ表示
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            </div>
+            <SimpleTranslate variant="dark" />
           </div>
         </div>
       </header>

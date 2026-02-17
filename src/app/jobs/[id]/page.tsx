@@ -311,14 +311,21 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     return '給与: 要相談'
   }
 
-  const getPublicUrl = () => {
+  const getSushiCareerUrl = () => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/public/sushicareer/jobs/${jobId}`
+    }
+    return ''
+  }
+
+  const getInshokuninUrl = () => {
     if (typeof window !== 'undefined') {
       return `${window.location.origin}/public/jobs/${jobId}`
     }
     return ''
   }
 
-  const copyPublicUrl = async () => {
+  const copySushiCareerUrl = async () => {
     try {
       // 店舗名を取得
       let storeNames = ''
@@ -334,18 +341,48 @@ function JobDetailContent({ params }: JobDetailPageProps) {
       if (recommendedPoints.trim()) {
         copyText += `\n【おすすめポイント】\n${recommendedPoints}`
       }
-      copyText += `\n${getPublicUrl()}`
+      copyText += `\n${getSushiCareerUrl()}`
       
       await navigator.clipboard.writeText(copyText)
-      alert('店舗名、おすすめポイント、公開URLをクリップボードにコピーしました')
+      alert('店舗名、おすすめポイント、全体公開URLをクリップボードにコピーしました')
     } catch (error) {
       console.error('クリップボードへのコピーに失敗しました:', error)
       alert('クリップボードへのコピーに失敗しました')
     }
   }
 
-  const openPublicUrl = () => {
-    window.open(getPublicUrl(), '_blank')
+  const copyInshokuninUrl = async () => {
+    try {
+      // 店舗名を取得
+      let storeNames = ''
+      if (stores.length > 0) {
+        storeNames = stores.map(s => s.name).join('、')
+      }
+      
+      // おすすめポイントを取得
+      const recommendedPoints = job?.recommendedPoints || ''
+      
+      // コピー用のテキストを作成（おすすめポイントがある場合のみ表示）
+      let copyText = `【店舗名】${storeNames}`
+      if (recommendedPoints.trim()) {
+        copyText += `\n【おすすめポイント】\n${recommendedPoints}`
+      }
+      copyText += `\n${getInshokuninUrl()}`
+      
+      await navigator.clipboard.writeText(copyText)
+      alert('店舗名、おすすめポイント、飲食人大学限定URLをクリップボードにコピーしました')
+    } catch (error) {
+      console.error('クリップボードへのコピーに失敗しました:', error)
+      alert('クリップボードへのコピーに失敗しました')
+    }
+  }
+
+  const openSushiCareerUrl = () => {
+    window.open(getSushiCareerUrl(), '_blank')
+  }
+
+  const openInshokuninUrl = () => {
+    window.open(getInshokuninUrl(), '_blank')
   }
 
   // 認証中または求人データ読み込み中
@@ -398,30 +435,8 @@ function JobDetailContent({ params }: JobDetailPageProps) {
             className="border-green-300 text-green-700 hover:bg-green-50 w-full sm:w-auto"
           >
             <Share className="h-4 w-4 mr-2" />
-            <span className="truncate">公開URL {job.status && `(${job.status})`}</span>
+            <span className="truncate">公開URL表示/非表示</span>
           </Button>
-          {showPublicUrl && (
-            <div className="flex items-center gap-1 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyPublicUrl}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-initial"
-              >
-                <Copy className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">コピー</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openPublicUrl}
-                className="border-blue-300 text-blue-700 hover:bg-blue-50 flex-1 sm:flex-initial"
-              >
-                <Eye className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">プレビュー</span>
-              </Button>
-            </div>
-          )}
           <Link href={`/jobs/${jobId}/edit`} className="w-full sm:w-auto">
             <Button variant="outline" size="sm" className="border-purple-300 text-purple-700 hover:bg-purple-50 w-full">
               <Edit className="h-4 w-4 mr-2" />
@@ -433,19 +448,73 @@ function JobDetailContent({ params }: JobDetailPageProps) {
 
       {/* 公開URL表示 */}
       {showPublicUrl && job.status === 'active' && (
-        <div className="mb-6">
-          <Card className="border-green-200 bg-green-50">
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 全体公開（鮨キャリ） */}
+          <Card className="border-gray-200 bg-gray-50">
             <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-medium text-green-800 mb-2">公開URL</h3>
-                  <p className="text-sm text-green-700 bg-white px-3 py-2 rounded border">
-                    {getPublicUrl()}
-                  </p>
-                  <p className="text-xs text-green-600 mt-2">
-                    この URLを応募者に共有すると、ログインなしで求人票を閲覧できます。
-                  </p>
+              <div className="flex flex-col gap-3">
+                <h3 className="font-medium text-gray-800">全体公開</h3>
+                <p className="text-sm text-gray-700 bg-white px-3 py-2 rounded border break-all">
+                  {getSushiCareerUrl()}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copySushiCareerUrl}
+                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    コピー
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openSushiCareerUrl}
+                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    プレビュー
+                  </Button>
                 </div>
+                <p className="text-xs text-gray-600">
+                  全体公開用の求人票URLです。ログインなしで閲覧できます。
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 飲食人大学限定 */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-4">
+              <div className="flex flex-col gap-3">
+                <h3 className="font-medium text-blue-800">飲食人大学限定</h3>
+                <p className="text-sm text-blue-700 bg-white px-3 py-2 rounded border break-all">
+                  {getInshokuninUrl()}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={copyInshokuninUrl}
+                    className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    コピー
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openInshokuninUrl}
+                    className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    プレビュー
+                  </Button>
+                </div>
+                <p className="text-xs text-blue-600">
+                  飲食人大学生限定の求人票URLです。ログインなしで閲覧できます。
+                </p>
               </div>
             </CardContent>
           </Card>

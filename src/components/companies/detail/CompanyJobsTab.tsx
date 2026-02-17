@@ -85,6 +85,11 @@ export default function CompanyJobsTab({
                                   {prefecture}
                                 </Badge>
                               )}
+                              {job.employmentType && (
+                                <Badge variant="outline" className="text-xs">
+                                  {job.employmentType}
+                                </Badge>
+                              )}
                             </div>
                             {jobStores.length > 0 && (
                               <div className="flex items-center gap-1 mt-1">

@@ -652,6 +652,11 @@ function StoreDetailContent({ params }: StoreDetailPageProps) {
                           {job.status === 'active' && '募集中'}
                           {job.status === 'closed' && '募集終了'}
                         </Badge>
+                        {job.employmentType && (
+                          <Badge variant="outline" className="text-xs">
+                            {job.employmentType}
+                          </Badge>
+                        )}
                       </div>
                       {(job.salaryInexperienced || job.salaryExperienced) && (
                         <p className="text-sm text-gray-600 mt-1">
