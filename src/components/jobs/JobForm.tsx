@@ -11,7 +11,6 @@ import { Save, Loader2 } from 'lucide-react'
 import { Job, visibilityTypeLabels } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
-import { sourceTypeLabels } from '@/types/candidate'
 import StoreSelectionSection from './StoreSelectionSection'
 import EmploymentTypeSelector from './EmploymentTypeSelector'
 import AIGenerationSection from './AIGenerationSection'
@@ -239,39 +238,9 @@ export default function JobForm({
               <SelectContent>
                 <SelectItem value="all">全体公開</SelectItem>
                 <SelectItem value="school_only">🎓 飲食人大学限定</SelectItem>
-                <SelectItem value="specific_sources">指定ソース</SelectItem>
               </SelectContent>
             </Select>
           </div>
-
-          {/* 指定ソースの詳細設定 */}
-          {formData.visibilityType === 'specific_sources' && (
-            <div className="bg-blue-50 p-4 rounded-md space-y-3">
-              <Label>表示対象を選択</Label>
-              <div className="space-y-2">
-                {Object.entries(sourceTypeLabels).map(([key, label]) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`source-${key}`}
-                      checked={formData.allowedSources?.includes(key) || false}
-                      onChange={(e) => {
-                        const currentSources = formData.allowedSources || []
-                        const newSources = e.target.checked
-                          ? [...currentSources, key]
-                          : currentSources.filter(s => s !== key)
-                        handleChange('allowedSources', newSources)
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={`source-${key}`} className="cursor-pointer font-normal">
-                      {label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           
           {/* フラグ設定 */}
           <div>
