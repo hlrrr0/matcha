@@ -38,6 +38,7 @@ export default function JobForm({
       setFormData({
         companyId: initialData.companyId || '',
         storeIds: storeIds,
+        mainStoreIds: initialData.mainStoreIds || [],
         visibilityType: initialData.visibilityType || 'all',
         allowedSources: initialData.allowedSources || [],
         title: initialData.title || '',
@@ -141,6 +142,10 @@ export default function JobForm({
 
   const handleStoreSelect = (storeIds: string[]) => {
     handleChange('storeIds', storeIds)
+  }
+
+  const handleMainStoreSelect = (mainStoreIds: string[]) => {
+    handleChange('mainStoreIds', mainStoreIds)
   }
 
   const handleAIDataGenerated = (data: Partial<FormData>) => {
@@ -326,7 +331,9 @@ export default function JobForm({
         stores={stores}
         jobs={jobs}
         selectedStoreIds={formData.storeIds || []}
+        mainStoreIds={formData.mainStoreIds || []}
         onStoreSelect={handleStoreSelect}
+        onMainStoreSelect={handleMainStoreSelect}
       />
 
       {/* 職種・雇用形態 */}

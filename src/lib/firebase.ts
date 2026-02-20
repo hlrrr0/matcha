@@ -83,10 +83,34 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       connectAuthEmulator(auth, 'http://localhost:9099')
       connectStorageEmulator(storage, 'localhost', 9199)
       console.log('✅ Firebase emulators connected')
+    } else {
+      console.log('🌐 Using production Firestore (エミュレータは無効)')
     }
   } catch (error) {
     // エミュレーターが既に接続されている場合はエラーを無視
     console.log('⚠️ Firebase emulators already connected or connection failed:', error)
+  }
+}
+
+// Firestore接続エラーのカスタムハンドリング（ブラウザ環境のみ）
+if (typeof window !== 'undefined') {
+  // Firestoreのエラーハンドリングを改善
+  const originalConsoleError = console.error
+  console.error = (...args: any[]) => {
+    const message = args[0]?.toString() || ''
+    
+    // Firestoreの接続エラーを検出し、よりわかりやすいメッセージに変換
+    if (message.includes('Could not reach Cloud Firestore backend') || 
+        message.includes('Name resolution failed')) {
+      console.warn('📡 Firestore: 一時的に接続できません。オフラインモードで動作します。ネットワーク接続を確認してください。')
+      // 元のエラーは開発環境でのみ表示
+      if (process.env.NODE_ENV === 'development') {
+        originalConsoleError.apply(console, args)
+      }
+    } else {
+      // その他のエラーは通常通り表示
+      originalConsoleError.apply(console, args)
+    }
   }
 }
 

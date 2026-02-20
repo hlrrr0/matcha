@@ -23,6 +23,7 @@ export interface JobFormState {
 export interface FormData extends Partial<Job> {
   companyId: string
   storeIds: string[]
+  mainStoreIds?: string[]
   visibilityType?: 'all' | 'school_only' | 'specific_sources'
   allowedSources?: string[]
   title: string

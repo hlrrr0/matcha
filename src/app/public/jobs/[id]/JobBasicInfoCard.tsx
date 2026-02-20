@@ -61,7 +61,11 @@ const JobBasicInfoCard = ({ job, company, stores }: JobBasicInfoCardProps) => {
             <MapPin className="h-4 w-4" />
             勤務地・最寄り駅
           </h3>
-          <StoreLocationSection stores={stores} companyName={company?.name} />
+          <StoreLocationSection 
+            stores={stores} 
+            mainStoreIds={job.mainStoreIds}
+            companyName={company?.name} 
+          />
         </div>
 
         {/* 職務内容 */}

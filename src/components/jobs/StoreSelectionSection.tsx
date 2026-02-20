@@ -36,16 +36,20 @@ interface StoreSelectionSectionProps {
   stores: Store[]
   jobs: any[]
   selectedStoreIds: string[]
+  mainStoreIds?: string[]
   onStoreSelect: (storeIds: string[]) => void
+  onMainStoreSelect?: (mainStoreIds: string[]) => void
 }
 
 // ドラッグ可能な店舗アイテム
 interface SortableStoreItemProps {
   store: Store
   index: number
+  isMain: boolean
+  onMainToggle: (storeId: string, isMain: boolean) => void
 }
 
-function SortableStoreItem({ store, index }: SortableStoreItemProps) {
+function SortableStoreItem({ store, index, isMain, onMainToggle }: SortableStoreItemProps) {
   const {
     attributes,
     listeners,
@@ -77,9 +81,21 @@ function SortableStoreItem({ store, index }: SortableStoreItemProps) {
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {index === 0 && (
-            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+          <input
+            type="checkbox"
+            checked={isMain}
+            onChange={(e) => onMainToggle(store.id, e.target.checked)}
+            className="rounded border-gray-300"
+            title="メイン店舗"
+          />
+          {isMain && (
+            <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
               メイン
+            </span>
+          )}
+          {index === 0 && !isMain && (
+            <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">
+              参考店舗
             </span>
           )}
           <span className="font-medium text-sm truncate">{store.name}</span>
@@ -98,7 +114,9 @@ const StoreSelectionSection = ({
   stores,
   jobs,
   selectedStoreIds,
+  mainStoreIds = [],
   onStoreSelect,
+  onMainStoreSelect,
 }: StoreSelectionSectionProps) => {
   const [storeSearchTerm, setStoreSearchTerm] = useState('')
 
@@ -151,6 +169,20 @@ const StoreSelectionSection = ({
       ? [...selectedStoreIds, storeId]
       : selectedStoreIds.filter(id => id !== storeId)
     onStoreSelect(updatedStoreIds)
+    
+    // メイン店舗から削除された場合は、mainStoreIdsからも削除
+    if (!checked && onMainStoreSelect && mainStoreIds.includes(storeId)) {
+      onMainStoreSelect(mainStoreIds.filter(id => id !== storeId))
+    }
+  }
+
+  const handleMainToggle = (storeId: string, isMain: boolean) => {
+    if (!onMainStoreSelect) return
+    
+    const updatedMainStoreIds = isMain
+      ? [...mainStoreIds, storeId]
+      : mainStoreIds.filter(id => id !== storeId)
+    onMainStoreSelect(updatedMainStoreIds)
   }
 
   // 選択された店舗のデータを取得
@@ -269,7 +301,7 @@ const StoreSelectionSection = ({
         {selectedStoresData.length > 0 && (
           <div className="mt-4 border-t pt-3">
             <h3 className="text-xs font-semibold mb-2 text-gray-700">
-              選択された店舗の順序（ドラッグで並べ替え、最初の店舗がメイン表示）
+              選択された店舗の順序（ドラッグで並べ替え、チェックでメイン店舗指定）
             </h3>
             <DndContext
               sensors={sensors}
@@ -282,7 +314,13 @@ const StoreSelectionSection = ({
               >
                 <div className="space-y-1.5">
                   {selectedStoresData.map((store, index) => (
-                    <SortableStoreItem key={store.id} store={store} index={index} />
+                    <SortableStoreItem 
+                      key={store.id} 
+                      store={store} 
+                      index={index} 
+                      isMain={mainStoreIds.includes(store.id)}
+                      onMainToggle={handleMainToggle}
+                    />
                   ))}
                 </div>
               </SortableContext>

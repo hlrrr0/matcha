@@ -231,6 +231,7 @@ export default function PublicJobClient({ params }: PublicJobClientProps) {
             {/* 店舗情報 */}
             <StoreInfoCard 
               stores={state.stores} 
+              mainStoreIds={state.job.mainStoreIds}
               company={state.company} 
               onImageClick={handleImageClick} 
             />
