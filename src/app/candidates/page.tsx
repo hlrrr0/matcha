@@ -14,6 +14,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { 
   Users, 
   Plus, 
@@ -70,6 +77,8 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true)
   const [progressLoading, setProgressLoading] = useState(false)
   const [csvImporting, setCsvImporting] = useState(false)
+  const [importErrors, setImportErrors] = useState<string[]>([])
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
   
   // ページネーション
   const [currentPage, setCurrentPage] = useState(1)
@@ -355,7 +364,9 @@ export default function CandidatesPage() {
       if (result.updated > 0) messages.push(`更新: ${result.updated}件`)
       
       if (result.errors.length > 0) {
-        toast.error(`インポート完了（エラーあり）\n${messages.join('、')}\nエラー: ${result.errors.length}件`)
+        setImportErrors(result.errors)
+        setShowErrorDialog(true)
+        toast.error(`インポート完了（エラーあり）\n${messages.join('、')}\nエラー: ${result.errors.length}件\n詳細を確認してください`)
         console.error('Import errors:', result.errors)
       } else {
         toast.success(`CSVインポート完了\n${messages.join('、')}`)
@@ -804,6 +815,33 @@ export default function CandidatesPage() {
           )}
         </Card>
       </div>
+
+      {/* エラー詳細ダイアログ */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>CSVインポートエラー詳細</DialogTitle>
+            <DialogDescription>
+              {importErrors.length}件のエラーが発生しました。各エラーの内容を確認して、CSVファイルを修正してください。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] w-full overflow-y-auto rounded-md border p-4">
+            <div className="space-y-2">
+              {importErrors.map((error, index) => (
+                <div key={index} className="text-sm p-2 bg-red-50 border border-red-200 rounded">
+                  <span className="font-semibold text-red-700">#{index + 1}:</span>{' '}
+                  <span className="text-red-900">{error}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setShowErrorDialog(false)}>
+              閉じる
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </ProtectedRoute>
   )
 }

@@ -1,5 +1,5 @@
 import { Candidate } from '@/types/candidate'
-import { createCandidate, updateCandidate, getCandidateByEmail } from '@/lib/firestore/candidates'
+import { createCandidate, updateCandidate, getCandidateByEmail, getCandidateByPhone } from '@/lib/firestore/candidates'
 import { getUsers } from '@/lib/firestore/users'
 
 export interface ImportResult {
@@ -113,12 +113,6 @@ export const importCandidatesFromCSV = async (
         headers.forEach((header, index) => {
           row[header] = values[index] || ''
         })
-        
-        // 必須フィールドのチェック
-        if (!row['名前（姓）'] || !row['名前（名）']) {
-          result.errors.push(`行 ${i + 1}: 名前（姓）と名前（名）は必須です`)
-          continue
-        }
 
         // ステータスの変換
         let status: Candidate['status'] = 'active'
@@ -160,8 +154,8 @@ export const importCandidatesFromCSV = async (
         // 求職者データを構築（undefinedを含む）
         const rawCandidateData: any = {
           status,
-          lastName: row['名前（姓）'].trim(),
-          firstName: row['名前（名）'].trim(),
+          lastName: row['名前（姓）']?.trim() || undefined,
+          firstName: row['名前（名）']?.trim() || undefined,
           lastNameKana: row['フリガナ（姓）']?.trim() || undefined,
           firstNameKana: row['フリガナ（名）']?.trim() || undefined,
           email: row['メールアドレス']?.trim() || undefined,
@@ -195,11 +189,17 @@ export const importCandidatesFromCSV = async (
           }
         })
         
-        // メールアドレスをキーとして既存の求職者を検索
+        // メールアドレスまたは電話番号をキーとして既存の求職者を検索
         let existingCandidate = null
+        
+        // まずメールアドレスで検索
         if (candidateData.email && candidateData.email.trim()) {
-          // メールアドレスがある場合はメールアドレスで検索
           existingCandidate = await getCandidateByEmail(candidateData.email)
+        }
+        
+        // メールアドレスで見つからない場合は電話番号で検索
+        if (!existingCandidate && candidateData.phone && candidateData.phone.trim()) {
+          existingCandidate = await getCandidateByPhone(candidateData.phone)
         }
 
         if (existingCandidate) {

@@ -353,3 +353,27 @@ export const getCandidateByNameAndEmail = async (
     throw error
   }
 }
+
+// 電話番号で候補者を検索
+export const getCandidateByPhone = async (phone: string): Promise<Candidate | null> => {
+  try {
+    if (!phone) return null
+    
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('phone', '==', phone.trim()),
+      limit(1)
+    )
+    
+    const snapshot = await getDocs(q)
+    
+    if (snapshot.empty) {
+      return null
+    }
+    
+    return candidateFromFirestore(snapshot.docs[0])
+  } catch (error) {
+    console.error('Error getting candidate by phone:', error)
+    throw error
+  }
+}
