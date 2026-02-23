@@ -10,43 +10,78 @@ import { getAdminFirestore } from '@/lib/firebase-admin'
  * 
  * Query Parameters:
  *  - markExported: 'true' の場合、エクスポート済みフラグを立てる
+ *  - companyIds: カンマ区切りの企業ID。指定した企業の求人のみをエクスポート
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const markExported = searchParams.get('markExported') === 'true'
+    const companyIdsParam = searchParams.get('companyIds')
 
     const db = getAdminFirestore()
 
-    // 1. Indeed掲載なしの企業を取得
-    const companiesSnapshot = await db.collection('companies')
-      .where('status', '==', 'active')
-      .get()
+    let targetCompanyIds: string[] = []
+    const targetCompanies = new Map<string, any>()
 
-    const notDetectedCompanies = new Map<string, any>()
-    for (const doc of companiesSnapshot.docs) {
-      const data = doc.data()
-      const status = data.indeedStatus
-      // 掲載なし = detected === false かつ error なし、かつ公開状態
-      if (status && status.detected === false && !status.error && data.isPublic !== false) {
-        notDetectedCompanies.set(doc.id, { id: doc.id, ...data })
+    // companyIdsが指定されている場合は、その企業を対象にする
+    if (companyIdsParam) {
+      const specifiedIds = companyIdsParam.split(',').filter(id => id.trim())
+      
+      if (specifiedIds.length === 0) {
+        return NextResponse.json({
+          success: true,
+          message: '対象の企業がありません',
+          count: 0,
+        })
       }
+
+      // 指定された企業を取得（30件ずつバッチ処理）
+      for (let i = 0; i < specifiedIds.length; i += 30) {
+        const batch = specifiedIds.slice(i, i + 30)
+        const companiesSnapshot = await db.collection('companies')
+          .where('__name__', 'in', batch)
+          .get()
+        
+        companiesSnapshot.docs.forEach(doc => {
+          const data = doc.data()
+          if (data.status === 'active') {
+            targetCompanies.set(doc.id, { id: doc.id, ...data })
+          }
+        })
+      }
+
+      targetCompanyIds = [...targetCompanies.keys()]
+    } else {
+      // companyIdsが指定されていない場合は、従来通りIndeed掲載なしの企業を対象にする
+      const companiesSnapshot = await db.collection('companies')
+        .where('status', '==', 'active')
+        .get()
+
+      for (const doc of companiesSnapshot.docs) {
+        const data = doc.data()
+        const status = data.indeedStatus
+        // 掲載なし = detected === false かつ error なし、かつ公開状態
+        if (status && status.detected === false && !status.error && data.isPublic !== false) {
+          targetCompanies.set(doc.id, { id: doc.id, ...data })
+        }
+      }
+
+      targetCompanyIds = [...targetCompanies.keys()]
     }
 
-    if (notDetectedCompanies.size === 0) {
+    if (targetCompanyIds.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'Indeed掲載なしの企業がありません',
+        message: '対象の企業がありません',
         count: 0,
       })
     }
 
     // 2. 該当企業のactive求人を取得
-    const companyIds = [...notDetectedCompanies.keys()]
     const allJobs: { id: string; data: any }[] = []
 
-    for (let i = 0; i < companyIds.length; i += 30) {
-      const batch = companyIds.slice(i, i + 30)
+    for (let i = 0; i < targetCompanyIds.length; i += 30) {
+      const batch = targetCompanyIds.slice(i, i + 30)
       const jobsSnapshot = await db.collection('jobs')
         .where('companyId', 'in', batch)
         .where('status', '==', 'active')
@@ -60,7 +95,7 @@ export async function GET(request: NextRequest) {
     if (allJobs.length === 0) {
       return NextResponse.json({
         success: true,
-        message: 'Indeed掲載なし企業のアクティブ求人がありません',
+        message: '対象企業のアクティブ求人がありません',
         count: 0,
       })
     }
@@ -145,16 +180,16 @@ export async function GET(request: NextRequest) {
       '募集要項（その他）',
       '掲載画像',
       'タグ',
+      'タグ',
+      'タグ',
       '採用予定人数',
       '履歴書の有無',
+      '応募者に関する情報',
+      '応募者に関する情報',
       '応募者に関する情報',
       '応募用メールアドレス',
       '求人問い合わせ先電話番号（半角）',
       '審査用の質問',
-      '自動アプローチ利用設定',
-      '自動アプローチ条件設定',
-      'ユーザー指定ID',
-      '求人ID（編集不可）',
       '自動アプローチ利用設定',
       '自動アプローチ条件設定',
       'ユーザー指定ID',
@@ -174,8 +209,19 @@ export async function GET(request: NextRequest) {
     function parseSalary(salaryStr?: string): { type: string; min: string; max: string; display: string } {
       if (!salaryStr) return { type: '', min: '', max: '', display: '' }
 
+      // 「月給 30万円〜35万円」のようなパターン（万円単位）
+      const monthlyManMatch = salaryStr.match(/月給?\s*[¥￥]?([\d,.]+)\s*万.*?[〜~ー-]\s*[¥￥]?([\d,.]+)\s*万/i)
+      if (monthlyManMatch) {
+        return {
+          type: '月給',
+          min: Math.round(parseFloat(monthlyManMatch[1]) * 10000).toString(),
+          max: Math.round(parseFloat(monthlyManMatch[2]) * 10000).toString(),
+          display: '範囲で表示',
+        }
+      }
+
       // 「月給 250,000円〜350,000円」のようなパターン
-      const monthlyMatch = salaryStr.match(/月給?\s*[¥￥]?([\d,]+).*?[〜~ー-]([\d,]+)/i)
+      const monthlyMatch = salaryStr.match(/月給?\s*[¥￥]?([\d,]+).*?[〜~ー-][¥￥]?([\d,]+)/i)
       if (monthlyMatch) {
         return {
           type: '月給',
@@ -186,7 +232,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 「時給 1,200円〜1,500円」のようなパターン
-      const hourlyMatch = salaryStr.match(/時給?\s*[¥￥]?([\d,]+).*?[〜~ー-]([\d,]+)/i)
+      const hourlyMatch = salaryStr.match(/時給?\s*[¥￥]?([\d,]+).*?[〜~ー-][¥￥]?([\d,]+)/i)
       if (hourlyMatch) {
         return {
           type: '時給',
@@ -207,14 +253,26 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 単一金額パターン - 万円単位（月給 30万円）
+      const singleMonthlyMan = salaryStr.match(/月給?\s*[¥￥]?([\d,.]+)\s*万/i)
+      if (singleMonthlyMan) {
+        const amount = Math.round(parseFloat(singleMonthlyMan[1]) * 10000).toString()
+        return {
+          type: '月給',
+          min: amount,
+          max: '',  // 固定額を表示の場合は最高額は空にする
+          display: '固定額を表示',
+        }
+      }
+
       // 単一金額パターン（月給 250,000円）
       const singleMonthly = salaryStr.match(/月給?\s*[¥￥]?([\d,]+)/i)
       if (singleMonthly) {
         return {
           type: '月給',
           min: singleMonthly[1].replace(/,/g, ''),
-          max: singleMonthly[1].replace(/,/g, ''),
-          display: '固定額で表示',
+          max: '',  // 固定額を表示の場合は最高額は空にする
+          display: '固定額を表示',
         }
       }
 
@@ -223,15 +281,42 @@ export async function GET(request: NextRequest) {
         return {
           type: '時給',
           min: singleHourly[1].replace(/,/g, ''),
-          max: singleHourly[1].replace(/,/g, ''),
-          display: '固定額で表示',
+          max: '',  // 固定額を表示の場合は最高額は空にする
+          display: '固定額を表示',
         }
       }
 
       return { type: '', min: '', max: '', display: '' }
     }
 
-    // 7. 住所パース用ヘルパー
+    // 7. 社会保険マッピング用ヘルパー
+    function parseInsurance(insurance?: string): string {
+      if (!insurance) return ''
+      
+      // 「社会保険完備」などの場合は、4つの保険をカンマ区切りで返す
+      if (insurance.includes('完備') || insurance.includes('全て') || insurance.includes('すべて')) {
+        return '健康保険,厚生年金,雇用保険,労災保険'
+      }
+      
+      // 個別の保険名をIndeed形式にマッピング
+      const insuranceMap: Record<string, string> = {
+        '健康': '健康保険',
+        '厚生': '厚生年金',
+        '雇用': '雇用保険',
+        '労災': '労災保険',
+      }
+      
+      const result: string[] = []
+      for (const [key, value] of Object.entries(insuranceMap)) {
+        if (insurance.includes(key)) {
+          result.push(value)
+        }
+      }
+      
+      return result.length > 0 ? result.join(',') : ''
+    }
+
+    // 8. 住所パース用ヘルパー
     function parseAddress(address?: string): { region: string; detail: string } {
       if (!address) return { region: '', detail: '' }
 
@@ -254,7 +339,7 @@ export async function GET(request: NextRequest) {
       return { region: address, detail: '' }
     }
 
-    // 8. 試用期間パース
+    // 9. 試用期間パース
     function parseTrialPeriod(trial?: string): { has: string; period: string; unit: string } {
       if (!trial) return { has: '', period: '', unit: '' }
       const monthMatch = trial.match(/(\d+)\s*[ヶか月]/)
@@ -271,12 +356,12 @@ export async function GET(request: NextRequest) {
       return { has: 'あり', period: '', unit: '' }
     }
 
-    // 9. CSVデータ行を構築
+    // 10. CSVデータ行を構築
     const rows: string[][] = []
     const exportedJobIds: string[] = []
 
     for (const job of allJobs) {
-      const company = notDetectedCompanies.get(job.data.companyId)
+      const company = targetCompanies.get(job.data.companyId)
       if (!company) continue
 
       // 店舗情報を取得（最初の店舗を使用）
@@ -307,7 +392,7 @@ export async function GET(request: NextRequest) {
         '募集中',                                          // ステータス
         company.name || '',                                // 会社名
         job.data.title || '',                              // 職種名
-        '',                                                // 職業カテゴリー（手動設定が必要）
+        '和食シェフ/料理人',                               // 職業カテゴリー
         '',                                                // 求人キャッチコピー（手動設定が必要）
         '',                                                // 勤務地（郵便番号）
         region,                                            // 勤務地（都道府県・市区町村・町域）
@@ -319,22 +404,22 @@ export async function GET(request: NextRequest) {
         salary.min,                                        // 給与（最低額）
         salary.max,                                        // 給与（最高額）
         salary.display,                                    // 給与（表示形式）
-        '',                                                // 固定残業代の有無
+        'なし',                                            // 固定残業代の有無
         '',                                                // 固定残業代（最低額）
         '',                                                // 固定残業代（最高額）
         '',                                                // 固定残業代（支払い単位）
         '',                                                // 固定残業代（時間）
         '',                                                // 固定残業代（分）
         '',                                                // 固定残業代（超過分の追加支払への同意）
-        '',                                                // 勤務形態
-        '',                                                // 平均所定労働時間
-        '',                                                // 平均所定労働時間（分）
-        job.data.insurance || '',                           // 社会保険
+        'シフト制',                                        // 勤務形態
+        '8',                                               // 平均所定労働時間
+        '30',                                              // 平均所定労働時間（分）
+        parseInsurance(job.data.insurance),                 // 社会保険
         '',                                                // 社会保険（適用されない理由）
         trial.has,                                         // 試用期間の有無
         trial.period,                                      // 試用期間（期間）
         trial.unit,                                        // 試用期間（期間の単位）
-        '',                                                // 試用期間（試用期間中の労働条件）
+        trial.has === 'あり' ? '同条件' : '',        // 試用期間（試用期間中の労働条件）
         '',                                                // 試用期間中の給与形態
         '',                                                // 試用期間中の給与（最低額）
         '',                                                // 試用期間中の給与（最高額）
@@ -360,20 +445,20 @@ export async function GET(request: NextRequest) {
         cleanText(job.data.benefits),                      // 募集要項（待遇・福利厚生）
         cleanText(job.data.smokingPolicy ? `受動喫煙防止措置: ${job.data.smokingPolicy}` : ''), // 募集要項（その他）
         '',                                                // 掲載画像
-        (job.data.tags || []).join('、'),                   // タグ
-        '',                                                // 採用予定人数
+        (job.data.tags || [])[0] || '',                    // タグ1
+        (job.data.tags || [])[1] || '',                    // タグ2
+        (job.data.tags || [])[2] || '',                    // タグ3
+        '1',                                               // 採用予定人数（必須項目）
         '任意',                                            // 履歴書の有無
-        '',                                                // 応募者に関する情報
-        company.email || '',                               // 応募用メールアドレス
-        company.phone || store?.phone || '',               // 求人問い合わせ先電話番号
+        '',                                                // 応募者に関する情報1
+        '',                                                // 応募者に関する情報2
+        '',                                                // 応募者に関する情報3
+        'hiroki.imai@super-shift.co.jp',                   // 応募用メールアドレス（必須項目）
+        '0345002222',                                      // 求人問い合わせ先電話番号
         '',                                                // 審査用の質問
         '',                                                // 自動アプローチ利用設定
         '',                                                // 自動アプローチ条件設定
         job.id,                                            // ユーザー指定ID（求人ID）
-        '',                                                // 求人ID（編集不可）
-        '',                                                // 自動アプローチ利用設定（重複）
-        '',                                                // 自動アプローチ条件設定（重複）
-        '',                                                // ユーザー指定ID（重複）
       ]
 
       rows.push(row)
@@ -388,7 +473,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 10. エクスポート済みフラグを立てる
+    // 11. エクスポート済みフラグを立てる
     if (markExported) {
       const batchWriter = db.batch()
       const now = new Date()
@@ -405,7 +490,7 @@ export async function GET(request: NextRequest) {
       await batchWriter.commit()
     }
 
-    // 11. CSV生成（BOM付きUTF-8）
+    // 12. CSV生成（BOM付きUTF-8）
     const BOM = '\uFEFF'
     const csvContent = BOM + [
       headers.join(','),

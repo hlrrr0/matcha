@@ -49,6 +49,7 @@ export default function IndeedManagementPage() {
   const [editUrl, setEditUrl] = useState('')
   const [editDetected, setEditDetected] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set())
 
   const loadStatus = async () => {
     try {
@@ -149,7 +150,11 @@ export default function IndeedManagementPage() {
   const handleExportIndeedCSV = async () => {
     setExportingIndeed(true)
     try {
-      const response = await fetch('/api/indeed/export-indeed-csv')
+      // 選択した企業IDをクエリパラメータとして追加
+      const companyIdsParam = selectedCompanyIds.size > 0
+        ? `companyIds=${[...selectedCompanyIds].join(',')}`
+        : ''
+      const response = await fetch(`/api/indeed/export-indeed-csv?${companyIdsParam}`)
       const contentType = response.headers.get('content-type') || ''
 
       if (contentType.includes('text/csv')) {
@@ -172,6 +177,24 @@ export default function IndeedManagementPage() {
       toast.error('CSVエクスポートに失敗しました')
     } finally {
       setExportingIndeed(false)
+    }
+  }
+
+  const handleSelectCompany = (companyId: string, checked: boolean) => {
+    const newSet = new Set(selectedCompanyIds)
+    if (checked) {
+      newSet.add(companyId)
+    } else {
+      newSet.delete(companyId)
+    }
+    setSelectedCompanyIds(newSet)
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedCompanyIds(new Set(companies.map(c => c.id)))
+    } else {
+      setSelectedCompanyIds(new Set())
     }
   }
 
@@ -303,6 +326,11 @@ export default function IndeedManagementPage() {
                 >
                   <FileSpreadsheet className={`h-4 w-4 mr-2 ${exportingIndeed ? 'animate-spin' : ''}`} />
                   Indeed求人CSV
+                  {selectedCompanyIds.size > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {selectedCompanyIds.size}
+                    </Badge>
+                  )}
                 </Button>
               </>
             )}
@@ -379,6 +407,14 @@ export default function IndeedManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedCompanyIds.size > 0 && selectedCompanyIds.size === companies.length}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-gray-300"
+                      />
+                    </TableHead>
                     <TableHead>企業名</TableHead>
                     <TableHead>ステータス</TableHead>
                     <TableHead>検出元</TableHead>
@@ -390,6 +426,14 @@ export default function IndeedManagementPage() {
                 <TableBody>
                   {companies.map((company) => (
                     <TableRow key={company.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedCompanyIds.has(company.id)}
+                          onChange={(e) => handleSelectCompany(company.id, e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
                         <Link
                           href={`/companies/${company.id}`}
