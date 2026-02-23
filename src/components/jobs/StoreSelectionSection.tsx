@@ -237,7 +237,11 @@ const StoreSelectionSection = ({
                     <Checkbox
                       id={`prefecture-${prefecture}`}
                       checked={isSelected || isPartiallySelected}
-                      onCheckedChange={(checked) => handlePrefectureChange(prefecture, checked)}
+                      onCheckedChange={(checked) => {
+                        if (typeof checked === 'boolean') {
+                          handlePrefectureChange(prefecture, checked)
+                        }
+                      }}
                     />
                     {isPartiallySelected && !isSelected && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -264,7 +268,11 @@ const StoreSelectionSection = ({
                         <Checkbox
                           id={`store-${store.id}`}
                           checked={isStoreSelected}
-                          onCheckedChange={(checked) => handleStoreChange(store.id, checked)}
+                          onCheckedChange={(checked) => {
+                            if (typeof checked === 'boolean') {
+                              handleStoreChange(store.id, checked)
+                            }
+                          }}
                         />
                         <label
                           htmlFor={`store-${store.id}`}
