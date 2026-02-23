@@ -14,7 +14,9 @@ export interface Company {
   
   // 連絡先情報
   email: string                           // メールアドレス
+  ccEmails?: string[]                     // CCメールアドレス（複数）
   phone?: string                          // 電話番号
+  contactPersonName?: string              // 担当者名
   
   // 企業分類
   size: 'startup' | 'small' | 'medium' | 'large' | 'enterprise'  // 企業規模

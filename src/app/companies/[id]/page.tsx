@@ -13,6 +13,7 @@ import CompanyBasicTab from '@/components/companies/detail/CompanyBasicTab'
 import CompanyStoresTab from '@/components/companies/detail/CompanyStoresTab'
 import CompanyJobsTab from '@/components/companies/detail/CompanyJobsTab'
 import CompanyHistoryTab from '@/components/companies/detail/CompanyHistoryTab'
+import CompanyContactTab from '@/components/companies/detail/CompanyContactTab'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from 'sonner'
 import { 
@@ -23,7 +24,8 @@ import {
   Edit,
   CheckCircle,
   Mail,
-  Send
+  Send,
+  User as UserIcon
 } from 'lucide-react'
 import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -425,7 +427,7 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-8">
+        <TabsList className="grid w-full grid-cols-6 mb-8">
           <TabsTrigger value="basic" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
             <span className="hidden sm:inline">基本情報</span>
@@ -439,6 +441,10 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
             <Briefcase className="h-4 w-4" />
             <span className="hidden sm:inline">関連求人</span>
             <Badge variant="secondary" className="ml-2">{relatedJobs.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="contact" className="flex items-center gap-2">
+            <UserIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">担当者</span>
           </TabsTrigger>
           <TabsTrigger value="progress" className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
@@ -487,6 +493,11 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
             jobsCurrentPage={jobsCurrentPage}
             setJobsCurrentPage={setJobsCurrentPage}
           />
+        </TabsContent>
+
+        {/* 担当者タブ */}
+        <TabsContent value="contact" className="space-y-6">
+          <CompanyContactTab company={company} />
         </TabsContent>
 
         {/* 進捗タブ */}

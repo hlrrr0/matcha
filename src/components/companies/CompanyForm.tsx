@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Save, Loader2, Sparkles } from 'lucide-react'
+import { Save, Loader2, Sparkles, Plus, Trash2 } from 'lucide-react'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
 import { collection, getDocs, query, where } from 'firebase/firestore'
@@ -39,6 +39,7 @@ export default function CompanyForm({
     size: 'small',
     isPublic: true,
     consultantId: undefined,
+    ccEmails: [],
     ...initialData
   })
 
@@ -55,10 +56,11 @@ export default function CompanyForm({
         size: 'small',
         isPublic: true,
         consultantId: undefined,
+        ccEmails: [],
         ...initialData
       })
     }
-  }, [initialData.name, initialData.email, initialData.address, initialData.memo, initialData.status, initialData.consultantId])
+  }, [initialData.name, initialData.email, initialData.address, initialData.memo, initialData.status, initialData.consultantId, initialData.ccEmails, initialData.contactPersonName])
 
   const loadUsers = async () => {
     setLoadingUsers(true)
@@ -90,6 +92,27 @@ export default function CompanyForm({
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }))
+  }
+
+  const handleAddCcEmail = () => {
+    setFormData(prev => ({
+      ...prev,
+      ccEmails: [...(prev.ccEmails || []), '']
+    }))
+  }
+
+  const handleRemoveCcEmail = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      ccEmails: (prev.ccEmails || []).filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleCcEmailChange = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      ccEmails: (prev.ccEmails || []).map((email, i) => i === index ? value : email)
     }))
   }
 
@@ -438,6 +461,16 @@ export default function CompanyForm({
               placeholder="例: 社員の成長を重視"
             />
           </div>
+
+          <div>
+            <Label htmlFor="address">住所</Label>
+            <Input
+              id="address"
+              value={formData.address ?? ''}
+              onChange={(e) => handleChange('address', e.target.value)}
+              placeholder="〒100-0001 東京都千代田区千代田1-1"
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -562,44 +595,23 @@ export default function CompanyForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="address">住所</Label>
+            <Label htmlFor="contactPersonName">担当者名</Label>
             <Input
-              id="address"
-              value={formData.address ?? ''}
-              onChange={(e) => handleChange('address', e.target.value)}
-              placeholder="〒100-0001 東京都千代田区千代田1-1"
+              id="contactPersonName"
+              value={formData.contactPersonName ?? ''}
+              onChange={(e) => handleChange('contactPersonName', e.target.value)}
+              placeholder="例: 山田 太郎"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="phone">電話番号</Label>
-              <Input
-                id="phone"
-                value={formData.phone ?? ''}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                placeholder="03-1234-5678"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="size">企業規模</Label>
-              <Select 
-                value={formData.size || 'small'} 
-                onValueChange={(value: 'startup' | 'small' | 'medium' | 'large' | 'enterprise') => handleChange('size', value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="startup">スタートアップ</SelectItem>
-                  <SelectItem value="small">小企業</SelectItem>
-                  <SelectItem value="medium">中企業</SelectItem>
-                  <SelectItem value="large">大企業</SelectItem>
-                  <SelectItem value="enterprise">企業</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="phone">電話番号</Label>
+            <Input
+              id="phone"
+              value={formData.phone ?? ''}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              placeholder="03-1234-5678"
+            />
           </div>
 
           <div>
@@ -612,6 +624,53 @@ export default function CompanyForm({
               placeholder="info@example.com"
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* CCメールアドレス */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>CCメールアドレス</CardTitle>
+              <CardDescription>複数のメールアドレスにCC送信できます</CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddCcEmail}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              追加
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(!formData.ccEmails || formData.ccEmails.length === 0) ? (
+            <p className="text-sm text-gray-500">CCメールアドレスが設定されていません</p>
+          ) : (
+            formData.ccEmails.map((email, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => handleCcEmailChange(index, e.target.value)}
+                  placeholder="cc@example.com"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleRemoveCcEmail(index)}
+                  className="text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 

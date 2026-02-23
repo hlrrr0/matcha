@@ -36,7 +36,8 @@ export interface Candidate {
   teacherComment?: string                                     // 先生からのコメント（任意）
   personalityScore?: string                                   // スコア（人物）（任意）
   skillScore?: string                                         // スコア（スキル）（任意）
-  interviewMemo?: string                                      // 面談メモ（任意）
+  interviewMemo?: string                                      // 面談メモ（任意・旧形式）
+  interviewMemos?: InterviewMemo[]                            // 面談メモ（複数・新形式）
   assignedUserId?: string                                     // 担当者ID（任意）
   
   // Slack連携
@@ -47,6 +48,14 @@ export interface Candidate {
   // システム管理項目
   createdAt: string
   updatedAt: string
+}
+
+// 面談メモ
+export interface InterviewMemo {
+  id: string
+  content: string
+  createdBy: string                                           // 作成者のUID
+  createdAt: string | Date
 }
 
 export const candidateStatusLabels = {

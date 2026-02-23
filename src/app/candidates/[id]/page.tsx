@@ -3,17 +3,22 @@
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   ArrowRight,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  User,
+  TrendingUp,
+  Activity
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Candidate, sourceTypeLabels } from '@/types/candidate'
@@ -51,6 +56,7 @@ interface CandidateDetailPageProps {
 
 export default function CandidateDetailPage({ params }: CandidateDetailPageProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [matchesLoading, setMatchesLoading] = useState(false)
@@ -61,6 +67,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [diagnosisHistory, setDiagnosisHistory] = useState<Diagnosis[]>([])
   const [selectedDiagnosisIds, setSelectedDiagnosisIds] = useState<string[]>([])
   const [showComparison, setShowComparison] = useState(false)
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab')
+    return tabParam && ['basic', 'progress', 'diagnosis'].includes(tabParam) ? tabParam : 'basic'
+  })
   
   // 一括選択・辞退用の状態
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set())
@@ -89,6 +99,19 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [matchToDelete, setMatchToDelete] = useState<MatchWithDetails | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // 面談メモ追加用の状態
+  const [addMemoOpen, setAddMemoOpen] = useState(false)
+  const [newMemoContent, setNewMemoContent] = useState('')
+  const [savingMemo, setSavingMemo] = useState(false)
+
+  // タブ変更時にURLを更新
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    const currentParams = new URLSearchParams(searchParams.toString())
+    currentParams.set('tab', value)
+    router.push(`?${currentParams.toString()}`, { scroll: false })
+  }
 
   useEffect(() => {
     const initializeParams = async () => {
@@ -602,6 +625,94 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 一括で次のステータスに進めるハンドラー
+  const handleBulkMoveNext = async () => {
+    if (selectedMatchIds.size === 0) {
+      toast.error('次に進める進捗を選択してください')
+      return
+    }
+
+    // 選択されたマッチングを取得
+    const selectedMatches = matches.filter(m => selectedMatchIds.has(m.id))
+    
+    // 次に進められないステータスをチェック
+    const cannotMove = selectedMatches.filter(m => {
+      const { statusFlow } = require('@/components/candidates/detail/constants')
+      return !statusFlow[m.status] || statusFlow[m.status].length === 0
+    })
+    
+    if (cannotMove.length > 0) {
+      toast.error('選択した進捗には、次に進めないステータスが含まれています')
+      return
+    }
+
+    // 確認ダイアログ
+    const statusCounts: Record<string, number> = {}
+    selectedMatches.forEach(m => {
+      const { statusLabels } = require('@/components/candidates/detail/constants')
+      const label = statusLabels[m.status]
+      statusCounts[label] = (statusCounts[label] || 0) + 1
+    })
+    
+    const countText = Object.entries(statusCounts)
+      .map(([label, count]) => `${label}: ${count}件`)
+      .join('、')
+    
+    if (!confirm(`選択した${selectedMatchIds.size}件の進捗を次のステータスに進めますか？\n\n${countText}`)) {
+      return
+    }
+
+    setBulkWithdrawing(true) // 処理中フラグを流用
+    try {
+      const { statusFlow, statusLabels } = require('@/components/candidates/detail/constants')
+      let successCount = 0
+      let errorCount = 0
+      const updates: { from: string; to: string }[] = []
+
+      for (const match of selectedMatches) {
+        try {
+          const nextStatuses = statusFlow[match.status]
+          if (nextStatuses && nextStatuses.length > 0) {
+            const nextStatus = nextStatuses[0] // 最初のステータスに進める
+            
+            await updateMatchStatus(
+              match.id,
+              nextStatus,
+              '',
+              user?.uid || '',
+              '一括ステータス更新'
+            )
+            
+            updates.push({
+              from: statusLabels[match.status],
+              to: statusLabels[nextStatus]
+            })
+            successCount++
+          }
+        } catch (error) {
+          console.error(`Match ${match.id} の更新に失敗:`, error)
+          errorCount++
+        }
+      }
+
+      if (successCount > 0) {
+        const uniqueUpdates = Array.from(new Set(updates.map(u => `${u.from}→${u.to}`)))
+        toast.success(`${successCount}件の進捗を更新しました\n${uniqueUpdates.join('、')}`)
+        await loadMatches()
+        setSelectedMatchIds(new Set())
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`${errorCount}件の更新に失敗しました`)
+      }
+    } catch (error) {
+      console.error('一括ステータス更新エラー:', error)
+      toast.error('一括ステータス更新に失敗しました')
+    } finally {
+      setBulkWithdrawing(false)
+    }
+  }
+
   // 進捗削除のハンドラー（提案済みのみ削除可能）
   const handleDeleteMatch = async () => {
     if (!matchToDelete) return
@@ -1036,6 +1147,50 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 面談メモ追加ハンドラー
+  const handleAddMemo = async () => {
+    if (!newMemoContent.trim()) {
+      toast.error('メモ内容を入力してください')
+      return
+    }
+
+    if (!candidate || !user?.uid) {
+      toast.error('候補者情報またはユーザー情報が見つかりません')
+      return
+    }
+
+    setSavingMemo(true)
+    try {
+      const newMemo = {
+        id: `memo_${Date.now()}`,
+        content: newMemoContent.trim(),
+        createdBy: user.uid,
+        createdAt: new Date().toISOString()
+      }
+
+      const updatedMemos = [...(candidate.interviewMemos || []), newMemo]
+
+      await updateDoc(doc(db, 'candidates', candidateId), {
+        interviewMemos: updatedMemos,
+        updatedAt: new Date().toISOString()
+      })
+
+      setCandidate({
+        ...candidate,
+        interviewMemos: updatedMemos
+      })
+
+      setNewMemoContent('')
+      setAddMemoOpen(false)
+      toast.success('面談メモを追加しました')
+    } catch (error) {
+      console.error('面談メモ追加エラー:', error)
+      toast.error('面談メモの追加に失敗しました')
+    } finally {
+      setSavingMemo(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -1067,39 +1222,76 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         />
       
       <div className="space-y-6">
-        <CandidateMatchesSection
-          matches={matches}
-          matchesLoading={matchesLoading}
-          selectedMatchIds={selectedMatchIds}
-          bulkWithdrawing={bulkWithdrawing}
-          sortOrder={sortOrder}
-          onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          onSelectAll={handleSelectAll}
-          onSelectMatch={handleSelectMatch}
-          onBulkWithdraw={handleBulkWithdraw}
-          onCopySuggestedJobs={copySuggestedJobs}
-          onCopyPendingProposalJobs={copyPendingProposalJobs}
-          onCopyJobInfo={copyJobInfo}
-          onOpenCreateMatch={() => setCreateMatchOpen(true)}
-          onOpenStatusUpdate={handleOpenStatusUpdate}
-          onOpenDeleteDialog={handleOpenDeleteDialog}
-          getStatusBadge={getStatusBadge}
-          formatDate={formatDate}
-        />
+        {/* タブナビゲーション */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsTrigger value="basic" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">基本情報</span>
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">進捗</span>
+              <Badge variant="secondary" className="ml-2">{matches.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="diagnosis" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">診断結果</span>
+              {diagnosisHistory.length > 0 && (
+                <Badge variant="secondary" className="ml-2">{diagnosisHistory.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-        <CandidateBasicInfoSection
-          candidate={candidate}
-          creatingFolder={creatingFolder}
-          onCreateFolder={handleCreateFolder}
-          calculateAge={calculateAge}
-        />
+          {/* 基本情報タブ */}
+          <TabsContent value="basic" className="space-y-6">
+            <CandidateBasicInfoSection
+              candidate={candidate}
+              creatingFolder={creatingFolder}
+              onCreateFolder={handleCreateFolder}
+              onAddMemo={() => setAddMemoOpen(true)}
+              calculateAge={calculateAge}
+            />
 
-        {/* 診断結果セクション */}
-        {diagnosisHistory.length > 0 && (
-          <DiagnosisHistoryComparison diagnosisHistory={diagnosisHistory} />
-        )}
+            <CandidatePreferencesSection candidate={candidate} />
+          </TabsContent>
 
-        <CandidatePreferencesSection candidate={candidate} />
+          {/* 進捗タブ */}
+          <TabsContent value="progress" className="space-y-6">
+            <CandidateMatchesSection
+              matches={matches}
+              matchesLoading={matchesLoading}
+              selectedMatchIds={selectedMatchIds}
+              bulkWithdrawing={bulkWithdrawing}
+              sortOrder={sortOrder}
+              onToggleSortOrder={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              onSelectAll={handleSelectAll}
+              onSelectMatch={handleSelectMatch}
+              onBulkWithdraw={handleBulkWithdraw}
+              onBulkMoveNext={handleBulkMoveNext}
+              onCopySuggestedJobs={copySuggestedJobs}
+              onCopyPendingProposalJobs={copyPendingProposalJobs}
+              onCopyJobInfo={copyJobInfo}
+              onOpenCreateMatch={() => setCreateMatchOpen(true)}
+              onOpenStatusUpdate={handleOpenStatusUpdate}
+              onOpenDeleteDialog={handleOpenDeleteDialog}
+              getStatusBadge={getStatusBadge}
+              formatDate={formatDate}
+            />
+          </TabsContent>
+
+          {/* 診断結果タブ */}
+          <TabsContent value="diagnosis" className="space-y-6">
+            {diagnosisHistory.length > 0 ? (
+              <DiagnosisHistoryComparison diagnosisHistory={diagnosisHistory} />
+            ) : (
+              <div className="text-center py-12">
+                <Activity className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">診断結果がありません</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
       </div>
 
@@ -1169,6 +1361,45 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         company={selectedMatch ? companies.find(c => c.id === jobs.find(j => j.id === selectedMatch.jobId)?.companyId) : undefined}
         userName={user?.displayName || user?.email || ''}
       />
+
+      {/* 面談メモ追加ダイアログ */}
+      <Dialog open={addMemoOpen} onOpenChange={setAddMemoOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>面談メモを追加</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">メモ内容</label>
+              <Textarea
+                value={newMemoContent}
+                onChange={(e) => setNewMemoContent(e.target.value)}
+                placeholder="面談メモを入力してください"
+                rows={6}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddMemoOpen(false)
+                setNewMemoContent('')
+              }}
+              disabled={savingMemo}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleAddMemo}
+              disabled={!newMemoContent.trim() || savingMemo}
+            >
+              {savingMemo ? '保存中...' : '追加'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       </div>
     </ProtectedRoute>

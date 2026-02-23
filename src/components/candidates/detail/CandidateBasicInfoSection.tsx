@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FolderPlus } from 'lucide-react'
+import { FolderPlus, Plus } from 'lucide-react'
 import { Candidate, campusLabels, sourceTypeLabels } from '@/types/candidate'
 import { campusColors } from '@/components/candidates/detail/constants'
 
@@ -11,6 +11,7 @@ interface CandidateBasicInfoSectionProps {
   candidate: Candidate
   creatingFolder: boolean
   onCreateFolder: () => void
+  onAddMemo: () => void
   calculateAge: (dateOfBirth: Date | string | undefined) => number | null
 }
 
@@ -18,6 +19,7 @@ export default function CandidateBasicInfoSection({
   candidate,
   creatingFolder,
   onCreateFolder,
+  onAddMemo,
   calculateAge
 }: CandidateBasicInfoSectionProps) {
   return (
@@ -164,13 +166,44 @@ export default function CandidateBasicInfoSection({
 
       <Card className="border-orange-100">
         <CardHeader>
-          <CardTitle className="text-orange-800">面談メモ</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-orange-800">面談メモ</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddMemo}
+              className="text-orange-600 border-orange-200 hover:bg-orange-50"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              追加
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <div>
-            <label className="text-sm font-medium text-gray-500">面談メモ</label>
-            <p className="mt-1 whitespace-pre-wrap">{candidate.interviewMemo || '未登録'}</p>
-          </div>
+          {candidate.interviewMemos && candidate.interviewMemos.length > 0 ? (
+            <div className="space-y-4">
+              {candidate.interviewMemos.map((memo, index) => (
+                <div key={memo.id} className="border-l-4 border-orange-200 pl-4 py-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500">
+                      {new Date(memo.createdAt).toLocaleString('ja-JP')}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      作成者: {memo.createdBy}
+                    </span>
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{memo.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : candidate.interviewMemo ? (
+            <div className="border-l-4 border-orange-200 pl-4 py-2">
+              <p className="text-sm whitespace-pre-wrap text-gray-600">{candidate.interviewMemo}</p>
+              <p className="text-xs text-gray-400 mt-2">※旧形式のメモ</p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">面談メモが登録されていません</p>
+          )}
         </CardContent>
       </Card>
     </div>

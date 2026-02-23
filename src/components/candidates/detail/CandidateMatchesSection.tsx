@@ -20,6 +20,7 @@ interface CandidateMatchesSectionProps {
   onSelectAll: (checked: boolean) => void
   onSelectMatch: (matchId: string, checked: boolean) => void
   onBulkWithdraw: () => void
+  onBulkMoveNext: () => void
   onCopySuggestedJobs: () => void
   onCopyPendingProposalJobs: () => void
   onCopyJobInfo: (jobId: string) => void
@@ -40,6 +41,7 @@ export default function CandidateMatchesSection({
   onSelectAll,
   onSelectMatch,
   onBulkWithdraw,
+  onBulkMoveNext,
   onCopySuggestedJobs,
   onCopyPendingProposalJobs,
   onCopyJobInfo,
@@ -94,25 +96,46 @@ export default function CandidateMatchesSection({
               </Button>
             )}
             {selectedMatchIds.size > 0 && (
-              <Button
-                onClick={onBulkWithdraw}
-                disabled={bulkWithdrawing}
-                variant="outline"
-                size="sm"
-                className="text-red-600 border-red-200 hover:bg-red-50"
-              >
-                {bulkWithdrawing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    処理中...
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-4 w-4 mr-2" />
-                    選択を辞退 ({selectedMatchIds.size})
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  onClick={onBulkMoveNext}
+                  disabled={bulkWithdrawing}
+                  variant="outline"
+                  size="sm"
+                  className="text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  {bulkWithdrawing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      処理中...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-4 w-4 mr-2" />
+                      選択を次へ ({selectedMatchIds.size})
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={onBulkWithdraw}
+                  disabled={bulkWithdrawing}
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  {bulkWithdrawing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      処理中...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 mr-2" />
+                      選択を辞退 ({selectedMatchIds.size})
+                    </>
+                  )}
+                </Button>
+              </>
             )}
             <Button
               onClick={onOpenCreateMatch}
@@ -142,8 +165,8 @@ export default function CandidateMatchesSection({
                     onCheckedChange={onSelectAll}
                   />
                 </TableHead>
-                <TableHead>求人</TableHead>
-                <TableHead>企業/店舗</TableHead>
+                <TableHead className="min-w-[250px]">求人</TableHead>
+                <TableHead className="min-w-[250px]">企業/店舗</TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
@@ -349,7 +372,6 @@ export default function CandidateMatchesSection({
                             >
                               <Link href={`/progress/${match.id}`}>
                                 <Eye className="h-3 w-3 mr-1" />
-                                詳細
                               </Link>
                             </Button>
                             {match.status === 'suggested' && (
@@ -360,7 +382,6 @@ export default function CandidateMatchesSection({
                                 className="text-red-600 border-red-200 hover:bg-red-50"
                               >
                                 <Trash2 className="h-3 w-3 mr-1" />
-                                削除
                               </Button>
                             )}
                           </>
