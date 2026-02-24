@@ -180,12 +180,8 @@ export async function GET(request: NextRequest) {
       '募集要項（その他）',
       '掲載画像',
       'タグ',
-      'タグ',
-      'タグ',
       '採用予定人数',
       '履歴書の有無',
-      '応募者に関する情報',
-      '応募者に関する情報',
       '応募者に関する情報',
       '応募用メールアドレス',
       '求人問い合わせ先電話番号（半角）',
@@ -193,6 +189,7 @@ export async function GET(request: NextRequest) {
       '自動アプローチ利用設定',
       '自動アプローチ条件設定',
       'ユーザー指定ID',
+      '求人ID（編集不可）',
     ]
 
     // 5. 雇用形態マッピング
@@ -206,28 +203,76 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. 給与情報パース用ヘルパー
-    function parseSalary(salaryStr?: string): { type: string; min: string; max: string; display: string } {
-      if (!salaryStr) return { type: '', min: '', max: '', display: '' }
+    function parseSalary(salaryStr?: string): { 
+      type: string; 
+      min: string; 
+      max: string; 
+      display: string;
+      hasFixedOT: string;
+      fixedOTAmount: string;
+      fixedOTHours: string;
+    } {
+      const defaultResult = { 
+        type: '', 
+        min: '', 
+        max: '', 
+        display: '',
+        hasFixedOT: 'なし',
+        fixedOTAmount: '',
+        fixedOTHours: '',
+      }
+      
+      if (!salaryStr) return defaultResult
+
+      // 固定残業代の情報を抽出
+      const fixedOTMatch = salaryStr.match(/月?(\d+)時間分の固定残業代/)
+      const hasFixedOT = fixedOTMatch ? 'あり' : 'なし'
+      const fixedOTHours = fixedOTMatch ? fixedOTMatch[1] : ''
+      
+      // 固定残業代の金額を計算する（簡易計算: 基本給の時給 * 1.25 * 残業時間）
+      let fixedOTAmount = ''
 
       // 「月給 30万円〜35万円」のようなパターン（万円単位）
       const monthlyManMatch = salaryStr.match(/月給?\s*[¥￥]?([\d,.]+)\s*万.*?[〜~ー-]\s*[¥￥]?([\d,.]+)\s*万/i)
       if (monthlyManMatch) {
+        const minSalary = Math.round(parseFloat(monthlyManMatch[1]) * 10000)
+        const maxSalary = Math.round(parseFloat(monthlyManMatch[2]) * 10000)
+        
+        if (hasFixedOT === 'あり' && fixedOTHours) {
+          // 簡易計算: (基本給 / 160時間) * 1.25 * 固定残業時間
+          const hourlyRate = minSalary / 160
+          fixedOTAmount = Math.round(hourlyRate * 1.25 * parseInt(fixedOTHours)).toString()
+        }
+        
         return {
           type: '月給',
-          min: Math.round(parseFloat(monthlyManMatch[1]) * 10000).toString(),
-          max: Math.round(parseFloat(monthlyManMatch[2]) * 10000).toString(),
+          min: minSalary.toString(),
+          max: maxSalary.toString(),
           display: '範囲で表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
       // 「月給 250,000円〜350,000円」のようなパターン
       const monthlyMatch = salaryStr.match(/月給?\s*[¥￥]?([\d,]+).*?[〜~ー-][¥￥]?([\d,]+)/i)
       if (monthlyMatch) {
+        const minSalary = parseInt(monthlyMatch[1].replace(/,/g, ''))
+        
+        if (hasFixedOT === 'あり' && fixedOTHours) {
+          const hourlyRate = minSalary / 160
+          fixedOTAmount = Math.round(hourlyRate * 1.25 * parseInt(fixedOTHours)).toString()
+        }
+        
         return {
           type: '月給',
           min: monthlyMatch[1].replace(/,/g, ''),
           max: monthlyMatch[2].replace(/,/g, ''),
           display: '範囲で表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
@@ -239,40 +284,72 @@ export async function GET(request: NextRequest) {
           min: hourlyMatch[1].replace(/,/g, ''),
           max: hourlyMatch[2].replace(/,/g, ''),
           display: '範囲で表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
       // 「年収 300万円〜500万円」のようなパターン
       const annualMatch = salaryStr.match(/年[収俸]?\s*([\d,.]+)万.*?[〜~ー-]([\d,.]+)万/i)
       if (annualMatch) {
+        const minSalary = Math.round(parseFloat(annualMatch[1]) * 10000 / 12)
+        
+        if (hasFixedOT === 'あり' && fixedOTHours) {
+          const hourlyRate = minSalary / 160
+          fixedOTAmount = Math.round(hourlyRate * 1.25 * parseInt(fixedOTHours)).toString()
+        }
+        
         return {
           type: '月給',
-          min: Math.round(parseFloat(annualMatch[1]) * 10000 / 12).toString(),
+          min: minSalary.toString(),
           max: Math.round(parseFloat(annualMatch[2]) * 10000 / 12).toString(),
           display: '範囲で表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
       // 単一金額パターン - 万円単位（月給 30万円）
       const singleMonthlyMan = salaryStr.match(/月給?\s*[¥￥]?([\d,.]+)\s*万/i)
       if (singleMonthlyMan) {
-        const amount = Math.round(parseFloat(singleMonthlyMan[1]) * 10000).toString()
+        const amount = Math.round(parseFloat(singleMonthlyMan[1]) * 10000)
+        
+        if (hasFixedOT === 'あり' && fixedOTHours) {
+          const hourlyRate = amount / 160
+          fixedOTAmount = Math.round(hourlyRate * 1.25 * parseInt(fixedOTHours)).toString()
+        }
+        
         return {
           type: '月給',
-          min: amount,
+          min: amount.toString(),
           max: '',  // 固定額を表示の場合は最高額は空にする
           display: '固定額を表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
       // 単一金額パターン（月給 250,000円）
       const singleMonthly = salaryStr.match(/月給?\s*[¥￥]?([\d,]+)/i)
       if (singleMonthly) {
+        const amount = parseInt(singleMonthly[1].replace(/,/g, ''))
+        
+        if (hasFixedOT === 'あり' && fixedOTHours) {
+          const hourlyRate = amount / 160
+          fixedOTAmount = Math.round(hourlyRate * 1.25 * parseInt(fixedOTHours)).toString()
+        }
+        
         return {
           type: '月給',
           min: singleMonthly[1].replace(/,/g, ''),
           max: '',  // 固定額を表示の場合は最高額は空にする
           display: '固定額を表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
@@ -283,37 +360,40 @@ export async function GET(request: NextRequest) {
           min: singleHourly[1].replace(/,/g, ''),
           max: '',  // 固定額を表示の場合は最高額は空にする
           display: '固定額を表示',
+          hasFixedOT,
+          fixedOTAmount,
+          fixedOTHours,
         }
       }
 
-      return { type: '', min: '', max: '', display: '' }
+      return defaultResult
     }
 
     // 7. 社会保険マッピング用ヘルパー
     function parseInsurance(insurance?: string): string {
       if (!insurance) return ''
       
-      // 「社会保険完備」などの場合は、4つの保険をカンマ区切りで返す
+      // 「社会保険完備」などの場合は、4つの保険をカンマ区切りで返す（Indeed形式の順序）
       if (insurance.includes('完備') || insurance.includes('全て') || insurance.includes('すべて')) {
-        return '健康保険,厚生年金,雇用保険,労災保険'
+        return '厚生年金、健康保険、雇用保険、労災保険'
       }
       
-      // 個別の保険名をIndeed形式にマッピング
-      const insuranceMap: Record<string, string> = {
-        '健康': '健康保険',
-        '厚生': '厚生年金',
-        '雇用': '雇用保険',
-        '労災': '労災保険',
-      }
+      // 個別の保険名をIndeed形式にマッピング（順序を維持）
+      const insuranceOrder = [
+        { key: '厚生', value: '厚生年金' },
+        { key: '健康', value: '健康保険' },
+        { key: '雇用', value: '雇用保険' },
+        { key: '労災', value: '労災保険' },
+      ]
       
       const result: string[] = []
-      for (const [key, value] of Object.entries(insuranceMap)) {
+      for (const { key, value } of insuranceOrder) {
         if (insurance.includes(key)) {
           result.push(value)
         }
       }
       
-      return result.length > 0 ? result.join(',') : ''
+      return result.length > 0 ? result.join('、') : ''
     }
 
     // 8. 住所パース用ヘルパー
@@ -404,16 +484,16 @@ export async function GET(request: NextRequest) {
         salary.min,                                        // 給与（最低額）
         salary.max,                                        // 給与（最高額）
         salary.display,                                    // 給与（表示形式）
-        'なし',                                            // 固定残業代の有無
-        '',                                                // 固定残業代（最低額）
+        salary.hasFixedOT,                                 // 固定残業代の有無
+        salary.fixedOTAmount,                              // 固定残業代（最低額）
         '',                                                // 固定残業代（最高額）
-        '',                                                // 固定残業代（支払い単位）
-        '',                                                // 固定残業代（時間）
+        salary.hasFixedOT === 'あり' ? '月当たり' : '',   // 固定残業代（支払い単位）
+        salary.fixedOTHours,                               // 固定残業代（時間）
         '',                                                // 固定残業代（分）
-        '',                                                // 固定残業代（超過分の追加支払への同意）
+        salary.hasFixedOT === 'あり' ? 'はい' : '',       // 固定残業代（超過分の追加支払への同意）
         'シフト制',                                        // 勤務形態
-        '8',                                               // 平均所定労働時間
-        '30',                                              // 平均所定労働時間（分）
+        '160',                                             // 平均所定労働時間
+        '',                                                // 平均所定労働時間（分）
         parseInsurance(job.data.insurance),                 // 社会保険
         '',                                                // 社会保険（適用されない理由）
         trial.has,                                         // 試用期間の有無
@@ -441,24 +521,21 @@ export async function GET(request: NextRequest) {
         cleanText(job.data.holidays),                      // 募集要項（休暇・休日）
         '',                                                // 募集要項（勤務地の補足）
         access,                                            // 募集要項（アクセス）
-        cleanText(buildSalaryNote(job.data)),               // 募集要項（給与の補足）
+        cleanText(buildSalaryNote(job.data, salary)),      // 募集要項（給与の補足）
         cleanText(job.data.benefits),                      // 募集要項（待遇・福利厚生）
         cleanText(job.data.smokingPolicy ? `受動喫煙防止措置: ${job.data.smokingPolicy}` : ''), // 募集要項（その他）
         '',                                                // 掲載画像
-        (job.data.tags || [])[0] || '',                    // タグ1
-        (job.data.tags || [])[1] || '',                    // タグ2
-        (job.data.tags || [])[2] || '',                    // タグ3
+        '',                                                // タグ
         '1',                                               // 採用予定人数（必須項目）
         '任意',                                            // 履歴書の有無
-        '',                                                // 応募者に関する情報1
-        '',                                                // 応募者に関する情報2
-        '',                                                // 応募者に関する情報3
+        '',                                                // 応募者に関する情報
         'hiroki.imai@super-shift.co.jp',                   // 応募用メールアドレス（必須項目）
         '0345002222',                                      // 求人問い合わせ先電話番号
         '',                                                // 審査用の質問
         '',                                                // 自動アプローチ利用設定
         '',                                                // 自動アプローチ条件設定
-        job.id,                                            // ユーザー指定ID（求人ID）
+        job.id,                                            // ユーザー指定ID
+        '',                                                // 求人ID（編集不可）
       ]
 
       rows.push(row)
@@ -522,16 +599,38 @@ function cleanText(text?: string): string {
 }
 
 /** 給与補足情報を構築 */
-function buildSalaryNote(job: any): string {
+function buildSalaryNote(job: any, salary: any): string {
   const parts: string[] = []
+  
+  // 固定残業代の記述を追加
+  const fixedOTNote = salary.hasFixedOT === 'あり' && salary.fixedOTHours 
+    ? `月${salary.fixedOTHours}時間分の固定残業代を含む` 
+    : ''
+  
   if (job.salaryInexperienced) {
-    parts.push(`未経験: ${job.salaryInexperienced}`)
+    let inexperiencedNote = `未経験: ${job.salaryInexperienced}`
+    if (fixedOTNote) {
+      inexperiencedNote += `（経験・能力を考慮し決定。${fixedOTNote}）`
+    }
+    parts.push(inexperiencedNote)
   }
+  
   if (job.salaryExperienced) {
-    parts.push(`経験者: ${job.salaryExperienced}`)
+    let experiencedNote = `経験者: ${job.salaryExperienced}`
+    if (fixedOTNote) {
+      experiencedNote += `（経験・能力を考慮し決定。${fixedOTNote}）`
+    }
+    parts.push(experiencedNote)
   }
+  
   if (job.overtime) {
     parts.push(`時間外: ${job.overtime}`)
   }
+  
+  // 固定残業代の注意事項を追加
+  if (fixedOTNote) {
+    parts.push(`※${fixedOTNote}`)
+  }
+  
   return parts.join('\n')
 }
