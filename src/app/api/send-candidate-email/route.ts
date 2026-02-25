@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       candidatePhone,
       candidateEmail,
       candidateResume,
+      candidateAge,
       jobTitle,
       notes,
       matchId,
@@ -39,7 +40,10 @@ export async function POST(request: NextRequest) {
       jobId,
       companyId,
       sentBy,
-      cc
+      cc,
+      editedSubject,
+      editedBody,
+      from
     } = await request.json()
 
     if (!companyEmail) {
@@ -49,33 +53,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // メール本文を構築
-    const emailBody = generateCandidateApplicationEmailBody({
+    // メール本文を構築（編集済みの場合はそのまま使用）
+    const emailBody = editedBody || generateCandidateApplicationEmailBody({
       companyName,
       jobTitle,
       candidateName,
       candidatePhone,
       candidateEmail,
       candidateResume,
+      candidateAge,
       notes
     })
 
-    const emailSubject = generateCandidateApplicationEmailSubject({
+    const emailSubject = editedSubject || generateCandidateApplicationEmailSubject({
       candidateName,
       jobTitle
     })
 
     // Resendを使ってメール送信
+    // fromが指定されている場合はそれを使用、なければ環境変数
+    const fromEmail = from || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+    
     const data = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      from: fromEmail,
       to: companyEmail,
-      cc: cc || undefined,  // CCがある場合のみ設定
+      cc: cc && cc.length > 0 ? cc : undefined,  // CCがある場合のみ設定（配列対応）
       bcc: 'sales+matcha@super-shift.co.jp',
       subject: emailSubject,
       text: emailBody,
     })
 
     console.log('✅ メール送信成功:', data)
+    console.log('📧 送信元:', fromEmail)
 
     // エラーがある場合は処理を中断
     if (data.error) {
@@ -94,7 +103,7 @@ export async function POST(request: NextRequest) {
       candidateId: candidateId || null,
       jobId: jobId || null,
       companyId: companyId || null,
-      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      from: fromEmail,
       to: companyEmail,
       cc: cc || null,
       bcc: 'sales+matcha@super-shift.co.jp',

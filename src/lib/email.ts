@@ -8,6 +8,7 @@ export async function sendCandidateApplicationEmail(params: {
   candidatePhone?: string
   candidateEmail?: string
   candidateResume?: string
+  candidateAge?: string
   jobTitle: string
   notes?: string
   matchId?: string
@@ -15,7 +16,10 @@ export async function sendCandidateApplicationEmail(params: {
   jobId?: string
   companyId?: string
   sentBy?: string
-  cc?: string  // 企業担当者のメールアドレス
+  cc?: string[]  // CCメールアドレス（企業ccEmails + 担当者）
+  editedSubject?: string  // プレビューで編集された件名
+  editedBody?: string     // プレビューで編集された本文
+  from?: string           // 送信元メールアドレス（担当者メール）
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch('/api/send-candidate-email', {

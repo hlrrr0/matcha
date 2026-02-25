@@ -19,18 +19,9 @@ export function generateCandidateApplicationEmailBody(params: {
 ${params.companyName} 御中
 
 いつもお世話になっております。
-求職者の応募情報をお送りいたします。
-━━━━━━━━━━━━━━━━━━━━━━━━
-■ 候補者情報
-━━━━━━━━━━━━━━━━━━━━━━━━
-氏名: ${params.candidateName}
-${params.candidateAge ? `年齢： ${params.candidateAge}歳` : ''}
+${params.candidateResume || ''}
 
-${params.candidateResume ? `■ コメント
-${params.candidateResume}` : ''}
-
-━━━━━━━━━━━━━━━━━━━━━━━━
-
+${params.notes ? `■ 備考\n${params.notes}\n` : ''}
 ご確認の上、次のステップへお進みください。
 ご不明な点がございましたら、お気軽にお問い合わせください。
 

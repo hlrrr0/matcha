@@ -116,6 +116,7 @@ interface StatusUpdateDialogProps {
   company?: {
     name: string
     email: string
+    ccEmails?: string[]
     consultantId?: string
   }
   userName?: string  // ログインユーザーの名前
@@ -150,6 +151,7 @@ export function StatusUpdateDialog({
   // メールプレビュー用の状態
   const [showEmailPreview, setShowEmailPreview] = useState(false)
   const [emailPreviewData, setEmailPreviewData] = useState<{
+    from?: string
     to: string
     cc?: string
     bcc: string
@@ -508,6 +510,20 @@ export function StatusUpdateDialog({
     })
 
     const candidateName = `${candidate.lastName} ${candidate.firstName}`
+    
+    // 年齢を計算
+    const calculateAge = (dateOfBirth?: string): string | undefined => {
+      if (!dateOfBirth) return undefined
+      const today = new Date()
+      const birthDate = new Date(dateOfBirth)
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      return age.toString()
+    }
+    
     const emailBody = generateCandidateApplicationEmailBody({
       companyName: company.name,
       jobTitle: job.title,
@@ -515,6 +531,7 @@ export function StatusUpdateDialog({
       candidatePhone: candidate.phone,
       candidateEmail: candidate.email,
       candidateResume: introText,
+      candidateAge: calculateAge(candidate.dateOfBirth),
       notes: statusNotes
     })
 
@@ -523,10 +540,14 @@ export function StatusUpdateDialog({
       jobTitle: job.title
     })
 
+    // CCアドレスを結合（企業のccEmailsのみ、担当者は送信元に使用）
+    const ccList = (company.ccEmails || []).filter(Boolean)
+
     // メールプレビューを表示
     setEmailPreviewData({
+      from: consultantEmail || process.env.NEXT_PUBLIC_DEFAULT_FROM_EMAIL || 'noreply@super-shift.co.jp',
       to: company.email,
-      cc: consultantEmail || undefined,  // 担当者のメールアドレスをCCに追加
+      cc: ccList.length > 0 ? ccList.join(', ') : undefined,
       bcc: 'sales+matcha@super-shift.co.jp',
       subject: emailSubject,
       body: emailBody
@@ -534,20 +555,14 @@ export function StatusUpdateDialog({
     setShowEmailPreview(true)
   }
 
-  // メールプレビューから実際に送信
-  const handleConfirmSendEmail = async () => {
+  // メールプレビューから実際に送信（編集された件名・本文を受け取る）
+  const handleConfirmSendEmail = async (editedData: { subject: string; body: string }) => {
     if (!candidate || !job || !company || !match || !emailPreviewData) return
 
     setSendingEmail(true)
     try {
-      const introText = generateIntroductionText({
-        companyName: company.name,
-        candidateName: `${candidate.lastName} ${candidate.firstName}`,
-        candidateDateOfBirth: candidate.dateOfBirth,
-        resumeUrl: candidate.resumeUrl,
-        teacherComment: candidate.resume,
-        userName: userName
-      })
+      // CCアドレスを結合（企業のccEmailsのみ、担当者は送信元に使用）
+      const ccList = (company.ccEmails || []).filter(Boolean)
 
       const emailResult = await sendCandidateApplicationEmail({
         companyEmail: company.email,
@@ -555,7 +570,6 @@ export function StatusUpdateDialog({
         candidateName: `${candidate.lastName} ${candidate.firstName}`,
         candidatePhone: candidate.phone,
         candidateEmail: candidate.email,
-        candidateResume: introText,
         jobTitle: job.title,
         notes: statusNotes,
         matchId: match.id,
@@ -563,7 +577,10 @@ export function StatusUpdateDialog({
         jobId: match.jobId,
         companyId: match.companyId,
         sentBy: user?.uid,
-        cc: consultantEmail || undefined  // 担当者のメールアドレスをCCに追加
+        cc: ccList.length > 0 ? ccList : undefined,
+        editedSubject: editedData.subject,
+        editedBody: editedData.body,
+        from: consultantEmail || undefined  // 担当者メールを送信元に設定
       })
 
       if (emailResult.success) {
@@ -571,6 +588,18 @@ export function StatusUpdateDialog({
         setShowEmailPreview(false)
         setEmailPreviewData(null)
         
+        // メール送信後、ステータスを「書類選考中」に自動変更
+        if (match.status === 'applied') {
+          try {
+            await onUpdate('document_screening', statusNotes)
+            toast.success('ステータスを「書類選考中」に更新しました')
+            onOpenChange(false)
+          } catch (error) {
+            console.error('ステータス自動更新に失敗:', error)
+            toast.error('メールは送信されましたが、ステータスの自動更新に失敗しました')
+          }
+        }
+
         // メール送信完了時のコールバックを実行
         if (onEmailSent) {
           try {
