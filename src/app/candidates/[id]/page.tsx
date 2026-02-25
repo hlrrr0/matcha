@@ -713,13 +713,13 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
-  // 進捗削除のハンドラー（提案済みのみ削除可能）
+  // 進捗削除のハンドラー（提案待ちのみ削除可能）
   const handleDeleteMatch = async () => {
     if (!matchToDelete) return
 
-    // 提案済みステータスのみ削除可能
-    if (matchToDelete.status !== 'suggested') {
-      toast.error('提案済みのステータスのみ削除できます')
+    // 提案待ちステータスのみ削除可能
+    if (matchToDelete.status !== 'pending_proposal') {
+      toast.error('提案待ちのステータスのみ削除できます')
       setDeleteDialogOpen(false)
       setMatchToDelete(null)
       return

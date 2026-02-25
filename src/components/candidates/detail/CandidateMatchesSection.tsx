@@ -374,7 +374,7 @@ export default function CandidateMatchesSection({
                                 <Eye className="h-3 w-3 mr-1" />
                               </Link>
                             </Button>
-                            {match.status === 'suggested' && (
+                            {match.status === 'pending_proposal' && (
                               <Button
                                 size="sm"
                                 variant="outline"

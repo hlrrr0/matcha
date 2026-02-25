@@ -50,11 +50,11 @@ export default function DeleteMatchDialog({
               </div>
             </div>
 
-            {matchToDelete.status !== 'suggested' && (
+            {matchToDelete.status !== 'pending_proposal' && (
               <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
                 <p className="text-sm text-red-800 flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
-                  「提案済み」ステータスのもののみ削除できます
+                  「提案待ち」ステータスのもののみ削除できます
                 </p>
               </div>
             )}
@@ -71,7 +71,7 @@ export default function DeleteMatchDialog({
           </Button>
           <Button
             onClick={onConfirm}
-            disabled={deleting || !!(matchToDelete && matchToDelete.status !== 'suggested')}
+            disabled={deleting || !!(matchToDelete && matchToDelete.status !== 'pending_proposal')}
             className="bg-red-600 hover:bg-red-700"
           >
             {deleting ? (
