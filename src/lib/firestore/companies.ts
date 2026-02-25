@@ -333,8 +333,8 @@ async function updateCompanyJobsStatus(
   newStatus: string
 ): Promise<void> {
   try {
-    // 企業が非アクティブになった場合、求人を募集終了にする
-    if (oldStatus === 'active' && newStatus === 'inactive') {
+    // 企業が非アクティブになった場合、募集中の求人を募集終了にする
+    if (newStatus === 'inactive' && oldStatus !== 'inactive') {
       console.log(`🔄 企業ID「${companyId}」が非アクティブになったため、関連する求人を募集終了にします...`)
       
       const jobsCollection = collection(db, 'jobs')

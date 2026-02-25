@@ -198,6 +198,8 @@ export async function updateCompany(id: string, companyData: Partial<Omit<Compan
       throw new Error(error)
     }
     
+    const oldData = doc.data()
+    
     // undefinedフィールドを除去
     const cleanedData = removeUndefinedFields(companyData)
     
@@ -207,9 +209,48 @@ export async function updateCompany(id: string, companyData: Partial<Omit<Compan
     })
     
     console.log(`✅ [Admin] 企業ID「${id}」を更新しました`)
+    
+    // ステータスが非アクティブに変更された場合、募集中の求人を募集終了にする
+    if (companyData.status && oldData?.status !== companyData.status && companyData.status === 'inactive') {
+      await updateCompanyJobsStatusAdmin(id)
+    }
   } catch (error) {
     console.error(`❌ [Admin] 企業ID「${id}」の更新エラー:`, error)
     throw error
+  }
+}
+
+/**
+ * 企業のステータスが非アクティブになった時に関連する求人を募集終了にする（Admin SDK版）
+ */
+async function updateCompanyJobsStatusAdmin(companyId: string): Promise<void> {
+  try {
+    console.log(`🔄 [Admin] 企業ID「${companyId}」が非アクティブになったため、関連する募集中の求人を募集終了にします...`)
+    
+    const db = getAdminFirestore()
+    const jobsSnapshot = await db.collection('jobs')
+      .where('companyId', '==', companyId)
+      .where('status', '==', 'active')
+      .get()
+    
+    if (jobsSnapshot.empty) {
+      console.log(`ℹ️ [Admin] 企業ID「${companyId}」に募集中の求人はありません`)
+      return
+    }
+    
+    const batch = db.batch()
+    jobsSnapshot.docs.forEach((doc) => {
+      batch.update(doc.ref, {
+        status: 'closed',
+        updatedAt: new Date(),
+      })
+    })
+    
+    await batch.commit()
+    console.log(`✅ [Admin] ${jobsSnapshot.size}件の求人を募集終了に更新しました`)
+  } catch (error) {
+    console.error(`❌ [Admin] 企業ID「${companyId}」の求人ステータス更新エラー:`, error)
+    // エラーをログに記録するが、メインの更新処理は成功として扱う
   }
 }
 
