@@ -3,7 +3,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { FolderPlus, Plus } from 'lucide-react'
+import { FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Candidate, campusLabels, sourceTypeLabels } from '@/types/candidate'
 import { campusColors } from '@/components/candidates/detail/constants'
 
@@ -12,7 +12,10 @@ interface CandidateBasicInfoSectionProps {
   creatingFolder: boolean
   onCreateFolder: () => void
   onAddMemo: () => void
+  onEditMemo: (memoId: string) => void
+  onDeleteMemo: (memoId: string) => void
   calculateAge: (dateOfBirth: Date | string | undefined) => number | null
+  userDisplayNameMap: Record<string, string>
 }
 
 export default function CandidateBasicInfoSection({
@@ -20,7 +23,10 @@ export default function CandidateBasicInfoSection({
   creatingFolder,
   onCreateFolder,
   onAddMemo,
-  calculateAge
+  onEditMemo,
+  onDeleteMemo,
+  calculateAge,
+  userDisplayNameMap
 }: CandidateBasicInfoSectionProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -188,9 +194,27 @@ export default function CandidateBasicInfoSection({
                     <span className="text-xs text-gray-500">
                       {new Date(memo.createdAt).toLocaleString('ja-JP')}
                     </span>
-                    <span className="text-xs text-gray-500">
-                      作成者: {memo.createdBy}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        作成者: {userDisplayNameMap[memo.createdBy] || memo.createdBy}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEditMemo(memo.id)}
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-orange-600"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDeleteMemo(memo.id)}
+                        className="h-6 w-6 p-0 text-gray-400 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm whitespace-pre-wrap">{memo.content}</p>
                 </div>

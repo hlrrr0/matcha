@@ -28,6 +28,7 @@ import { getJob, getJobs } from '@/lib/firestore/jobs'
 import { getCompany, getCompanies } from '@/lib/firestore/companies'
 import { getStoreById, getStores } from '@/lib/firestore/stores'
 import { getDiagnosisHistory } from '@/lib/firestore/diagnosis'
+import { getActiveUsers, createUserDisplayNameMap } from '@/lib/firestore/users'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -66,6 +67,7 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [diagnosisHistory, setDiagnosisHistory] = useState<Diagnosis[]>([])
   const [selectedDiagnosisIds, setSelectedDiagnosisIds] = useState<string[]>([])
+  const [userDisplayNameMap, setUserDisplayNameMap] = useState<Record<string, string>>({})
   const [showComparison, setShowComparison] = useState(false)
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab')
@@ -104,6 +106,17 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
   const [addMemoOpen, setAddMemoOpen] = useState(false)
   const [newMemoContent, setNewMemoContent] = useState('')
   const [savingMemo, setSavingMemo] = useState(false)
+
+  // 面談メモ編集用の状態
+  const [editMemoOpen, setEditMemoOpen] = useState(false)
+  const [editMemoId, setEditMemoId] = useState<string | null>(null)
+  const [editMemoContent, setEditMemoContent] = useState('')
+  const [editingMemo, setEditingMemo] = useState(false)
+
+  // 面談メモ削除用の状態
+  const [deleteMemoOpen, setDeleteMemoOpen] = useState(false)
+  const [deleteMemoId, setDeleteMemoId] = useState<string | null>(null)
+  const [deletingMemo, setDeletingMemo] = useState(false)
 
   // タブ変更時にURLを更新
   const handleTabChange = (value: string) => {
@@ -156,6 +169,19 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     loadJobsData()
     loadDiagnosis()
   }, [candidateId])
+
+  // ユーザー表示名マップを取得
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const activeUsers = await getActiveUsers()
+        setUserDisplayNameMap(createUserDisplayNameMap(activeUsers))
+      } catch (error) {
+        console.error('ユーザー情報の取得に失敗しました:', error)
+      }
+    }
+    loadUsers()
+  }, [])
 
   const loadDiagnosis = async () => {
     if (!candidateId) return
@@ -1191,6 +1217,81 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
     }
   }
 
+  // 面談メモ編集ダイアログを開く
+  const handleOpenEditMemo = (memoId: string) => {
+    const memo = candidate?.interviewMemos?.find(m => m.id === memoId)
+    if (memo) {
+      setEditMemoId(memoId)
+      setEditMemoContent(memo.content)
+      setEditMemoOpen(true)
+    }
+  }
+
+  // 面談メモ編集ハンドラー
+  const handleEditMemo = async () => {
+    if (!editMemoContent.trim()) {
+      toast.error('メモ内容を入力してください')
+      return
+    }
+    if (!candidate || !editMemoId) return
+
+    setEditingMemo(true)
+    try {
+      const updatedMemos = (candidate.interviewMemos || []).map(memo =>
+        memo.id === editMemoId
+          ? { ...memo, content: editMemoContent.trim() }
+          : memo
+      )
+
+      await updateDoc(doc(db, 'candidates', candidateId), {
+        interviewMemos: updatedMemos,
+        updatedAt: new Date().toISOString()
+      })
+
+      setCandidate({ ...candidate, interviewMemos: updatedMemos })
+      setEditMemoOpen(false)
+      setEditMemoId(null)
+      setEditMemoContent('')
+      toast.success('面談メモを更新しました')
+    } catch (error) {
+      console.error('面談メモ編集エラー:', error)
+      toast.error('面談メモの更新に失敗しました')
+    } finally {
+      setEditingMemo(false)
+    }
+  }
+
+  // 面談メモ削除確認ダイアログを開く
+  const handleOpenDeleteMemo = (memoId: string) => {
+    setDeleteMemoId(memoId)
+    setDeleteMemoOpen(true)
+  }
+
+  // 面談メモ削除ハンドラー
+  const handleDeleteMemo = async () => {
+    if (!candidate || !deleteMemoId) return
+
+    setDeletingMemo(true)
+    try {
+      const updatedMemos = (candidate.interviewMemos || []).filter(memo => memo.id !== deleteMemoId)
+
+      await updateDoc(doc(db, 'candidates', candidateId), {
+        interviewMemos: updatedMemos,
+        updatedAt: new Date().toISOString()
+      })
+
+      setCandidate({ ...candidate, interviewMemos: updatedMemos })
+      setDeleteMemoOpen(false)
+      setDeleteMemoId(null)
+      toast.success('面談メモを削除しました')
+    } catch (error) {
+      console.error('面談メモ削除エラー:', error)
+      toast.error('面談メモの削除に失敗しました')
+    } finally {
+      setDeletingMemo(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -1250,7 +1351,10 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
               creatingFolder={creatingFolder}
               onCreateFolder={handleCreateFolder}
               onAddMemo={() => setAddMemoOpen(true)}
+              onEditMemo={handleOpenEditMemo}
+              onDeleteMemo={handleOpenDeleteMemo}
               calculateAge={calculateAge}
+              userDisplayNameMap={userDisplayNameMap}
             />
 
             <CandidatePreferencesSection candidate={candidate} />
@@ -1361,6 +1465,84 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
         company={selectedMatch ? companies.find(c => c.id === jobs.find(j => j.id === selectedMatch.jobId)?.companyId) : undefined}
         userName={user?.displayName || user?.email || ''}
       />
+
+      {/* 面談メモ編集ダイアログ */}
+      <Dialog open={editMemoOpen} onOpenChange={(open) => {
+        setEditMemoOpen(open)
+        if (!open) {
+          setEditMemoId(null)
+          setEditMemoContent('')
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>面談メモを編集</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">メモ内容</label>
+              <Textarea
+                value={editMemoContent}
+                onChange={(e) => setEditMemoContent(e.target.value)}
+                placeholder="面談メモを入力してください"
+                rows={6}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditMemoOpen(false)
+                setEditMemoId(null)
+                setEditMemoContent('')
+              }}
+              disabled={editingMemo}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={handleEditMemo}
+              disabled={!editMemoContent.trim() || editingMemo}
+            >
+              {editingMemo ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 面談メモ削除確認ダイアログ */}
+      <Dialog open={deleteMemoOpen} onOpenChange={(open) => {
+        setDeleteMemoOpen(open)
+        if (!open) setDeleteMemoId(null)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>面談メモを削除</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">この面談メモを削除してもよろしいですか？この操作は元に戻せません。</p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteMemoOpen(false)
+                setDeleteMemoId(null)
+              }}
+              disabled={deletingMemo}
+            >
+              キャンセル
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteMemo}
+              disabled={deletingMemo}
+            >
+              {deletingMemo ? '削除中...' : '削除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 面談メモ追加ダイアログ */}
       <Dialog open={addMemoOpen} onOpenChange={setAddMemoOpen}>
