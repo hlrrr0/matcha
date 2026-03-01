@@ -422,7 +422,7 @@ function StoresPageContent() {
         </CardHeader>
         <CardContent>
           {state.viewMode === 'map' ? (
-            <StoreMapView stores={state.stores} companies={state.companies} />
+            <StoreMapView stores={state.stores} companies={state.companies} jobs={state.jobs} />
           ) : (
             <>
               <StoreFilters
