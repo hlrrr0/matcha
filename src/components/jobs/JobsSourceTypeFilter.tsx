@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { visibilityTypeLabels } from '@/types/job'
 
 interface JobsSourceTypeFilterProps {
   sourceTypeFilter: string
@@ -22,10 +23,9 @@ export function JobsSourceTypeFilter({
 
   const tabs = [
     { value: 'all', label: 'すべて' },
-    { value: 'inshokujin_univ', label: '🎓 飲食人大学' },
-    { value: 'mid_career', label: '中途人材' },
-    { value: 'referral', label: '紹介・リファラル' },
-    { value: 'overseas', label: '海外人材' },
+    { value: 'all_public', label: visibilityTypeLabels.all },
+    { value: 'school_only', label: visibilityTypeLabels.school_only },
+    { value: 'personal', label: visibilityTypeLabels.personal },
   ]
 
   return (

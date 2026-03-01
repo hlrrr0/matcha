@@ -90,13 +90,23 @@ function JobsPageContent() {
     flagFilter: new Set(),
   })
 
+  // URL パラメータの変更を監視
+  useEffect(() => {
+    const sourceType = searchParams.get('sourceType') || 'all'
+    setFilterState(prev => ({
+      ...prev,
+      sourceTypeFilter: sourceType,
+    }))
+  }, [searchParams.get('sourceType')])
+
   // ソート状態
   const [sortBy, setSortBy] = useState<SortBy>('updatedAt')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  // 一括ステータス変更
+  // 一括変更
   const [bulkStatusChangeDialogOpen, setBulkStatusChangeDialogOpen] = useState(false)
   const [bulkStatusValue, setBulkStatusValue] = useState<Job['status']>('active')
+  const [bulkVisibilityTypeValue, setBulkVisibilityTypeValue] = useState<Job['visibilityType']>('all')
   const [bulkStatusChanging, setBulkStatusChanging] = useState(false)
 
   // ソートハンドラー
@@ -244,7 +254,7 @@ function JobsPageContent() {
     toast.success(`${selectedJobs.size}件の求人データをエクスポートしました`)
   }
 
-  // 一括ステータス変更
+  // 一括変更処理
   const handleBulkStatusChange = async () => {
     if (selectedJobs.size === 0) {
       toast.error('求人を選択してください')
@@ -255,19 +265,22 @@ function JobsPageContent() {
     try {
       const selectedJobIds = Array.from(selectedJobs)
       const updatePromises = selectedJobIds.map(jobId => 
-        updateJob(jobId, { status: bulkStatusValue })
+        updateJob(jobId, { 
+          status: bulkStatusValue,
+          visibilityType: bulkVisibilityTypeValue
+        })
       )
       
       await Promise.all(updatePromises)
       
-      toast.success(`${selectedJobs.size}件の求人ステータスを変更しました`)
+      toast.success(`${selectedJobs.size}件の求人を一括変更しました`)
       
       await loadData()
       setSelectedJobs(new Set())
       setBulkStatusChangeDialogOpen(false)
     } catch (error) {
-      console.error('一括ステータス変更エラー:', error)
-      toast.error('ステータスの変更に失敗しました')
+      console.error('一括変更エラー:', error)
+      toast.error('変更に失敗しました')
     } finally {
       setBulkStatusChanging(false)
     }
@@ -310,16 +323,20 @@ function JobsPageContent() {
   }
 
   // Helper functions for filtering
-  const getSourceTypeCount = (sourceType: string) => {
-    if (sourceType === 'all') return jobs.length
+  const getSourceTypeCount = (visibilityType: string) => {
+    if (visibilityType === 'all') return jobs.length
 
     return jobs.filter(job => {
-      const visibility = job.visibilityType || 'all'
-
-      if (visibility === 'all') return true
-      if (visibility === 'school_only') return sourceType === 'inshokujin_univ'
-      if (visibility === 'specific_sources') {
-        return job.allowedSources ? job.allowedSources.includes(sourceType) : false
+      const jobVisibility = job.visibilityType || 'all'
+      
+      if (visibilityType === 'all_public') {
+        return jobVisibility === 'all'
+      }
+      if (visibilityType === 'school_only') {
+        return jobVisibility === 'school_only'
+      }
+      if (visibilityType === 'personal') {
+        return jobVisibility === 'personal'
       }
       return false
     }).length
@@ -398,16 +415,16 @@ function JobsPageContent() {
       const matchesStatus = filterState.statusFilter === 'all' || job.status === filterState.statusFilter
 
       const visibility = job.visibilityType || 'all'
-      let matchesSourceType = true
+      let matchesVisibilityFilter = true
       if (filterState.sourceTypeFilter !== 'all') {
-        if (visibility === 'all') {
-          matchesSourceType = true
-        } else if (visibility === 'school_only') {
-          matchesSourceType = filterState.sourceTypeFilter === 'inshokujin_univ'
-        } else if (visibility === 'specific_sources') {
-          matchesSourceType = job.allowedSources ? job.allowedSources.includes(filterState.sourceTypeFilter) : false
+        if (filterState.sourceTypeFilter === 'all_public') {
+          matchesVisibilityFilter = visibility === 'all'
+        } else if (filterState.sourceTypeFilter === 'school_only') {
+          matchesVisibilityFilter = visibility === 'school_only'
+        } else if (filterState.sourceTypeFilter === 'personal') {
+          matchesVisibilityFilter = visibility === 'personal'
         } else {
-          matchesSourceType = false
+          matchesVisibilityFilter = false
         }
       }
 
@@ -459,7 +476,7 @@ function JobsPageContent() {
       const matchesTag = filterState.tagFilter.size === 0 || (job.tags ? job.tags.some(tag => filterState.tagFilter.has(tag)) : false)
       const matchesFlag = filterState.flagFilter.size === 0 || Array.from(filterState.flagFilter).some(flag => job.flags?.[flag] === true)
 
-      return matchesSearch && matchesStatus && matchesSourceType && matchesEmploymentType &&
+      return matchesSearch && matchesStatus && matchesVisibilityFilter && matchesEmploymentType &&
         matchesConsultant && matchesAgeLimit && matchesStoreConditions && matchesCompanyConditions &&
         matchesTabelogException && matchesTag && matchesFlag
     }).sort((a, b) => {
@@ -517,6 +534,7 @@ function JobsPageContent() {
 
     if (filterState.searchTerm) newParams.set('search', filterState.searchTerm)
     if (filterState.statusFilter !== 'all') newParams.set('status', filterState.statusFilter)
+    if (filterState.sourceTypeFilter !== 'all') newParams.set('sourceType', filterState.sourceTypeFilter)
     if (filterState.employmentTypeFilter.size > 0) newParams.set('employmentType', Array.from(filterState.employmentTypeFilter).join(','))
     if (filterState.consultantFilter !== 'all') newParams.set('consultant', filterState.consultantFilter)
     if (filterState.ageLimitFilter !== 'all') newParams.set('ageLimit', filterState.ageLimitFilter)
@@ -656,13 +674,15 @@ function JobsPageContent() {
         />
       )}
 
-      {/* 一括ステータス変更ダイアログ */}
+      {/* 一括変更ダイアログ */}
       <BulkStatusChangeDialog
         open={bulkStatusChangeDialogOpen}
         onOpenChange={setBulkStatusChangeDialogOpen}
         selectedJobsCount={selectedJobs.size}
         bulkStatusValue={bulkStatusValue}
         onStatusChange={setBulkStatusValue}
+        bulkVisibilityTypeValue={bulkVisibilityTypeValue}
+        onVisibilityTypeChange={setBulkVisibilityTypeValue}
         onConfirm={handleBulkStatusChange}
         isLoading={bulkStatusChanging}
       />

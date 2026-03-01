@@ -60,7 +60,6 @@ function firestoreToJob(doc: any): Job {
     id: doc.id,
     ...data,
     visibilityType: data.visibilityType || 'all',  // 既存データは全体公開として扱う
-    allowedSources: data.allowedSources,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   } as Job

@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RefreshCw } from 'lucide-react'
-import { Job } from '@/types/job'
+import { Job, visibilityTypeLabels } from '@/types/job'
 
 interface BulkStatusChangeDialogProps {
   open: boolean
@@ -26,6 +26,8 @@ interface BulkStatusChangeDialogProps {
   selectedJobsCount: number
   bulkStatusValue: Job['status']
   onStatusChange: (status: Job['status']) => void
+  bulkVisibilityTypeValue: Job['visibilityType']
+  onVisibilityTypeChange: (visibilityType: Job['visibilityType']) => void
   onConfirm: () => void
   isLoading: boolean
 }
@@ -36,6 +38,8 @@ export function BulkStatusChangeDialog({
   selectedJobsCount,
   bulkStatusValue,
   onStatusChange,
+  bulkVisibilityTypeValue,
+  onVisibilityTypeChange,
   onConfirm,
   isLoading,
 }: BulkStatusChangeDialogProps) {
@@ -43,9 +47,9 @@ export function BulkStatusChangeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>選択した求人のステータスを一括変更</DialogTitle>
+          <DialogTitle>選択した求人を一括変更</DialogTitle>
           <DialogDescription>
-            {selectedJobsCount}件の求人のステータスを変更します
+            {selectedJobsCount}件の求人のステータスと公開範囲を変更します
           </DialogDescription>
         </DialogHeader>
 
@@ -60,6 +64,19 @@ export function BulkStatusChangeDialog({
                 <SelectItem value="draft">下書き</SelectItem>
                 <SelectItem value="active">公開中</SelectItem>
                 <SelectItem value="closed">募集終了</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="bulk-visibility">新しい公開範囲</Label>
+            <Select value={bulkVisibilityTypeValue} onValueChange={onVisibilityTypeChange}>
+              <SelectTrigger id="bulk-visibility">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{visibilityTypeLabels.all}</SelectItem>
+                <SelectItem value="school_only">{visibilityTypeLabels.school_only}</SelectItem>
+                <SelectItem value="personal">{visibilityTypeLabels.personal}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -80,7 +97,7 @@ export function BulkStatusChangeDialog({
                 変更中...
               </>
             ) : (
-              '変更する'
+              '一括変更する'
             )}
           </Button>
         </DialogFooter>

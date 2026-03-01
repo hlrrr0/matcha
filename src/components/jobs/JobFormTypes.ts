@@ -24,7 +24,7 @@ export interface FormData extends Partial<Job> {
   companyId: string
   storeIds: string[]
   mainStoreIds?: string[]
-  visibilityType?: 'all' | 'school_only' | 'specific_sources'
+  visibilityType?: 'all' | 'school_only' | 'personal'
   allowedSources?: string[]
   title: string
   businessType: string

@@ -11,6 +11,7 @@ import { Copy, Search, Store } from 'lucide-react'
 
 interface CompanyStoresTabProps {
   relatedStores: any[]
+  relatedJobs: any[]
   companyId: string
   itemsPerPage: number
   storePrefectureFilter: string
@@ -23,6 +24,7 @@ interface CompanyStoresTabProps {
 
 export default function CompanyStoresTab({
   relatedStores,
+  relatedJobs,
   companyId,
   itemsPerPage,
   storePrefectureFilter,
@@ -142,32 +144,51 @@ export default function CompanyStoresTab({
 
                 return (
                   <>
-                    {displayStores.map((store) => (
-                      <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg md:flex-row">
-                        <div>
-                          <h4 className="font-medium">
-                            {store.name}
-                            {store.prefecture && (
-                              <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
-                            )}
-                          </h4>
-                          <p className="text-sm text-gray-600">{store.address}</p>
+                    {displayStores.map((store) => {
+                      // この店舗に紐づく求人数をカウント
+                      const relatedJobsCount = relatedJobs.filter(job => {
+                        const storeIds = job.storeIds || (job.storeId ? [job.storeId] : [])
+                        return storeIds.includes(store.id)
+                      }).length
+
+                      return (
+                        <div key={store.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <h4 className="font-medium">
+                              {store.name}
+                              {store.prefecture && (
+                                <span className="ml-2 text-gray-500">【{store.prefecture}】</span>
+                              )}
+                            </h4>
+                            <p className="text-sm text-gray-600 mb-2">{store.address}</p>
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              {store.unitPriceLunch && (
+                                <span>昼: ¥{store.unitPriceLunch.toLocaleString()}</span>
+                              )}
+                              {store.unitPriceDinner && (
+                                <span>夜: ¥{store.unitPriceDinner.toLocaleString()}</span>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                求人: {relatedJobsCount}件
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/stores/${store.id}`}>
+                              <Button variant="outline" size="sm">
+                                詳細
+                              </Button>
+                            </Link>
+                            <Link href={`/stores/new?duplicate=${store.id}`}>
+                              <Button variant="outline" size="sm">
+                                <Copy className="h-4 w-4 mr-1" />
+                                複製
+                              </Button>
+                            </Link>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Link href={`/stores/${store.id}`}>
-                            <Button variant="outline" size="sm">
-                              詳細
-                            </Button>
-                          </Link>
-                          <Link href={`/stores/new?duplicate=${store.id}`}>
-                            <Button variant="outline" size="sm">
-                              <Copy className="h-4 w-4 mr-1" />
-                              複製
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {totalPages > 1 && (
                       <div className="mt-6">
                         <Pagination

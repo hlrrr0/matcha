@@ -3,6 +3,15 @@ import { Company } from '@/types/company'
 import { Job } from '@/types/job'
 import { STORE_COMPLETION_FIELDS } from './StorePageConstants'
 
+// Firestore Timestamp または Date を Date に変換する関数
+const convertToTimestamp = (value: any): Date => {
+  if (!value) return new Date(0)
+  if (value instanceof Date) return value
+  if (value.toDate && typeof value.toDate === 'function') return value.toDate()
+  if (typeof value === 'number') return new Date(value)
+  return new Date(value)
+}
+
 // 店舗の入力率を計算する関数
 export const calculateCompletionRate = (store: Store): number => {
   let filledCount = 0
@@ -125,12 +134,12 @@ export const filterAndSortStores = (
         bValue = b.status
         break
       case 'createdAt':
-        aValue = new Date(a.createdAt).getTime()
-        bValue = new Date(b.createdAt).getTime()
+        aValue = convertToTimestamp(a.createdAt).getTime()
+        bValue = convertToTimestamp(b.createdAt).getTime()
         break
       case 'updatedAt':
-        aValue = new Date(a.updatedAt).getTime()
-        bValue = new Date(b.updatedAt).getTime()
+        aValue = convertToTimestamp(a.updatedAt).getTime()
+        bValue = convertToTimestamp(b.updatedAt).getTime()
         break
       default:
         return 0

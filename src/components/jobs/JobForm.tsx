@@ -40,7 +40,6 @@ export default function JobForm({
         storeIds: storeIds,
         mainStoreIds: initialData.mainStoreIds || [],
         visibilityType: initialData.visibilityType || 'all',
-        allowedSources: initialData.allowedSources || [],
         title: initialData.title || '',
         businessType: initialData.businessType || '',
         employmentType: initialData.employmentType || '',
@@ -243,6 +242,7 @@ export default function JobForm({
               <SelectContent>
                 <SelectItem value="all">全体公開</SelectItem>
                 <SelectItem value="school_only">🎓 飲食人大学限定</SelectItem>
+                <SelectItem value="personal">個人用</SelectItem>
               </SelectContent>
             </Select>
           </div>

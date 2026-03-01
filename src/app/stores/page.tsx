@@ -7,7 +7,7 @@ import { Store } from '@/types/store'
 import { Company } from '@/types/company'
 import { User } from '@/types/user'
 import { Job } from '@/types/job'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Download, Upload, Plus, Trash2, MapPin, List, RefreshCw } from 'lucide-react'
@@ -54,8 +54,8 @@ function StoresPageContent() {
     jobFilter: 'all',
     locationFilter: 'all',
     companyFilter: searchParams?.get('company') || 'all',
-    sortBy: 'name',
-    sortOrder: 'asc',
+    sortBy: 'updatedAt',
+    sortOrder: 'desc',
     currentPage: parseInt(searchParams?.get('page') || '1'),
     selectedStores: [],
     isGeocodingInProgress: false,
@@ -81,8 +81,24 @@ function StoresPageContent() {
         getDocs(collection(db, 'jobs'))
       ])
 
-      const storesData = storesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Store))
-      const companiesData = companiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company))
+      const storesData = storesSnapshot.docs.map(doc => {
+        const data = doc.data() as any
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+        } as Store
+      })
+      const companiesData = companiesSnapshot.docs.map(doc => {
+        const data = doc.data() as any
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
+          updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
+        } as Company
+      })
       const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))
       const jobsData = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job))
 
@@ -356,27 +372,52 @@ function StoresPageContent() {
   return (
     <div className="container mx-auto p-6">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>店舗管理</CardTitle>
-          <div className="flex gap-2">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle className="text-lg sm:text-2xl">店舗管理</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                登録店舗の一覧・検索・管理
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchData()}
+              disabled={state.loading}
+              className="h-8 text-xs sm:h-9 sm:text-sm"
+            >
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${state.loading ? 'animate-spin' : ''}`} />
+              更新
+            </Button>
             <Button
               variant={state.viewMode === 'list' ? 'default' : 'outline'}
               onClick={() => setState(prev => ({ ...prev, viewMode: 'list' }))}
+              size="sm"
+              className="h-8 text-xs sm:h-9 sm:text-sm"
             >
-              <List className="h-4 w-4 mr-2" />
+              <List className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               リスト表示
             </Button>
             <Button
               variant={state.viewMode === 'map' ? 'default' : 'outline'}
               onClick={() => setState(prev => ({ ...prev, viewMode: 'map' }))}
+              size="sm"
+              className="h-8 text-xs sm:h-9 sm:text-sm"
             >
-              <MapPin className="h-4 w-4 mr-2" />
+              <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               マップ表示
             </Button>
-            <Button onClick={() => router.push('/stores/new')}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button 
+              onClick={() => router.push('/stores/new')}
+              size="sm"
+              className="h-8 text-xs sm:h-9 sm:text-sm"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               新規店舗
             </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

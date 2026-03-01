@@ -29,9 +29,9 @@ export function canCandidateViewJob(
     return candidate.sourceType === 'inshokujin_univ'
   }
 
-  // 指定ソース
-  if (job.visibilityType === 'specific_sources' && job.allowedSources) {
-    return job.allowedSources.includes(candidate.sourceType)
+  // 個人用
+  if (job.visibilityType === 'personal') {
+    return false  // 個人用は求職者には表示されない（管理者のみ）
   }
 
   // デフォルトは閲覧不可
@@ -64,11 +64,8 @@ export function getVisibilityLabel(job: Job): string {
       return '全体公開'
     case 'school_only':
       return '🎓 飲食人大学限定'
-    case 'specific_sources':
-      if (job.allowedSources && job.allowedSources.length > 0) {
-        return `指定ソース（${job.allowedSources.length}件）`
-      }
-      return '指定ソース'
+    case 'personal':
+      return '👤 個人用'
     default:
       return '非公開'
   }

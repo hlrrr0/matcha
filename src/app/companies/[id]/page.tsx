@@ -472,6 +472,7 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
         <TabsContent value="stores" className="space-y-6">
           <CompanyStoresTab
             relatedStores={relatedStores}
+            relatedJobs={relatedJobs}
             companyId={companyId}
             itemsPerPage={itemsPerPage}
             storePrefectureFilter={storePrefectureFilter}
