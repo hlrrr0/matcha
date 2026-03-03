@@ -18,7 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react'
 import { Match } from '@/types/matching'
-import { Candidate } from '@/types/candidate'
+import { Candidate, sourceTypeLabels } from '@/types/candidate'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
 import { Store } from '@/types/store'
@@ -74,6 +74,7 @@ function ProgressPageContent() {
     'offer'
   ]))
   const [companyFilter, setCompanyFilter] = useState<string>('all')
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all') // 求職者区分フィルタ
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const [showOverdueOnly, setShowOverdueOnly] = useState(false) // 期限切れのみ表示フラグ
   
@@ -121,7 +122,7 @@ function ProgressPageContent() {
     filterMatches()
     // フィルター変更時は1ページ目に戻す
     setCurrentPage(1)
-  }, [matches, searchTerm, statusFilter, companyFilter, sortField, sortDirection, showOverdueOnly])
+  }, [matches, searchTerm, statusFilter, companyFilter, sourceTypeFilter, sortField, sortDirection, showOverdueOnly])
 
   // ページ変更時のみフィルター再適用
   useEffect(() => {
@@ -354,6 +355,14 @@ function ProgressPageContent() {
 
     if (companyFilter !== 'all') {
       filtered = filtered.filter(match => match.companyName === companyFilter)
+    }
+
+    // 求職者区分フィルタ
+    if (sourceTypeFilter !== 'all') {
+      filtered = filtered.filter(match => {
+        const candidate = candidates.find(c => c.id === match.candidateId)
+        return candidate?.sourceType === sourceTypeFilter
+      })
     }
 
     // ソート処理
@@ -871,6 +880,16 @@ function ProgressPageContent() {
     return sortDirection === 'asc' ? '↑' : '↓'
   }
 
+  // 求職者区分ごとの件数を計算
+  const getSourceTypeCount = (sourceType: string) => {
+    if (sourceType === 'all') return matches.length
+    
+    return matches.filter(match => {
+      const candidate = candidates.find(c => c.id === match.candidateId)
+      return candidate?.sourceType === sourceType
+    }).length
+  }
+
   if (loading) {
     return (
       <ProtectedRoute>
@@ -942,6 +961,62 @@ function ProgressPageContent() {
               内定承諾者一覧
             </button>
           </div>
+
+          {/* 求職者区分フィルタータブ */}
+          {activeTab === 'progress' && (
+            <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-200">
+              <button
+                onClick={() => setSourceTypeFilter('all')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  sourceTypeFilter === 'all'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                すべて ({getSourceTypeCount('all')})
+              </button>
+              <button
+                onClick={() => setSourceTypeFilter('inshokujin_univ')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  sourceTypeFilter === 'inshokujin_univ'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🎓 {sourceTypeLabels.inshokujin_univ} ({getSourceTypeCount('inshokujin_univ')})
+              </button>
+              <button
+                onClick={() => setSourceTypeFilter('mid_career')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  sourceTypeFilter === 'mid_career'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {sourceTypeLabels.mid_career} ({getSourceTypeCount('mid_career')})
+              </button>
+              <button
+                onClick={() => setSourceTypeFilter('referral')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  sourceTypeFilter === 'referral'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {sourceTypeLabels.referral} ({getSourceTypeCount('referral')})
+              </button>
+              <button
+                onClick={() => setSourceTypeFilter('overseas')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  sourceTypeFilter === 'overseas'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {sourceTypeLabels.overseas} ({getSourceTypeCount('overseas')})
+              </button>
+            </div>
+          )}
 
           {activeTab === 'progress' && (
             <>

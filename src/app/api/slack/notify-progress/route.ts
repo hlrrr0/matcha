@@ -79,7 +79,9 @@ export async function POST(request: NextRequest) {
     const { sendProgressNotification } = await import('@/lib/slack/notifications')
     
     // 詳細ページのURL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // 優先順位: NEXT_PUBLIC_APP_URL > VERCEL_URL > localhost
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const detailUrl = `${baseUrl}/progress/${matchId}`
     
     // 各担当者に通知を送信

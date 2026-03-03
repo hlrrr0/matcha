@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowDown, ArrowRight, ArrowUp, Briefcase, Building, Copy, Edit, Eye, Plus, RefreshCw, Trash2, TrendingUp, XCircle } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, Briefcase, Building, Copy, Edit, ExternalLink, Eye, Plus, RefreshCw, Trash2, TrendingUp, XCircle } from 'lucide-react'
 import { Match } from '@/types/matching'
 import { MatchWithDetails } from '@/components/candidates/detail/types'
 
@@ -58,7 +58,7 @@ export default function CandidateMatchesSection({
   return (
     <Card className="border-purple-100">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <CardTitle className="text-purple-800 flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -68,7 +68,7 @@ export default function CandidateMatchesSection({
               この候補者のマッチング状況と進捗
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="text-purple-600 border-purple-200">
               {matches.length}件
             </Badge>
@@ -81,7 +81,8 @@ export default function CandidateMatchesSection({
                 className="text-amber-600 border-amber-200 hover:bg-amber-50"
               >
                 <Copy className="h-4 w-4 mr-2" />
-                提案待ちをコピー ({pendingProposalCount})
+                <span className="hidden sm:inline">提案待ちをコピー ({pendingProposalCount})</span>
+                <span className="sm:hidden">提案待ち ({pendingProposalCount})</span>
               </Button>
             )}
             {suggestedCount > 0 && (
@@ -92,7 +93,8 @@ export default function CandidateMatchesSection({
                 className="text-blue-600 border-blue-200 hover:bg-blue-50"
               >
                 <Copy className="h-4 w-4 mr-2" />
-                提案中をコピー ({suggestedCount})
+                <span className="hidden sm:inline">提案中をコピー ({suggestedCount})</span>
+                <span className="sm:hidden">提案中 ({suggestedCount})</span>
               </Button>
             )}
             {selectedMatchIds.size > 0 && (
@@ -112,7 +114,8 @@ export default function CandidateMatchesSection({
                   ) : (
                     <>
                       <ArrowRight className="h-4 w-4 mr-2" />
-                      選択を次へ ({selectedMatchIds.size})
+                      <span className="hidden sm:inline">選択を次へ ({selectedMatchIds.size})</span>
+                      <span className="sm:hidden">次へ ({selectedMatchIds.size})</span>
                     </>
                   )}
                 </Button>
@@ -131,7 +134,8 @@ export default function CandidateMatchesSection({
                   ) : (
                     <>
                       <XCircle className="h-4 w-4 mr-2" />
-                      選択を辞退 ({selectedMatchIds.size})
+                      <span className="hidden sm:inline">選択を辞退 ({selectedMatchIds.size})</span>
+                      <span className="sm:hidden">辞退 ({selectedMatchIds.size})</span>
                     </>
                   )}
                 </Button>
@@ -144,7 +148,8 @@ export default function CandidateMatchesSection({
               className="text-orange-600 border-orange-200 hover:bg-orange-50"
             >
               <Plus className="h-4 w-4 mr-2" />
-              進捗を作成
+              <span className="hidden sm:inline">進捗を作成</span>
+              <span className="sm:hidden">作成</span>
             </Button>
           </div>
         </div>
@@ -221,18 +226,31 @@ export default function CandidateMatchesSection({
                             )}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onCopyJobInfo(match.jobId)
-                          }}
-                          className="h-8 w-8 p-0 flex-shrink-0"
-                          title="求人情報をコピー"
-                        >
-                          <Copy className="h-4 w-4 text-gray-500" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            className="h-8 w-8 p-0 flex-shrink-0"
+                            title="求人の公開ページを開く"
+                          >
+                            <Link href={`/public/jobs/${match.jobId}`} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4 text-indigo-600" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onCopyJobInfo(match.jobId)
+                            }}
+                            className="h-8 w-8 p-0 flex-shrink-0"
+                            title="求人情報をコピー"
+                          >
+                            <Copy className="h-4 w-4 text-gray-500" />
+                          </Button>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
