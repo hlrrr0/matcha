@@ -153,7 +153,7 @@ export default function CandidateForm({
               <SelectContent>
                 <SelectItem value="active">アクティブ</SelectItem>
                 <SelectItem value="inactive">非アクティブ</SelectItem>
-                <SelectItem value="hired">入社済み</SelectItem>
+                <SelectItem value="hired">就職決定</SelectItem>
               </SelectContent>
             </Select>
           </div>
