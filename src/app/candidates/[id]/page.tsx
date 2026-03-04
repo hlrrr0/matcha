@@ -780,6 +780,11 @@ export default function CandidateDetailPage({ params }: CandidateDetailPageProps
       if (existingJobIds.has(job.id)) {
         return false
       }
+
+      // 募集中の求人のみ表示
+      if (job.status !== 'active') {
+        return false
+      }
       
       const company = companies.find(c => c.id === job.companyId)
       
