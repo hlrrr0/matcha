@@ -146,9 +146,14 @@ export const getCandidates = async (options?: {
       constraints.push(where('status', '==', options.status))
     }
 
-    const sortField = options?.orderBy || 'updatedAt'
-    const sortDir = options?.orderDirection || 'desc'
-    constraints.push(orderBy(sortField, sortDir))
+    // status フィルタと orderBy の組み合わせは複合インデックスが必要なため、
+    // status フィルタがない場合のみ orderBy を追加し、ある場合はクライアントサイドでソート
+    const needsClientSort = !!options?.status
+    if (!needsClientSort) {
+      const sortField = options?.orderBy || 'updatedAt'
+      const sortDir = options?.orderDirection || 'desc'
+      constraints.push(orderBy(sortField, sortDir))
+    }
 
     if (options?.limit) {
       constraints.push(limit(options.limit))
@@ -162,6 +167,21 @@ export const getCandidates = async (options?: {
     }
 
     let candidates = snapshot.docs.map(candidateFromFirestore)
+
+    // status フィルタ使用時はクライアントサイドでソート
+    if (needsClientSort) {
+      const sortField = options?.orderBy || 'updatedAt'
+      const sortDir = options?.orderDirection || 'desc'
+      candidates.sort((a, b) => {
+        const aVal = a[sortField as keyof Candidate]
+        const bVal = b[sortField as keyof Candidate]
+        if (aVal == null && bVal == null) return 0
+        if (aVal == null) return 1
+        if (bVal == null) return -1
+        const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+        return sortDir === 'desc' ? -cmp : cmp
+      })
+    }
 
     // searchTermはFirestoreでは部分一致が不可のためクライアントサイド
     if (options?.searchTerm) {
