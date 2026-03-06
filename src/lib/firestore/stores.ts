@@ -278,21 +278,13 @@ export async function deleteStore(id: string): Promise<void> {
   }
 }
 
-// 店舗名で検索
+// 店舗名で検索（getStoresのキャッシュを活用し、重複した全件取得を避ける）
 export async function searchStoresByName(searchTerm: string): Promise<Store[]> {
   try {
-    // Firestoreでは部分一致検索が制限されているため、
-    // 実際のプロダクションではAlgoliaやElasticsearchを使用することを推奨
-    const querySnapshot = await getDocs(storesCollection)
-    
-    const stores = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      createdAt: doc.data().createdAt?.toDate() || new Date(),
-      updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-    } as Store))
-    
-    return stores.filter(store => 
+    // getStoresを再利用して無駄な全件取得を避ける
+    const stores = await getStores()
+
+    return stores.filter(store =>
       store.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
   } catch (error) {

@@ -61,137 +61,155 @@ interface PublicJob {
   updatedAt: string
 }
 
+// バッチ取得用のキャッシュ（リクエスト内で再利用）
+const companyCache = new Map<string, Company | null>()
+const storeCache = new Map<string, Store | null>()
+
 /**
- * 企業情報を取得
+ * 企業情報を取得（キャッシュ付き）
  */
 async function getCompany(companyId: string): Promise<Company | null> {
   if (!companyId) return null
-  
+
+  if (companyCache.has(companyId)) {
+    return companyCache.get(companyId)!
+  }
+
   try {
     const db = getAdminDb()
     const companyDoc = await db.collection('companies').doc(companyId).get()
-    if (!companyDoc.exists) return null
-    
-    return { id: companyDoc.id, ...companyDoc.data() } as Company
+    const company = companyDoc.exists ? { id: companyDoc.id, ...companyDoc.data() } as Company : null
+    companyCache.set(companyId, company)
+    return company
   } catch (error) {
     console.error('Error fetching company:', error)
+    companyCache.set(companyId, null)
     return null
   }
 }
 
 /**
- * 求人に関連する店舗を取得
+ * 店舗情報を取得（キャッシュ付き）
  */
-async function getJobStores(job: Job): Promise<Store[]> {
-  const storeIds: string[] = []
-  
-  if (job.storeId) {
-    storeIds.push(job.storeId)
+async function getStore(storeId: string): Promise<Store | null> {
+  if (storeCache.has(storeId)) {
+    return storeCache.get(storeId)!
   }
-  
-  if (job.storeIds && Array.isArray(job.storeIds)) {
-    storeIds.push(...job.storeIds)
+
+  try {
+    const db = getAdminDb()
+    const storeDoc = await db.collection('stores').doc(storeId).get()
+    const store = storeDoc.exists ? { id: storeDoc.id, ...storeDoc.data() } as Store : null
+    storeCache.set(storeId, store)
+    return store
+  } catch (error) {
+    console.error('Error fetching store:', error)
+    storeCache.set(storeId, null)
+    return null
   }
-  
-  if (storeIds.length === 0) return []
-  
-  const db = getAdminDb()
-  const stores: Store[] = []
-  
-  for (const storeId of storeIds) {
-    try {
-      const storeDoc = await db.collection('stores').doc(storeId).get()
-      if (storeDoc.exists) {
-        stores.push({ id: storeDoc.id, ...storeDoc.data() } as Store)
-      }
-    } catch (error) {
-      console.error('Error fetching store:', error)
-    }
-  }
-  
-  return stores
 }
 
 /**
- * 企業データを取得
+ * 求人に関連する店舗を取得（キャッシュ活用）
+ */
+async function getJobStores(job: Job): Promise<Store[]> {
+  const storeIds: string[] = []
+
+  if (job.storeId) {
+    storeIds.push(job.storeId)
+  }
+
+  if (job.storeIds && Array.isArray(job.storeIds)) {
+    storeIds.push(...job.storeIds)
+  }
+
+  if (storeIds.length === 0) return []
+
+  const stores = await Promise.all(
+    [...new Set(storeIds)].map(id => getStore(id))
+  )
+
+  return stores.filter((s): s is Store => s !== null)
+}
+
+/**
+ * 企業データを取得（並列処理+キャッシュ活用）
  */
 async function getCompaniesData(companyIds: string[]) {
   const db = getAdminDb()
-  const companies = []
-  
-  for (const companyId of companyIds) {
-    try {
-      const companyDoc = await db.collection('companies').doc(companyId).get()
-      if (companyDoc.exists) {
-        const company = companyDoc.data() as Company
-        
-        // 求人数をカウント
+
+  const results = await Promise.all(
+    companyIds.map(async (companyId) => {
+      try {
+        const company = await getCompany(companyId)
+        if (!company) return null
+
         const jobsSnapshot = await db.collection('jobs')
           .where('companyId', '==', companyId)
           .where('status', '==', 'active')
           .get()
-        
-        companies.push({
-          id: companyDoc.id,
+
+        return {
+          id: companyId,
           name: company.name,
           industry: undefined,
           description: undefined,
           website: company.website,
           jobCount: jobsSnapshot.size
-        })
+        }
+      } catch (error) {
+        console.error('Error fetching company data:', error)
+        return null
       }
-    } catch (error) {
-      console.error('Error fetching company data:', error)
-    }
-  }
-  
-  return companies
+    })
+  )
+
+  return results.filter((c): c is NonNullable<typeof c> => c !== null)
 }
 
 /**
- * 店舗データを取得
+ * 店舗データを取得（並列処理+キャッシュ活用）
  */
 async function getStoresData(storeIds: string[]) {
   const db = getAdminDb()
-  const stores = []
-  
-  for (const storeId of storeIds) {
-    try {
-      const storeDoc = await db.collection('stores').doc(storeId).get()
-      if (storeDoc.exists) {
-        const store = storeDoc.data() as Store
+
+  const results = await Promise.all(
+    storeIds.map(async (storeId) => {
+      try {
+        const store = await getStore(storeId)
+        if (!store) return null
+
         const company = store.companyId ? await getCompany(store.companyId) : null
-        
-        // 求人数をカウント
-        const jobsSnapshot1 = await db.collection('jobs')
-          .where('storeId', '==', storeId)
-          .where('status', '==', 'active')
-          .get()
-        
-        const jobsSnapshot2 = await db.collection('jobs')
-          .where('storeIds', 'array-contains', storeId)
-          .where('status', '==', 'active')
-          .get()
-        
-        const jobCount = jobsSnapshot1.size + jobsSnapshot2.size
-        
-        stores.push({
-          id: storeDoc.id,
+
+        const [jobsSnapshot1, jobsSnapshot2] = await Promise.all([
+          db.collection('jobs')
+            .where('storeId', '==', storeId)
+            .where('status', '==', 'active')
+            .get(),
+          db.collection('jobs')
+            .where('storeIds', 'array-contains', storeId)
+            .where('status', '==', 'active')
+            .get()
+        ])
+
+        return {
+          id: storeId,
           name: store.name,
           companyId: store.companyId,
           companyName: company?.name || '',
           address: store.address,
           latitude: store.latitude,
           longitude: store.longitude,
-          jobCount
-        })
+          jobCount: jobsSnapshot1.size + jobsSnapshot2.size
+        }
+      } catch (error) {
+        console.error('Error fetching store data:', error)
+        return null
       }
-    } catch (error) {
-      console.error('Error fetching store data:', error)
-    }
-  }
-  
-  return stores
+    })
+  )
+
+  return results.filter((s): s is NonNullable<typeof s> => s !== null)
 }
 
 /**
@@ -207,25 +225,33 @@ export async function exportPublicJobs(options: ExportOptions) {
       .limit(Math.min(options.limit, 50))
       .get()
 
-    const jobs: PublicJob[] = []
     const companyIds = new Set<string>()
     const storeIds = new Set<string>()
 
-    for (const jobDoc of jobsSnapshot.docs) {
-      const job = { id: jobDoc.id, ...jobDoc.data() } as Job
+    // 企業と店舗を並列プリフェッチしてキャッシュに載せる
+    const allJobs = jobsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Job))
+    const uniqueCompanyIds = [...new Set(allJobs.map(j => j.companyId).filter(Boolean))]
+    await Promise.all(uniqueCompanyIds.map(id => getCompany(id)))
 
-      // 企業が有効かつ公開状態かチェック
+    const allStoreIds = new Set<string>()
+    allJobs.forEach(job => {
+      if (job.storeId) allStoreIds.add(job.storeId)
+      if (job.storeIds) job.storeIds.forEach((id: string) => allStoreIds.add(id))
+    })
+    await Promise.all([...allStoreIds].map(id => getStore(id)))
+
+    // キャッシュが温まった状態で変換
+    const jobs: PublicJob[] = []
+    for (const job of allJobs) {
       const company = await getCompany(job.companyId)
       if (!company || company.status !== 'active' || !company.isPublic) continue
 
-      // 店舗を取得してチェック
       const stores = await getJobStores(job)
       if (stores.length === 0) continue
       if (stores.some(s => s.status !== 'active')) continue
 
-      // 公開用データに変換（非公開情報を除外）
       const publicJob: PublicJob = {
-        id: jobDoc.id,
+        id: job.id,
         title: job.title || '',
         description: job.jobDescription || '',
         employmentType: job.employmentType || '',

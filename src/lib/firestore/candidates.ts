@@ -138,14 +138,40 @@ export const getCandidates = async (options?: {
   orderDirection?: 'asc' | 'desc'
 }): Promise<Candidate[]> => {
   try {
-    const snapshot = await getDocs(collection(db, COLLECTION_NAME))
-    
+    // Firestoreクエリを構築（サーバーサイドでフィルタリング）
+    const constraints: any[] = []
+
+    if (options?.status) {
+      constraints.push(where('status', '==', options.status))
+    }
+
+    const sortField = options?.orderBy || 'updatedAt'
+    const sortDir = options?.orderDirection || 'desc'
+    constraints.push(orderBy(sortField, sortDir))
+
+    if (options?.limit) {
+      constraints.push(limit(options.limit))
+    }
+
+    const q = query(collection(db, COLLECTION_NAME), ...constraints)
+    const snapshot = await getDocs(q)
+
     if (snapshot.docs.length === 0) {
       return []
     }
-    
+
     let candidates = snapshot.docs.map(candidateFromFirestore)
-    
+
+    // searchTermはFirestoreでは部分一致が不可のためクライアントサイド
+    if (options?.searchTerm) {
+      const term = options.searchTerm.toLowerCase()
+      candidates = candidates.filter(c =>
+        `${c.lastName}${c.firstName}`.toLowerCase().includes(term) ||
+        `${c.lastNameKana}${c.firstNameKana}`.toLowerCase().includes(term) ||
+        (c.email || '').toLowerCase().includes(term)
+      )
+    }
+
     return candidates
   } catch (error) {
     console.error('❌ getCandidatesエラー:', error)
@@ -258,19 +284,22 @@ export const getCandidatesByStatus = async (status: Candidate['status']): Promis
   }
 }
 
-// 求職者統計取得
+// 求職者統計取得（ステータス別にクエリして全件取得を避ける）
 export const getCandidateStats = async () => {
   try {
-    const candidates = await getCandidates()
-    
+    const [activeSnap, inactiveSnap, hiredSnap] = await Promise.all([
+      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'active'))),
+      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'inactive'))),
+      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'hired'))),
+    ])
+
     return {
-      total: candidates.length,
+      total: activeSnap.size + inactiveSnap.size + hiredSnap.size,
       byStatus: {
-        active: candidates.filter(c => c.status === 'active').length,
-        inactive: candidates.filter(c => c.status === 'inactive').length,
-        hired: candidates.filter(c => c.status === 'hired').length
+        active: activeSnap.size,
+        inactive: inactiveSnap.size,
+        hired: hiredSnap.size
       },
-      // 経験年数別統計は現在の型定義では非サポート
       byExperience: {
         fresh: 0,
         junior: 0,
@@ -340,12 +369,15 @@ export const getCandidateByNameAndEmail = async (
       }
     }
     
-    // 名前で検索
-    const candidates = await getCandidates()
-    const matchingCandidate = candidates.find(c => 
-      c.lastName.trim() === lastName.trim() && 
-      c.firstName.trim() === firstName.trim()
+    // 名前でFirestoreクエリ検索（全件取得を避ける）
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where('lastName', '==', lastName.trim()),
+      where('firstName', '==', firstName.trim()),
+      limit(1)
     )
+    const snapshot = await getDocs(q)
+    const matchingCandidate = snapshot.empty ? null : candidateFromFirestore(snapshot.docs[0])
     
     return matchingCandidate || null
   } catch (error) {

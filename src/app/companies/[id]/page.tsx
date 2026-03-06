@@ -27,7 +27,7 @@ import {
   Send,
   User as UserIcon
 } from 'lucide-react'
-import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { updateCompany } from '@/lib/firestore/companies'
 import { Company } from '@/types/company'
@@ -79,7 +79,9 @@ function CompanyDetailContent({ params, searchParams }: CompanyDetailPageProps) 
     try {
       const emailHistoryQuery = query(
         collection(db, 'emailHistory'),
-        where('companyId', '==', companyId)
+        where('companyId', '==', companyId),
+        orderBy('sentAt', 'desc'),
+        limit(50)
       )
       const emailHistorySnapshot = await getDocs(emailHistoryQuery)
       const emailHistoryData = emailHistorySnapshot.docs.map(doc => ({

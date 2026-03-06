@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Download, Upload, Plus, Trash2, MapPin, List, RefreshCw } from 'lucide-react'
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
+import { getCache, setCache } from '@/lib/utils/cache'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Pagination } from '@/components/ui/pagination'
 import { useAuth } from '@/contexts/AuthContext'
@@ -71,9 +72,34 @@ function StoresPageContent() {
     updateURL()
   }, [state.searchTerm, state.statusFilter, state.currentPage, state.companyFilter])
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh: boolean = false) => {
     setState(prev => ({ ...prev, loading: true }))
     try {
+      const cacheKey = 'stores_data'
+
+      if (!forceRefresh) {
+        const cached = getCache<{ stores: any[]; companies: any[]; users: any[]; jobs: any[] }>(cacheKey)
+        if (cached) {
+          setState(prev => ({
+            ...prev,
+            stores: cached.stores.map((s: any) => ({
+              ...s,
+              createdAt: typeof s.createdAt === 'string' ? new Date(s.createdAt) : s.createdAt,
+              updatedAt: typeof s.updatedAt === 'string' ? new Date(s.updatedAt) : s.updatedAt,
+            })),
+            companies: cached.companies.map((c: any) => ({
+              ...c,
+              createdAt: typeof c.createdAt === 'string' ? new Date(c.createdAt) : c.createdAt,
+              updatedAt: typeof c.updatedAt === 'string' ? new Date(c.updatedAt) : c.updatedAt,
+            })),
+            users: cached.users,
+            jobs: cached.jobs,
+            loading: false,
+          }))
+          return
+        }
+      }
+
       const [storesSnapshot, companiesSnapshot, usersSnapshot, jobsSnapshot] = await Promise.all([
         getDocs(collection(db, 'stores')),
         getDocs(collection(db, 'companies')),
@@ -102,14 +128,16 @@ function StoresPageContent() {
       const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))
       const jobsData = jobsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Job))
 
-      setState(prev => ({ 
-        ...prev, 
+      setState(prev => ({
+        ...prev,
         stores: storesData,
         companies: companiesData,
         users: usersData,
         jobs: jobsData,
-        loading: false 
+        loading: false
       }))
+
+      setCache(cacheKey, { stores: storesData, companies: companiesData, users: usersData, jobs: jobsData })
     } catch (error) {
       console.error('データの取得に失敗しました:', error)
       toast.error('データの取得に失敗しました')
@@ -221,7 +249,7 @@ function StoresPageContent() {
         }
       }
 
-      await fetchData()
+      await fetchData(true)
       setState(prev => ({ ...prev, isGeocodingInProgress: false, geocodingProgress: 0, selectedStores: [] }))
       toast.success('ジオコーディングが完了しました')
     } catch (error) {
@@ -274,7 +302,7 @@ function StoresPageContent() {
       }
 
       await batch.commit()
-      await fetchData()
+      await fetchData(true)
       toast.success(`${importCount}件の店舗をインポートしました`)
       
       if (fileInputRef.current) {
@@ -384,7 +412,7 @@ function StoresPageContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchData()}
+              onClick={() => fetchData(true)}
               disabled={state.loading}
               className="h-8 text-xs sm:h-9 sm:text-sm"
             >

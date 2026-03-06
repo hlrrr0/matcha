@@ -15,6 +15,7 @@ import { Store as StoreType } from '@/types/store'
 import { User } from '@/types/user'
 import { importJobsFromCSV, generateJobsCSVTemplate } from '@/lib/csv/jobs'
 import { toast } from 'sonner'
+import { getCache, setCache, removeCache } from '@/lib/utils/cache'
 import { JobMapView } from '@/components/maps/JobMapView'
 import { JobsHeader } from '@/components/jobs/JobsHeader'
 import { JobsSourceTypeFilter } from '@/components/jobs/JobsSourceTypeFilter'
@@ -142,9 +143,27 @@ function JobsPageContent() {
     loadData()
   }, [])
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh: boolean = false) => {
     try {
       setLoading(true)
+      const cacheKey = 'jobs_data'
+
+      if (!forceRefresh) {
+        const cached = getCache<{ jobs: any[]; companies: any[]; stores: any[]; users: any[] }>(cacheKey)
+        if (cached) {
+          setJobs(cached.jobs.map((j: any) => ({
+            ...j,
+            createdAt: typeof j.createdAt === 'string' ? new Date(j.createdAt) : j.createdAt,
+            updatedAt: typeof j.updatedAt === 'string' ? new Date(j.updatedAt) : j.updatedAt,
+          })))
+          setCompanies(cached.companies)
+          setStores(cached.stores)
+          setUsers(cached.users)
+          setLoading(false)
+          return
+        }
+      }
+
       const [jobsData, companiesData, storesData, usersData] = await Promise.all([
         getJobs(),
         getCompanies(),
@@ -155,6 +174,8 @@ function JobsPageContent() {
       setCompanies(companiesData)
       setStores(storesData)
       setUsers(usersData)
+
+      setCache(cacheKey, { jobs: jobsData, companies: companiesData, stores: storesData, users: usersData })
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -188,7 +209,7 @@ function JobsPageContent() {
         }
       }
       
-      await loadData()
+      await loadData(true)
     } catch (error) {
       console.error('Error importing CSV:', error)
       toast.error('CSVインポートに失敗しました')
@@ -275,7 +296,7 @@ function JobsPageContent() {
       
       toast.success(`${selectedJobs.size}件の求人を一括変更しました`)
       
-      await loadData()
+      await loadData(true)
       setSelectedJobs(new Set())
       setBulkStatusChangeDialogOpen(false)
     } catch (error) {
@@ -291,7 +312,7 @@ function JobsPageContent() {
     if (confirm(`${job.title}を削除しますか？この操作は取り消せません。`)) {
       try {
         await deleteJob(job.id)
-        await loadData()
+        await loadData(true)
       } catch (error) {
         console.error('Error deleting job:', error)
         alert('求人の削除に失敗しました')
@@ -314,7 +335,7 @@ function JobsPageContent() {
         await createJob(duplicatedJob)
         
         toast.success('求人を複製しました')
-        await loadData()
+        await loadData(true)
       } catch (error) {
         console.error('Error duplicating job:', error)
         toast.error('求人の複製に失敗しました')

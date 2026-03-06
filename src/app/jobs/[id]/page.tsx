@@ -31,7 +31,7 @@ import {
   Mail,
   CheckCircle
 } from 'lucide-react'
-import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot, orderBy, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Job } from '@/types/job'
 import { Company } from '@/types/company'
@@ -166,9 +166,11 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     try {
       const emailHistoryQuery = query(
         collection(db, 'emailHistory'),
-        where('jobId', '==', jobId)
+        where('jobId', '==', jobId),
+        orderBy('sentAt', 'desc'),
+        limit(50)
       )
-      
+
       const unsubscribe = onSnapshot(emailHistoryQuery, (snapshot) => {
         const emailHistoryData = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -196,7 +198,9 @@ function JobDetailContent({ params }: JobDetailPageProps) {
     try {
       const emailHistoryQuery = query(
         collection(db, 'emailHistory'),
-        where('jobId', '==', jobId)
+        where('jobId', '==', jobId),
+        orderBy('sentAt', 'desc'),
+        limit(50)
       )
       const emailHistorySnapshot = await getDocs(emailHistoryQuery)
       const emailHistoryData = emailHistorySnapshot.docs.map(doc => ({

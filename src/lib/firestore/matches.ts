@@ -171,7 +171,7 @@ const matchFromFirestore = (doc: any): Match => {
   }
 }
 
-// マッチング一覧取得
+// マッチング一覧取得（Firestoreクエリでフィルタリング）
 export const getMatches = async (options?: {
   status?: Match['status']
   candidateId?: string
@@ -181,36 +181,40 @@ export const getMatches = async (options?: {
 }): Promise<Match[]> => {
   try {
     if (DEBUG) console.log('🔍 getMatches開始', options)
-    
-    // シンプルなクエリでテスト
-    const snapshot = await getDocs(collection(db, COLLECTION_NAME))
+
+    // Firestoreクエリを構築（サーバーサイドでフィルタリング）
+    const constraints: any[] = []
+
+    if (options?.status) {
+      constraints.push(where('status', '==', options.status))
+    }
+    if (options?.candidateId) {
+      constraints.push(where('candidateId', '==', options.candidateId))
+    }
+    if (options?.jobId) {
+      constraints.push(where('jobId', '==', options.jobId))
+    }
+    if (options?.companyId) {
+      constraints.push(where('companyId', '==', options.companyId))
+    }
+    if (options?.limit) {
+      constraints.push(limit(options.limit))
+    }
+
+    const q = constraints.length > 0
+      ? query(collection(db, COLLECTION_NAME), ...constraints)
+      : query(collection(db, COLLECTION_NAME))
+
+    const snapshot = await getDocs(q)
     if (DEBUG) console.log('📋 Firestoreから取得したマッチングドキュメント数:', snapshot.docs.length)
-    
+
     if (snapshot.docs.length === 0) {
       if (DEBUG) console.log('❌ Firestoreにマッチングドキュメントが存在しません')
       return []
     }
-    
-    let matches = snapshot.docs.map(matchFromFirestore)
-    if (DEBUG) console.log('🔄 変換後のマッチングデータ:', matches)
-    
-    // クライアントサイドフィルタリング
-    if (options?.status) {
-      matches = matches.filter(match => match.status === options.status)
-    }
-    if (options?.candidateId) {
-      matches = matches.filter(match => match.candidateId === options.candidateId)
-    }
-    if (options?.jobId) {
-      matches = matches.filter(match => match.jobId === options.jobId)
-    }
-    if (options?.companyId) {
-      matches = matches.filter(match => match.companyId === options.companyId)
-    }
-    if (options?.limit) {
-      matches = matches.slice(0, options.limit)
-    }
-    
+
+    const matches = snapshot.docs.map(matchFromFirestore)
+
     if (DEBUG) console.log('✅ getMatches完了 返却データ件数:', matches.length)
     return matches
   } catch (error) {

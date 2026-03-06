@@ -261,13 +261,13 @@ export const getActiveJobs = async (): Promise<Job[]> => {
   }
 }
 
-// 求人検索
+// 求人検索（アクティブ求人のみを対象にして読み取り量を削減）
 export const searchJobs = async (searchTerm: string): Promise<Job[]> => {
   try {
-    // Firestoreは部分一致検索が制限されているため、クライアントサイドでフィルタリング
-    const allJobs = await getJobs()
-    
-    return allJobs.filter(job => 
+    // アクティブな求人のみ取得（全件取得を避ける）
+    const activeJobs = await getActiveJobs()
+
+    return activeJobs.filter(job =>
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.jobDescription?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.requiredSkills?.toLowerCase().includes(searchTerm.toLowerCase())

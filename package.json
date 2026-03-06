@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
-    "vercel-build": "next build --turbopack",
+    "vercel-build": "vitest run && next build --turbopack",
     "test": "vitest run",
     "test:watch": "vitest"
   },
