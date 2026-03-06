@@ -187,18 +187,25 @@ function ProgressPageContent() {
       }
       
       console.log('🔄 Firestoreからデータ読み込み')
-      const [matchesData, candidatesData, jobsData, companiesData, storesData, usersData] = await Promise.all([
-        getMatches(),
-        getCandidates(),
+      // アクティブな候補者のみ取得（非アクティブの進捗は不要）
+      const [candidatesData, jobsData, companiesData, storesData, usersData] = await Promise.all([
+        getCandidates({ status: 'active' }),
         getJobs(),
         getCompanies(),
         getStores(),
         getUsers()
       ])
 
+      // アクティブ候補者のIDセットを作成
+      const activeCandidateIds = new Set(candidatesData.map(c => c.id))
+
+      // マッチはアクティブ候補者に関連するもののみ取得
+      const matchesData = await getMatches()
+      const filteredMatches = matchesData.filter(m => activeCandidateIds.has(m.candidateId))
+
       console.log('📊 データ読み込み完了:')
       console.log('  企業数:', companiesData.length)
-      console.log('  マッチ数:', matchesData.length)
+      console.log('  マッチ数:', filteredMatches.length, '(全体:', matchesData.length, ')')
       console.log('  ユーザー数:', usersData.length)
 
       setCandidates(candidatesData)
@@ -208,7 +215,7 @@ function ProgressPageContent() {
       setUsers(usersData)
 
       // Add names to matches
-      const matchesWithDetails = matchesData.map(match => {
+      const matchesWithDetails = filteredMatches.map(match => {
         const candidate = candidatesData.find(c => c.id === match.candidateId)
         const job = jobsData.find(j => j.id === match.jobId)
         const company = companiesData.find(c => c.id === job?.companyId)

@@ -1,17 +1,18 @@
 // 求職者関連のFirestore操作
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
   limit,
   startAfter,
+  getCountFromServer,
   QueryDocumentSnapshot,
   DocumentData,
   Timestamp
@@ -284,21 +285,25 @@ export const getCandidatesByStatus = async (status: Candidate['status']): Promis
   }
 }
 
-// 求職者統計取得（ステータス別にクエリして全件取得を避ける）
+// 求職者統計取得（getCountFromServerで読み取り数を大幅削減）
 export const getCandidateStats = async () => {
   try {
-    const [activeSnap, inactiveSnap, hiredSnap] = await Promise.all([
-      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'active'))),
-      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'inactive'))),
-      getDocs(query(collection(db, COLLECTION_NAME), where('status', '==', 'hired'))),
+    const [activeCount, inactiveCount, hiredCount] = await Promise.all([
+      getCountFromServer(query(collection(db, COLLECTION_NAME), where('status', '==', 'active'))),
+      getCountFromServer(query(collection(db, COLLECTION_NAME), where('status', '==', 'inactive'))),
+      getCountFromServer(query(collection(db, COLLECTION_NAME), where('status', '==', 'hired'))),
     ])
 
+    const active = activeCount.data().count
+    const inactive = inactiveCount.data().count
+    const hired = hiredCount.data().count
+
     return {
-      total: activeSnap.size + inactiveSnap.size + hiredSnap.size,
+      total: active + inactive + hired,
       byStatus: {
-        active: activeSnap.size,
-        inactive: inactiveSnap.size,
-        hired: hiredSnap.size
+        active,
+        inactive,
+        hired
       },
       byExperience: {
         fresh: 0,
